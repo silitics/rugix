@@ -97,8 +97,8 @@ jobs:
             type=schedule,pattern=nightly-{{date 'YYYYMMDD'}}
             type=semver,pattern=v{{major}}.{{minor}}.{{patch}}
             type=semver,pattern=v{{major}}.{{minor}}
-            type=ref,event=branch
-            type=ref,event=pr
+            type=ref,event=branch,prefix=branch-
+            type=ref,event=pr,prefix=pr-
             type=sha,prefix=git-
           labels: |
             org.opencontainers.image.title=Rugix Bakery
