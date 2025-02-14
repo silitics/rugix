@@ -48,8 +48,8 @@ fn load_project(args: &args::Args) -> BakeryResult<ProjectRef> {
                 std::fs::read_to_string(image_tag).whatever("unable to read image tag")?;
             if cache_image.trim() != bakery_image.trim() {
                 info!("cache is based on older Docker image, deleting `.rugix` directory");
+                std::fs::remove_dir_all("/project/.rugix").ok();
             }
-            std::fs::remove_dir_all("/project/.rugix").ok();
         }
     }
     std::fs::create_dir_all("/project/.rugix").whatever("unable to create `.rugix` directory")?;
