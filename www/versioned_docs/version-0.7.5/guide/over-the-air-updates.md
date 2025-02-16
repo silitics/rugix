@@ -72,7 +72,7 @@ This also allows using compressed images.
 For instance, to download, decompress, and install an image on-the-fly, use:
 
 ```shell
-curl <url to the image> | xz -d | rugpi-ctrl update install -
+curl -sfS <url to the image> | xz -d | rugpi-ctrl update install -
 ```
 
 In case the internet connection is unstable, you may also want to use

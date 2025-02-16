@@ -30,7 +30,7 @@ To upgrade an existing system using Rugpi v0.7:
 You first need to update to the latest version of the `run-bakery` script:
 
 ```shell
-curl -O https://raw.githubusercontent.com/silitics/rugix/v0.8/bakery/run-bakery && chmod +x ./run-bakery
+curl -sfSO https://raw.githubusercontent.com/silitics/rugix/v0.8/bakery/run-bakery && chmod +x ./run-bakery
 ```
 
 - The `images` section in `rugpi-bakery.toml` has been superseded by a `systems` section in `rugix-bakery.toml`.
