@@ -75,7 +75,7 @@ impl BlockProvider {
                 BlockIndex::decode(&mut decoder, atom).whatever("unable to decode block index")?;
             let file_idx = self.files.len();
             self.files.push(slot_file);
-            let mut next_block_idx = self.hashes.len();
+            let mut next_block_idx = self.hashes.len() / self.hash_algorithm.hash_size();
             self.hashes.extend_from_slice(&index.block_hashes.raw);
             let mut current_offset = NumBytes::ZERO;
             for size in index.block_sizes.raw.chunks_exact(4) {
