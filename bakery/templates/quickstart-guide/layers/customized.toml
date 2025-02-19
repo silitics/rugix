@@ -9,6 +9,8 @@ recipes = [
     "core/ssh",
     # Setup the network.
     "setup-network",
+    # Setup time synchronization.
+    "setup-timesyncd",
     # Enable discovery of the system in the local network.
     "rugix-extra/avahi",
     # Install a static website.
