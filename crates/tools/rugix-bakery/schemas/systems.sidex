@@ -1,7 +1,7 @@
 //! System configuration.
 
 import foreign::NumBytes
-import images::ImageLayout
+import images::{ImageLayout, SquashfsOptions}
 
 record SystemConfig {
     /// Layer the image is based on.
@@ -12,6 +12,13 @@ record SystemConfig {
     target?: Target,
     /// System image configuration.
     image?: SystemImageConfig,
+    /// Additional options.
+    options?: SystemOptions,
+}
+
+record SystemOptions {
+    /// Use squashfs for system filesystems by default.
+    squashfs?: SquashfsOptions,
 }
 
 /// Architecture.

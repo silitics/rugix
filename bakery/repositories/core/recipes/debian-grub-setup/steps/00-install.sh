@@ -6,6 +6,11 @@ apt-get update -y
 
 BOOT_DIR="${RUGIX_LAYER_DIR}/roots/boot"
 
+if [ "${RECIPE_PARAM_WITH_SQUASHFS}" == "true" ]; then
+    apt-get install -y initramfs-tools
+    echo "squashfs" > "/usr/share/initramfs-tools/modules.d/rugix"
+fi
+
 mkdir -p "${BOOT_DIR}"
 
 echo "Installing kernel..."

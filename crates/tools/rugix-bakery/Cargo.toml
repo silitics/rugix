@@ -42,6 +42,7 @@ rugix-cli.workspace = true
 rugix-common.workspace = true
 rugix-bundle.workspace = true
 rugix-hashes.workspace = true
+jiff = "0.2.1"
 
 [lints]
 workspace = true

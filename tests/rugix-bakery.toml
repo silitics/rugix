@@ -38,6 +38,18 @@ layer = "customized-efi"
 architecture = "arm64"
 target = "generic-grub-efi"
 
+[systems.customized-arm64-squashfs]
+layer = "customized-efi"
+architecture = "arm64"
+target = "generic-grub-efi"
+squashfs = {}
+
+[systems.customized-amd64-squashfs]
+layer = "customized-efi"
+architecture = "amd64"
+target = "generic-grub-efi"
+squashfs = {}
+
 [systems.customized-slots]
 layer = "customized-slots"
 architecture = "arm64"

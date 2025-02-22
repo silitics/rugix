@@ -96,6 +96,7 @@ impl Filesystem {
         match self {
             Filesystem::Ext4 => "ext4",
             Filesystem::Fat32 => "fat32",
+            Filesystem::Squashfs(_) => "squashfs",
         }
     }
 }

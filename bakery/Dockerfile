@@ -19,6 +19,7 @@ RUN apt-get -y update \
         qemu-system-arm \
         qemu-system-x86 \
         qemu-utils \
+        squashfs-tools \
         wget \
         xz-utils \
         zip \

@@ -3,7 +3,9 @@ use byte_calc::NumBytes;
 use rugix_common::disk::gpt::gpt_types;
 use rugix_common::disk::mbr::mbr_types;
 
-use crate::config::images::{Filesystem, ImageLayout, ImagePartition, PartitionTableType};
+use crate::config::images::{
+    Filesystem, ImageLayout, ImagePartition, PartitionTableType, SquashfsOptions,
+};
 use crate::config::systems::Target;
 
 pub mod generic_grub_efi;
@@ -11,16 +13,19 @@ pub mod rpi_tryboot;
 pub mod rpi_uboot;
 
 /// Get the default image layout for the provided target.
-pub fn get_default_layout(target: &Target) -> Option<ImageLayout> {
+pub fn get_default_layout(
+    target: &Target,
+    squashfs_options: Option<&SquashfsOptions>,
+) -> Option<ImageLayout> {
     match target {
-        Target::GenericGrubEfi => Some(default_gpt_layout()),
-        Target::RpiTryboot => Some(default_mbr_layout()),
-        Target::RpiUboot => Some(default_mbr_layout()),
+        Target::GenericGrubEfi => Some(default_gpt_layout(squashfs_options)),
+        Target::RpiTryboot => Some(default_mbr_layout(squashfs_options)),
+        Target::RpiUboot => Some(default_mbr_layout(squashfs_options)),
         Target::Unknown => None,
     }
 }
 
-fn default_mbr_layout() -> ImageLayout {
+fn default_mbr_layout(squashfs_options: Option<&SquashfsOptions>) -> ImageLayout {
     ImageLayout::new()
         .with_ty(Some(PartitionTableType::Mbr))
         .with_partitions(Some(vec![
@@ -45,12 +50,17 @@ fn default_mbr_layout() -> ImageLayout {
             // `A` system partition.
             ImagePartition::new()
                 .with_ty(Some(mbr_types::LINUX))
-                .with_filesystem(Some(Filesystem::Ext4))
+                .with_filesystem(Some(
+                    squashfs_options
+                        .cloned()
+                        .map(Filesystem::Squashfs)
+                        .unwrap_or(Filesystem::Ext4),
+                ))
                 .with_root(Some("system".to_owned())),
         ]))
 }
 
-fn default_gpt_layout() -> ImageLayout {
+fn default_gpt_layout(squashfs_options: Option<&SquashfsOptions>) -> ImageLayout {
     ImageLayout::new()
         .with_ty(Some(PartitionTableType::Gpt))
         .with_partitions(Some(vec![
@@ -73,7 +83,12 @@ fn default_gpt_layout() -> ImageLayout {
             // `A` system partition.
             ImagePartition::new()
                 .with_ty(Some(gpt_types::LINUX))
-                .with_filesystem(Some(Filesystem::Ext4))
+                .with_filesystem(Some(
+                    squashfs_options
+                        .cloned()
+                        .map(Filesystem::Squashfs)
+                        .unwrap_or(Filesystem::Ext4),
+                ))
                 .with_root(Some("system".to_owned())),
         ]))
 }

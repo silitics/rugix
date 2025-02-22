@@ -51,12 +51,19 @@ record ImagePartition {
 }
 
 /// Filesystem.
-#[json(tagged=externally, rename_all = "lowercase")]
+#[json(tag = "type", rename_all = "lowercase")]
 variant Filesystem {
-    /// EXT4 filesystem.
+    /// EXT4
     Ext4,
-    /// Fat32 filesystem.
+    /// Fat32
     Fat32,
+    /// Squashfs
+    Squashfs: SquashfsOptions,
+}
+
+#[json(rename_all = "kebab-case")]
+record SquashfsOptions {
+    no_compression?: bool
 }
 
 /// Partition type.

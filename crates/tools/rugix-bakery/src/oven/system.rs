@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use tracing::info;
 
 use reportify::{bail, whatever, ResultExt};
-use xscript::{run, Run};
+use xscript::{cmd, run, ParentEnv, Run};
 
 use rugix_common::disk::gpt::gpt_types;
 use rugix_common::disk::mbr::mbr_types;
@@ -93,7 +93,17 @@ pub fn make_system(config: &SystemConfig, frozen: &FrozenLayer, out: &Path) -> B
         .image
         .as_ref()
         .and_then(|image| image.layout.clone())
-        .or_else(|| config.target.as_ref().and_then(targets::get_default_layout))
+        .or_else(|| {
+            config.target.as_ref().and_then(|target| {
+                targets::get_default_layout(
+                    target,
+                    config
+                        .options
+                        .as_ref()
+                        .and_then(|options| options.squashfs.as_ref()),
+                )
+            })
+        })
         .ok_or_else(|| whatever!("image layout needs to be specified"))?;
 
     let image_file = out.join("system.img");
@@ -213,6 +223,32 @@ pub fn make_system(config: &SystemConfig, frozen: &FrozenLayer, out: &Path) -> B
                             .whatever("error copying files into image")?;
                         }
                     }
+                    let mut src =
+                        File::open(&fs_image).whatever("unable to open filesystem image file")?;
+                    let mut dst = File::options()
+                        .write(true)
+                        .open(&image_file)
+                        .whatever("unable to open image file")?;
+                    dst.seek(std::io::SeekFrom::Start(
+                        table.blocks_to_bytes(image_partition.start).into_raw(),
+                    ))
+                    .whatever("unable to seek in image file")?;
+                    std::io::copy(&mut src, &mut dst)
+                        .whatever("error copying filesystem into image")?;
+                }
+                Filesystem::Squashfs(squashfs_options) => {
+                    let Some(path) = &layout_partition.root else {
+                        bail!("Squashfs needs a root");
+                    };
+                    let mut cmd =
+                        cmd!("mksquashfs", layer_path.join("roots").join(path), &fs_image);
+                    if squashfs_options.no_compression.unwrap_or(true) {
+                        cmd.add_arg("-noI");
+                        cmd.add_arg("-noD");
+                        cmd.add_arg("-noF");
+                        cmd.add_arg("-noX");
+                    }
+                    ParentEnv.run(cmd).whatever("error creating filesystem")?;
                     let mut src =
                         File::open(&fs_image).whatever("unable to open filesystem image file")?;
                     let mut dst = File::options()
