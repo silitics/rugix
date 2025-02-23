@@ -196,7 +196,7 @@ pub fn get_stored_indices(slot: &str) -> SystemResult<Vec<StoredBlockIndex>> {
 /// Directory with the slot database.
 pub fn db_dir() -> &'static Path {
     const DATA_PATH: &str = "/run/rugix/mounts/data/rugix/slots";
-    const VAR_PATH: &str = "/var/rugix/slots";
+    const VAR_PATH: &str = "/var/lib/rugix/slots";
     if Path::new("/run/rugix/mounts/data").exists() {
         Path::new(DATA_PATH)
     } else {
