@@ -16,9 +16,10 @@ record SystemConfig {
     options?: SystemOptions,
 }
 
+#[json(rename_all = "kebab-case")]
 record SystemOptions {
     /// Use squashfs for system filesystems by default.
-    squashfs?: SquashfsOptions,
+    use_squashfs?: SquashfsOptions,
 }
 
 /// Architecture.

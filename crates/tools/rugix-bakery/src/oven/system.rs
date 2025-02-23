@@ -100,7 +100,7 @@ pub fn make_system(config: &SystemConfig, frozen: &FrozenLayer, out: &Path) -> B
                     config
                         .options
                         .as_ref()
-                        .and_then(|options| options.squashfs.as_ref()),
+                        .and_then(|options| options.use_squashfs.as_ref()),
                 )
             })
         })
@@ -264,7 +264,7 @@ pub fn make_system(config: &SystemConfig, frozen: &FrozenLayer, out: &Path) -> B
                     };
                     let mut cmd =
                         cmd!("mksquashfs", layer_path.join("roots").join(path), &fs_image);
-                    if squashfs_options.no_compression.unwrap_or(true) {
+                    if squashfs_options.no_compression.unwrap_or(false) {
                         cmd.add_arg("-noI");
                         cmd.add_arg("-noD");
                         cmd.add_arg("-noF");

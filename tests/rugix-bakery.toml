@@ -42,13 +42,13 @@ target = "generic-grub-efi"
 layer = "customized-efi"
 architecture = "arm64"
 target = "generic-grub-efi"
-options = { squashfs = {} }
+options = { use-squashfs = { no-compression = true } }
 
 [systems.customized-amd64-squashfs]
 layer = "customized-efi"
 architecture = "amd64"
 target = "generic-grub-efi"
-options = { squashfs = {} }
+options = { use-squashfs = { no-compression = true } }
 
 [systems.customized-slots]
 layer = "customized-slots"
