@@ -1,4 +1,4 @@
-FROM debian:latest
+FROM debian:bookworm
 
 ARG TARGETPLATFORM
 
@@ -43,6 +43,7 @@ RUN apt-get -y update \
         git \
         iputils-ping \
         libacl1 \
+        libarchive-dev \
         liblz4-tool \
         locales \
         python3 \
@@ -59,6 +60,16 @@ RUN apt-get -y update \
         zstd \
     && apt-get -y clean \
     && rm -rf /var/lib/apt/lists/*
+
+RUN cd /tmp \
+    && wget https://git.kernel.org/pub/scm/fs/ext2/e2fsprogs.git/snapshot/e2fsprogs-1.47.2.tar.gz \
+    && tar -xf e2fsprogs-1.47.2.tar.gz \
+    && cd e2fsprogs-1.47.2 \
+    && ./configure \
+    && make \
+    && make install \
+    && cd .. \
+    && rm -rf e2fsprogs-1.47.2*
 
 # Add a `build` user for unprivileged builds.
 RUN useradd -ms /usr/bin/zsh build

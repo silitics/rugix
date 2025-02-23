@@ -178,6 +178,28 @@ pub fn make_system(config: &SystemConfig, frozen: &FrozenLayer, out: &Path) -> B
                     allocate_file(&fs_image, size.into_raw())
                         .whatever("unable to allocate filesystem file")?;
                     if let Some(path) = &layout_partition.root {
+                        // let root_tar = layer_path.join(".rugix-root.tar");
+                        // std::fs::remove_file(&root_tar).ok();
+                        // run!([
+                        //     "tar",
+                        //     "--sort=name",
+                        //     "--pax-option=exthdr.name=%d/PaxHeaders/%f,delete=atime,
+                        // delete=ctime",     "-cf",
+                        //     &root_tar,
+                        //     "-C",
+                        //     layer_path.join("roots").join(path),
+                        //     "."
+                        // ])
+                        // .whatever("unable to create root filesystem tar")?;
+                        // run!([
+                        //     "mkfs.ext4",
+                        //     "-F",
+                        //     "-d",
+                        //     root_tar,
+                        //     "-E",
+                        //     "hash_seed=035cb65d-0a86-404a-bad7-19c88d05e400",
+                        //     &fs_image
+                        // ])
                         run!([
                             "mkfs.ext4",
                             "-d",
