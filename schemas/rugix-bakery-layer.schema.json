@@ -50,11 +50,45 @@
     },
     "rugix_bakery.images.Filesystem": {
       "$id": "rugix_bakery.images.Filesystem",
-      "enum": [
-        "ext4",
-        "fat32"
-      ],
-      "description": "Filesystem."
+      "description": "Filesystem.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "ext4"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "fat32"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "squashfs"
+            },
+            "no-compression": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      ]
     },
     "rugix_bakery.images.ImageConfig": {
       "$id": "rugix_bakery.images.ImageConfig",
@@ -133,6 +167,18 @@
     "rugix_bakery.images.PartitionType": {
       "$id": "rugix_bakery.images.PartitionType",
       "description": "Partition type."
+    },
+    "rugix_bakery.images.SquashfsOptions": {
+      "$id": "rugix_bakery.images.SquashfsOptions",
+      "type": "object",
+      "description": "",
+      "properties": {
+        "no-compression": {
+          "type": "boolean"
+        }
+      },
+      "required": [],
+      "unevaluatedProperties": false
     },
     "rugix_bakery.projects.ProjectConfig": {
       "$id": "rugix_bakery.projects.ProjectConfig",
@@ -336,6 +382,9 @@
         },
         "image": {
           "$ref": "#/$defs/rugix_bakery.systems.SystemImageConfig"
+        },
+        "options": {
+          "$ref": "#/$defs/rugix_bakery.systems.SystemOptions"
         }
       },
       "required": [
@@ -354,6 +403,18 @@
         },
         "layout": {
           "$ref": "#/$defs/rugix_bakery.images.ImageLayout"
+        }
+      },
+      "required": [],
+      "unevaluatedProperties": false
+    },
+    "rugix_bakery.systems.SystemOptions": {
+      "$id": "rugix_bakery.systems.SystemOptions",
+      "type": "object",
+      "description": "",
+      "properties": {
+        "use-squashfs": {
+          "$ref": "#/$defs/rugix_bakery.images.SquashfsOptions"
         }
       },
       "required": [],
