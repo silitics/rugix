@@ -175,6 +175,17 @@ pub struct BundleOpts {
     /// Disable compression of the bundle.
     #[clap(long)]
     without_compression: bool,
+    /// Use a specific chunking algorithm.
+    #[clap(long)]
+    chunker: Option<ChunkerAlgorithm>,
+}
+
+impl BundleOpts {
+    pub fn chunker_algorithm(&self) -> ChunkerAlgorithm {
+        self.chunker.clone().unwrap_or(ChunkerAlgorithm::Casync {
+            avg_block_size_kib: 64,
+        })
+    }
 }
 
 pub fn bake_bundle(
@@ -230,11 +241,9 @@ fn rpi_bundle_config(opts: &BundleOpts) -> BundleManifest {
                 "partition-2.img".to_owned(),
             )
             .with_block_encoding(Some(
-                manifest::BlockEncoding::new(ChunkerAlgorithm::Casync {
-                    avg_block_size_kib: 64,
-                })
-                .with_deduplicate(Some(true))
-                .with_compression(compression.clone()),
+                manifest::BlockEncoding::new(opts.chunker_algorithm())
+                    .with_deduplicate(Some(true))
+                    .with_compression(compression.clone()),
             )),
             manifest::Payload::new(
                 manifest::DeliveryConfig::Slot(manifest::SlotDeliveryConfig {
@@ -243,11 +252,9 @@ fn rpi_bundle_config(opts: &BundleOpts) -> BundleManifest {
                 "partition-5.img".to_owned(),
             )
             .with_block_encoding(Some(
-                manifest::BlockEncoding::new(ChunkerAlgorithm::Casync {
-                    avg_block_size_kib: 64,
-                })
-                .with_deduplicate(Some(true))
-                .with_compression(compression.clone()),
+                manifest::BlockEncoding::new(opts.chunker_algorithm())
+                    .with_deduplicate(Some(true))
+                    .with_compression(compression.clone()),
             )),
         ],
     )
@@ -269,11 +276,9 @@ fn efi_bundle_config(opts: &BundleOpts) -> BundleManifest {
                 "partition-2.img".to_owned(),
             )
             .with_block_encoding(Some(
-                manifest::BlockEncoding::new(ChunkerAlgorithm::Casync {
-                    avg_block_size_kib: 64,
-                })
-                .with_deduplicate(Some(true))
-                .with_compression(compression.clone()),
+                manifest::BlockEncoding::new(opts.chunker_algorithm())
+                    .with_deduplicate(Some(true))
+                    .with_compression(compression.clone()),
             )),
             manifest::Payload::new(
                 manifest::DeliveryConfig::Slot(manifest::SlotDeliveryConfig {
@@ -282,11 +287,9 @@ fn efi_bundle_config(opts: &BundleOpts) -> BundleManifest {
                 "partition-4.img".to_owned(),
             )
             .with_block_encoding(Some(
-                manifest::BlockEncoding::new(ChunkerAlgorithm::Casync {
-                    avg_block_size_kib: 64,
-                })
-                .with_deduplicate(Some(true))
-                .with_compression(compression.clone()),
+                manifest::BlockEncoding::new(opts.chunker_algorithm())
+                    .with_deduplicate(Some(true))
+                    .with_compression(compression.clone()),
             )),
         ],
     )
