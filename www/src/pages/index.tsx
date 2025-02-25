@@ -84,8 +84,8 @@ function HomepageHeader() {
           Robust Building Blocks for Embedded Linux Devices
         </h1>
         <p className="text-xl">
-          Rugix is an open-source tool suite to build <em>reliable</em> embedded Linux
-          devices with <em>efficient and secure over-the-air</em> update
+          Rugix is an open-source tool suite to build <em>reliable</em> embedded
+          Linux devices with <em>efficient and secure over-the-air</em> update
           capabilities.
         </p>
         <p style={{ maxWidth: "80ch", margin: "1.5em auto" }}>
@@ -125,74 +125,177 @@ export default function Home(): JSX.Element {
       <main className="py-16 space-y-16">
         <section>
           <h2 className="text-center mb-8">They Trust Us</h2>
-          <div className="flex items-center justify-center gap-x-10 opacity-85">
+          <div className="px-4 flex-wrap  gap-y-8 flex items-center justify-center gap-x-12 opacity-85">
             <a href="https://goaqa.com/" target="_blank" className="flex">
-              <img className="max-h-8" src="https://oss.silitics.com/third-party-logos/aqa.png" alt="Aqa Technologies, Inc." />
+              <img
+                className="max-h-8"
+                src="https://oss.silitics.com/third-party-logos/aqa.png"
+                alt="Aqa Technologies, Inc."
+              />
             </a>
-            <a href="https://umbrel.com/" target="_blank" className="flex items-center">
-              <img className="max-h-7" src="https://oss.silitics.com/third-party-logos/umbrel.svg" alt="Umbrel, Inc." />
+            <a
+              href="https://www.ebike-checker.de/en/"
+              target="_blank"
+              className="flex"
+            >
+              <img
+                className="max-h-7"
+                src="https://oss.silitics.com/third-party-logos/echecker.svg"
+                alt="eChecker"
+              />
             </a>
-            <a href="https://www.ebike-checker.de/en/" target="_blank" className="flex">
-              <img className="max-h-7" src="https://oss.silitics.com/third-party-logos/echecker.svg" alt="eChecker" />
+            <a href="https://enmo.ai/" target="_blank" className="flex">
+              <img
+                className="max-h-7"
+                src="https://oss.silitics.com/third-party-logos/enmo.webp"
+                alt="Enmo"
+              />
             </a>
+            <a
+              href="https://umbrel.com/"
+              target="_blank"
+              className="flex items-center"
+            >
+              <img
+                className="max-h-7"
+                src="https://oss.silitics.com/third-party-logos/umbrel.svg"
+                alt="Umbrel, Inc."
+              />
+            </a>
+          </div>
+          <div className="flex items-center justify-center mt-8">
+            <div className="text-center max-w-[30ch]">
+              <div className="italic leading-[1.5]">
+                “If you’re not using Rugix, you’re making things harder than
+                they need to be.”
+              </div>
+              <div>
+                – David Lekve, CTO at <a href="https://enmo.ai">enmo</a>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section>
+          <h2 id="user-success-stories" className="text-center mb-8">User Success Stories</h2>
+          <div id="user-story-enmo" className="flex items-center justify-center gap-x-8 flex-wrap gap-y-4 px-4">
+            <img className="h-40" src="https://oss.silitics.com/third-party-logos/enmo-battery-brain.webp" />
+            <div className="max-w-[60ch]">
+              <h3>BatteryBrain</h3>
+              <div className="italic leading-[1.5]">
+                “At Enmo, we use Rugix for our product, BatteryBrain—a device
+                optimizing battery systems based on spot prices, battery health,
+                production inputs, and electricity markets. Rugix has been
+                essential in bringing BatteryBrain to a production-ready state
+                as quickly and efficiently as possible. It has simplified the
+                creation of a custom Raspberry Pi image and enabled seamless
+                over-the-air (OTA) updates.”
+              </div>
+              <div className="mt-3">
+                – David Lekve, CTO at <a href="https://enmo.ai">enmo</a>
+              </div>
+            </div>
           </div>
         </section>
         <section>
           <h2 className="text-center">Rugix Ctrl: The Update Mechanism</h2>
-          <p className="text-center">Rugix Ctrl has all features you would expect from a state-of-the-art update solution and more:</p>
+          <p className="text-center">
+            Rugix Ctrl has all features you would expect from a state-of-the-art
+            update solution and more:
+          </p>
           <ul className="list-none mx-auto w-fit">
             <li>
-              ✅ <strong>Atomic A/B system updates</strong> with popular bootloaders out of the box.
+              ✅ <strong>Atomic A/B system updates</strong> with popular
+              bootloaders out of the box.
             </li>
             <li>
-              ✅ <strong>Streaming updates</strong> as well as <strong>adaptive delta updates</strong> out of the box.
+              ✅ <strong>Streaming updates</strong> as well as{" "}
+              <strong>adaptive delta updates</strong> out of the box.
             </li>
             <li>
-              ✅ Builtin <strong>cryptographic integrity checks</strong> <em>before</em> installing anything anywhere.
+              ✅ Builtin <strong>cryptographic integrity checks</strong>{" "}
+              <em>before</em> installing anything anywhere.
             </li>
             <li>
-              ✅ Supports <strong>any update scenario</strong>, including <strong>non-A/B updates and incremental updates</strong>.
+              ✅ Supports <strong>any update scenario</strong>, including{" "}
+              <strong>non-A/B updates and incremental updates</strong>.
             </li>
             <li>
-              ✅ Supports <strong>any bootloader and boot process</strong> through <a href="https://rugix.org/docs/ctrl/advanced/boot-flows">custom <em>boot flows</em></a>.
+              ✅ Supports <strong>any bootloader and boot process</strong>{" "}
+              through{" "}
+              <a href="https://rugix.org/docs/ctrl/advanced/boot-flows">
+                custom <em>boot flows</em>
+              </a>
+              .
             </li>
             <li>
-              ✅ <strong>Robust state management mechanism</strong> inspired by container-based architectures.
+              ✅ <strong>Robust state management mechanism</strong> inspired by
+              container-based architectures.
             </li>
             <li>
-              ✅ Integrates well with <a href="https://rugix.org/docs/ctrl/advanced/fleet-management">different fleet management solutions</a> (avoids vendor lock-in).
+              ✅ Integrates well with{" "}
+              <a href="https://rugix.org/docs/ctrl/advanced/fleet-management">
+                different fleet management solutions
+              </a>{" "}
+              (avoids vendor lock-in).
             </li>
-            <li>✅ Provides powerful interfaces to built your own update workflow upon.</li>
+            <li>
+              ✅ Provides powerful interfaces to built your own update workflow
+              upon.
+            </li>
           </ul>
-          <p className="mx-auto max-w-[75ch] text-center">Rugix Ctrl <strong>supports or can be adapted to almost any requirements you may have</strong> when it comes to robust and secure updates of your entire system as well as its individual components.</p>
+          <p className="mx-auto max-w-[75ch] text-center">
+            Rugix Ctrl{" "}
+            <strong>
+              supports or can be adapted to almost any requirements you may have
+            </strong>{" "}
+            when it comes to robust and secure updates of your entire system as
+            well as its individual components.
+          </p>
         </section>
         <section>
           <h2 className="text-center">Rugix Bakery: The Development Tool</h2>
-          <p className="max-w-[80ch] text-center mx-auto">You wrote your application and now need to integrate it into a full system ready to be flashed onto your device or deployed as an update? Rugix Bakery makes this process (almost) <strong>as easy as writing a Dockerfile, enabling you to focus on what provides value to your users</strong> instead of system-level details.</p>
+          <p className="max-w-[80ch] text-center mx-auto">
+            You wrote your application and now need to integrate it into a full
+            system ready to be flashed onto your device or deployed as an
+            update? Rugix Bakery makes this process (almost){" "}
+            <strong>
+              as easy as writing a Dockerfile, enabling you to focus on what
+              provides value to your users
+            </strong>{" "}
+            instead of system-level details.
+          </p>
           <SupportedDistributions />
           <h3 className="text-center">Feature Highlights</h3>
           <ul className="list-none mx-auto w-fit">
             <li>
-              ✅ <strong>Over-the-air update capabilities</strong> powered by Rugix Ctrl out of the box.
+              ✅ <strong>Over-the-air update capabilities</strong> powered by
+              Rugix Ctrl out of the box.
             </li>
             <li>
-              ✅ Build everything <strong>from source to image in a container-based environment.</strong>
+              ✅ Build everything{" "}
+              <strong>
+                from source to image in a container-based environment.
+              </strong>
             </li>
             <li>
-              ✅ Define <strong>multiple system variants</strong>, including variants for testing.
+              ✅ Define <strong>multiple system variants</strong>, including
+              variants for testing.
             </li>
             <li>
-              ✅ Builtin <strong>system testing framework</strong> and <strong>support for running VMs</strong>.
+              ✅ Builtin <strong>system testing framework</strong> and{" "}
+              <strong>support for running VMs</strong>.
             </li>
           </ul>
-          <p className="mx-auto max-w-[80ch] text-center">With Rugix Bakery, you get a <strong>comprehensive tool to build, test, and run your system</strong> similar to what you will find with modern software development tooling, like <a href="https://doc.rust-lang.org/cargo">Cargo</a> (Rust) or <a href="https://docs.astral.sh/uv/">uv</a> (Python).</p>
-        </section>
-        {/* <section>
-          <h2 className="text-center">Rugix: The Tool Suite</h2>
-          <p>
-            <HomepageFeatures />
+          <p className="mx-auto max-w-[80ch] text-center">
+            With Rugix Bakery, you get a{" "}
+            <strong>
+              comprehensive tool to build, test, and run your system
+            </strong>{" "}
+            similar to what you will find with modern software development
+            tooling, like <a href="https://doc.rust-lang.org/cargo">Cargo</a>{" "}
+            (Rust) or <a href="https://docs.astral.sh/uv/">uv</a> (Python).
           </p>
-        </section> */}
+        </section>
       </main>
     </Layout>
   )
