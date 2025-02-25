@@ -222,7 +222,7 @@ pub fn main() -> SystemResult<()> {
                         }
                     );
                 }
-                if !rugix_cli::is_attended() || *json {
+                if rugix_cli::stdout_is_piped() || *json {
                     serde_json::to_writer(std::io::stdout(), &output)
                         .whatever("unable to write system info to stdout")?;
                 }

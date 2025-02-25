@@ -158,6 +158,11 @@ pub fn is_attended() -> bool {
     TERMINAL.is_attended()
 }
 
+/// Check whether `stdout` is piped into another program.
+pub fn stdout_is_piped() -> bool {
+    !Term::stdout().features().is_attended()
+}
+
 /// Check whether the terminal supports unicode.
 pub fn supports_unicode() -> bool {
     TERMINAL.supports_unicode()
