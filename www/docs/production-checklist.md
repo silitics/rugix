@@ -15,4 +15,8 @@ Here is a rough checklist of things to consider before deploying anything to pro
 ## System Size
 
 Make sure that you have [configured a system size](./ctrl/bootstrapping.mdx#default-layout) that will be sufficient as your system evolves.
-While possible, growing the system partitions in production is a potentially risky and complex endeavour and not supported by Rugix.
+While possible, **growing the system partitions in production is a potentially risky and complex endeavour and not supported by Rugix**. The default size of the system partitions is 4 GiB. To find a good size, consider how your application evolves.
+
+## Testing
+
+Always test any images and update bundles before deploying anything in production. Testing should cover the update workflow itself, **otherwise you risk loosing the ability to update systems in the field**. You can use Rugix's integration testing framework.
