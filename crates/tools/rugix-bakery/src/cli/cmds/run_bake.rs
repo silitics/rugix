@@ -19,8 +19,17 @@ pub fn run(args: &args::Args, cmd: &args::BakeCommand) -> BakeryResult<()> {
                 if let Some(parent) = output.parent() {
                     std::fs::create_dir_all(parent).ok();
                 }
-                std::fs::copy(system_path.join("system.img"), output)
-                    .whatever("error copying image")?;
+                let system_image_path = system_path
+                    .join("system.img")
+                    .canonicalize()
+                    .whatever("unable to canonicalize system image path")?;
+                let output_image_path = output
+                    .canonicalize()
+                    .whatever("unable to canonicalize output image path")?;
+                if system_image_path == output_image_path {
+                    std::fs::copy(system_image_path, output_image_path)
+                        .whatever("error copying image")?;
+                }
             }
         }
         args::BakeCommand::Layer { layer, arch } => {
