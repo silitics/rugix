@@ -81,7 +81,9 @@ Rugix Bakery is distributed as a Docker image (for `arm64` and `amd64`), ensurin
 Running Rugix Bakery outside of Docker is currently not supported.
 Hence, to run Rugix Bakery, a working [Docker](https://www.docker.com/) or [Podman](https://podman.io/) installation is required.
 On MacOS, please make sure to use the [MacOS virtualization framework and VirtioFS](https://docs.docker.com/desktop/settings/mac/#general), which is the default with recent versions of Docker Desktop.
-For Windows, please use [WSL](https://learn.microsoft.com/en-us/windows/wsl/about).
+For Windows, please use [WSL](https://learn.microsoft.com/en-us/windows/wsl/about).[^wsl]
+
+[^wsl]: If you are using WSL, make sure to put everything on a native filesystem, not the shared mount from your Windows host.
 
 Rugix Bakery ships as a small shell script named `run-bakery`.
 The script runs an ephemeral Docker container with Rugix Bakery and sets everything up as required.
