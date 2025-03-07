@@ -20,8 +20,10 @@ So, let's get started and unlock the potential of Rugix for your embedded projec
 First, you need to set up Rugix Bakery.
 Rugix Bakery requires a working [Docker](https://www.docker.com/) or [Podman](https://podman.io/) installation.
 On MacOS, please make sure to use the [MacOS virtualization framework and VirtioFS](https://docs.docker.com/desktop/settings/mac/#general), which is the default with recent versions of Docker Desktop.
-On Windows, please use [WSL](https://learn.microsoft.com/en-us/windows/wsl/about).
+On Windows, please use [WSL](https://learn.microsoft.com/en-us/windows/wsl/about).[^wsl]
 Rugix Bakery is compatible with 64-bit ARM and x86 systems running MacOS or Linux.[^supported-hosts]
+
+[^wsl]: If you are using WSL, make sure to put everything on a native filesystem, not the shared mount from your Windows host.
 
 [^supported-hosts]: The respective Docker platforms are `linux/arm64` and `linux/amd64`. Rugix Bakery will run on Apple silicon.
 

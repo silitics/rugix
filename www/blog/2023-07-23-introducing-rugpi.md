@@ -52,7 +52,7 @@ For OTA updates, we use the recently introduced [`tryboot` feature of Raspberry 
 For state management and controlling OTA updates and rollbacks, we have developed custom software in Rust, ensuring reliable functionality.
 Rugpi replaces the init process and uses overlay and bind mounts to set everything up before handing the controls over to Systemd.
 While the system partition is mounted read-only at all times, preventing corruption, a writeable overlay and bind mounts are used to selectively persist important state across reboots and updates, and to discard any accidental state.
-For further details, read the [user guide](/docs/guide/) and checkout [the source code on GitHub](https://github.com/silitics/rugpi/tree/main).
+For further details, read the [user guide](../docs/getting-started) and checkout [the source code on GitHub](https://github.com/silitics/rugpi/tree/main).
 
 ### Try it Today!
 

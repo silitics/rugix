@@ -45,7 +45,7 @@ The Mender integration consists in recipes for Rugix Bakery that will install Me
 Note that Mender also offers their own update installation mechanism, which is part of the Mender client.
 **When you use Mender with Rugix Ctrl, you will not be using this mechanism but Rugix Ctrl instead.
 You can still deploy updates through Mender's fleet management solution as you normally would.**
-If you want to know the differences between Mender's own solution and Rugix Ctrl, check out the [Comparison to Other Solutions](../index.md/#comparison-to-other-solutions).
+If you want to know the differences between Mender's own solution and Rugix Ctrl, check out the [Comparison to Other Solutions](../index.md#comparison-to-other-solutions).
 
 :::note
 Unfortunately, Mender's fleet management solution is at the moment incompatible with adaptive delta updates.

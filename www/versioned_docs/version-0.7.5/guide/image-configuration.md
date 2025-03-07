@@ -56,7 +56,7 @@ Using unknown targets allows building images for unsupported devices; however, t
 
 The target for an image is set by the `target` property in the image declaration.
 
-For supported devices and the required targets, checkout the documentation on [Supported Devices](/devices).
+<!-- For supported devices and the required targets, checkout the documentation on [Supported Devices](/devices). -->
 
 Currently, Rugpi supports the following targets:
 
