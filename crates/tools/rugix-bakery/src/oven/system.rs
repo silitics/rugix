@@ -64,6 +64,9 @@ pub fn make_system(
         }
     }
 
+    std::fs::remove_dir_all(out).ok();
+    std::fs::create_dir_all(out).ok();
+
     std::fs::write(
         &system_build_input,
         serde_json::to_string_pretty(&SystemBuildInput {
@@ -72,9 +75,6 @@ pub fn make_system(
         .unwrap(),
     )
     .whatever("unable to write system info")?;
-
-    std::fs::remove_dir_all(out).ok();
-    std::fs::create_dir_all(out).ok();
 
     let layer = frozen.unfreeze()?;
     let layer_path = layer.path();
