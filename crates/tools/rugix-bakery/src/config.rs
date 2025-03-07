@@ -7,7 +7,7 @@ use std::{fmt, fs};
 use images::{Filesystem, PartitionTableType};
 use projects::ProjectConfig;
 use rugix_tasks::check_canceled;
-use serde::Deserialize;
+use serde::de::DeserializeOwned;
 
 use reportify::{whatever, ResultExt};
 
@@ -114,7 +114,7 @@ impl PartialEq<rugix_common::disk::PartitionTableType> for PartitionTableType {
 /// Parse a configuration of type `T` from the provided string.
 pub fn parse_config<T>(config: &str) -> BakeryResult<T>
 where
-    T: 'static + for<'de> Deserialize<'de>,
+    T: DeserializeOwned,
 {
     toml::from_str(&config).whatever("unable to parse configuration file")
 }
@@ -122,9 +122,25 @@ where
 /// Load a configuration of type `T` from the provided path.
 pub fn load_config<T>(path: &Path) -> BakeryResult<T>
 where
-    T: 'static + for<'de> Deserialize<'de>,
+    T: DeserializeOwned,
 {
     check_canceled();
-    parse_config(&fs::read_to_string(path).whatever("unable to read configuration file")?)
-        .with_info(|_| format!("loading configuration from {path:?}"))
+    parse_config(
+        &fs::read_to_string(path)
+            .whatever_with(|_| format!("unable to read configuration file {path:?}"))?,
+    )
+    .with_info(|_| format!("loading configuration from {path:?}"))
+}
+
+/// Load JSON file of type `T` from the provided path.
+pub fn load_json<T>(path: &Path) -> BakeryResult<T>
+where
+    T: DeserializeOwned,
+{
+    check_canceled();
+    serde_json::from_str(
+        &fs::read_to_string(path)
+            .whatever_with(|_| format!("unable to read JSON file {path:?}"))?,
+    )
+    .whatever_with(|_| format!("loading JSON file {path:?}"))
 }

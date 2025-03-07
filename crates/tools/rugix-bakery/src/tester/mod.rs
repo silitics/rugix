@@ -14,6 +14,7 @@ use rugix_cli::{StatusSegment, StatusSegmentRef, VisualHeight};
 
 use crate::config::load_config;
 use crate::config::tests::{RunStep, TestConfig, WaitStep};
+use crate::oven::system::ReleaseInfo;
 use crate::project::ProjectRef;
 use crate::{oven, BakeryResult};
 
@@ -30,7 +31,13 @@ pub fn main(project: &ProjectRef, test_path: &Path) -> BakeryResult<()> {
 
     for system in &test_config.systems {
         let system_out = Path::new("build").join(&system.system);
-        oven::bake_system(&project, &system.system, &system_out).whatever("error baking system")?;
+        oven::bake_system(
+            &project,
+            &ReleaseInfo::default(),
+            &system.system,
+            &system_out,
+        )
+        .whatever("error baking system")?;
 
         let test_status = rugix_cli::add_status(TestCliStatus {
             total_steps: test_config.steps.len() as u64,

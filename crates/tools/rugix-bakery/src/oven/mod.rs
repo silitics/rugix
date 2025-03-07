@@ -9,6 +9,7 @@ use reportify::{bail, whatever, ResultExt};
 use rugix_bundle::manifest::{self, BundleManifest, ChunkerAlgorithm};
 use rugix_common::loop_dev::LoopDevice;
 use rugix_common::mount::Mounted;
+use system::ReleaseInfo;
 use tempfile::tempdir;
 use tracing::info;
 use url::Url;
@@ -25,7 +26,12 @@ pub mod layer;
 pub mod system;
 pub mod targets;
 
-pub fn bake_system(project: &ProjectRef, system: &str, output: &Path) -> BakeryResult<()> {
+pub fn bake_system(
+    project: &ProjectRef,
+    release_info: &ReleaseInfo,
+    system: &str,
+    output: &Path,
+) -> BakeryResult<()> {
     let system_config = project
         .config()
         .get_system_config(system)
@@ -34,7 +40,7 @@ pub fn bake_system(project: &ProjectRef, system: &str, output: &Path) -> BakeryR
     let layer_bakery = LayerBakery::new(project, system_config.architecture);
     let baked_layer = layer_bakery.bake_root(&system_config.layer)?;
     let frozen = FrozenLayer::new(system_config.layer.clone(), baked_layer);
-    system::make_system(system_config, &frozen, output)
+    system::make_system(system_config, release_info, system, &frozen, output)
 }
 
 pub struct LayerBakery<'p> {

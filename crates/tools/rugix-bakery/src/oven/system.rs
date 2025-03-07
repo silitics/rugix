@@ -1,8 +1,10 @@
+use std::fmt::Debug;
 use std::fs::{self, File};
 use std::io::Seek;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 
+use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use reportify::{bail, whatever, ResultExt};
@@ -19,6 +21,7 @@ use rugix_common::utils::units::NumBytes;
 use rugix_common::{grub_patch_env, rpi_patch_boot, rpi_patch_config};
 
 use crate::config::images::{Filesystem, ImageLayout};
+use crate::config::load_config;
 use crate::config::systems::{SystemConfig, Target};
 use crate::oven::targets;
 use crate::oven::targets::generic_grub_efi::initialize_grub;
@@ -29,16 +32,34 @@ use crate::BakeryResult;
 
 use super::layer::FrozenLayer;
 
-pub fn make_system(config: &SystemConfig, frozen: &FrozenLayer, out: &Path) -> BakeryResult<()> {
-    let system_info = out.join("system-info.json");
-    if system_info.exists() {
-        let system_mtime = mtime(&system_info).whatever("unable to get system mtime")?;
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct ReleaseInfo {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub system_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub system_version: Option<String>,
+}
+
+pub fn make_system(
+    config: &SystemConfig,
+    release_info: &ReleaseInfo,
+    system_name: &str,
+    frozen: &FrozenLayer,
+    out: &Path,
+) -> BakeryResult<()> {
+    let system_build_info = out.join("system-build-info.json");
+    if system_build_info.exists() {
+        let system_mtime = mtime(&system_build_info).whatever("unable to get system mtime")?;
         let layer_mtime = frozen.last_modified()?;
         if layer_mtime < system_mtime {
-            info!("System is newer than layer.");
-            return Ok(());
+            info!("system is newer than layer");
+            let system_info = load_config::<BakeryBuildInfo>(&system_build_info)?;
+            if &system_info.release == release_info {
+                info!("release info has not changed, skipping build");
+                return Ok(());
+            }
         } else {
-            info!("Layer is newer than system (system: {system_mtime:?}, layer: {layer_mtime:?}).");
+            info!("layer is newer than system");
         }
     }
 
@@ -57,6 +78,35 @@ pub fn make_system(config: &SystemConfig, frozen: &FrozenLayer, out: &Path) -> B
 
     let system_dir = layer_path.join("roots/system");
     fs::create_dir_all(&system_dir).whatever("unable to create system directory")?;
+
+    info!("writing `/etc/rugix/system-build-info.json`");
+    let system_info_path = system_dir.join("etc/rugix/system-build-info.json");
+    fs::create_dir_all(system_info_path.parent().unwrap())
+        .whatever("unable to create `/etc/rugix`")?;
+
+    let time_version = jiff::Timestamp::now().strftime("%Y%m%d%H%M%S").to_string();
+    let release_version = release_info
+        .system_version
+        .as_deref()
+        .unwrap_or(&time_version);
+    let release_id = release_info
+        .system_id
+        .clone()
+        .unwrap_or_else(|| format!("{system_name}@{release_version}"));
+    info!("RELEASE_ID=\"{release_id}\", RELEASE_VERSION=\"{release_version}\"");
+
+    let system_info = SystemInfo {
+        release: SystemReleaseInfo {
+            id: release_id,
+            version: release_version.to_owned(),
+        },
+    };
+
+    std::fs::write(
+        &system_info_path,
+        &serde_json::to_string_pretty(&system_info).unwrap(),
+    )
+    .whatever("unable to write `/etc/rugix/system-build-info.json`")?;
 
     // Create directories for config and boot partitions.
     info!("Creating config and boot directories.");
@@ -288,9 +338,32 @@ pub fn make_system(config: &SystemConfig, frozen: &FrozenLayer, out: &Path) -> B
         }
     }
 
-    std::fs::write(&system_info, "{}").whatever("unable to write system info")?;
+    std::fs::write(
+        &system_build_info,
+        serde_json::to_string_pretty(&BakeryBuildInfo {
+            release: release_info.clone(),
+        })
+        .unwrap(),
+    )
+    .whatever("unable to write system info")?;
 
     Ok(())
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BakeryBuildInfo {
+    pub release: ReleaseInfo,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemInfo {
+    pub release: SystemReleaseInfo,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemReleaseInfo {
+    pub id: String,
+    pub version: String,
 }
 
 /// We are calculating everything with a portable block size of 512 bytes.

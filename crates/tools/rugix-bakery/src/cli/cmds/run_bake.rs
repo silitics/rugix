@@ -12,9 +12,13 @@ use crate::{oven, BakeryResult};
 pub fn run(args: &args::Args, cmd: &args::BakeCommand) -> BakeryResult<()> {
     let project = load_project(args)?;
     match cmd {
-        args::BakeCommand::Image { system, output } => {
+        args::BakeCommand::Image {
+            system,
+            output,
+            release,
+        } => {
             let system_path = Path::new("build").join(system);
-            oven::bake_system(&project, system, &system_path)?;
+            oven::bake_system(&project, &release.release_info(), system, &system_path)?;
             if let Some(output) = output {
                 if let Some(parent) = output.parent() {
                     std::fs::create_dir_all(parent).ok();
@@ -39,9 +43,10 @@ pub fn run(args: &args::Args, cmd: &args::BakeCommand) -> BakeryResult<()> {
             system,
             output,
             opts,
+            release,
         } => {
             let system_path = Path::new("build").join(system);
-            oven::bake_system(&project, system, &system_path)?;
+            oven::bake_system(&project, &release.release_info(), system, &system_path)?;
             let output = output
                 .clone()
                 .unwrap_or_else(|| system_path.join("system.rugixb"));

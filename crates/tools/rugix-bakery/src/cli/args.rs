@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use clap::Parser;
 
 use crate::config::systems::Architecture;
+use crate::oven::system::ReleaseInfo;
 use crate::oven::BundleOpts;
 
 /// Command line arguments.
@@ -45,6 +46,23 @@ pub enum Command {
     Bundler(BundlerCommand),
 }
 
+#[derive(Debug, clap::Args)]
+pub struct ReleaseInfoArgs {
+    #[clap(long)]
+    pub release_id: Option<String>,
+    #[clap(long)]
+    pub release_version: Option<String>,
+}
+
+impl ReleaseInfoArgs {
+    pub fn release_info(&self) -> ReleaseInfo {
+        ReleaseInfo {
+            system_id: self.release_id.clone(),
+            system_version: self.release_version.clone(),
+        }
+    }
+}
+
 /// The `list` command.
 #[derive(Debug, Parser)]
 pub enum ListCommand {
@@ -61,6 +79,8 @@ pub enum BakeCommand {
         system: String,
         /// The output path for the resulting files.
         output: Option<PathBuf>,
+        #[clap(flatten)]
+        release: ReleaseInfoArgs,
     },
     /// Bake a layer.
     Layer {
@@ -77,6 +97,8 @@ pub enum BakeCommand {
         /// Disable compression of the bundle.
         #[clap(flatten)]
         opts: BundleOpts,
+        #[clap(flatten)]
+        release: ReleaseInfoArgs,
     },
 }
 
@@ -96,6 +118,8 @@ pub enum CacheCommand {
 /// The `run` command.
 #[derive(Debug, Parser)]
 pub struct RunCommand {
+    #[clap(flatten)]
+    pub release: ReleaseInfoArgs,
     pub system: String,
 }
 
