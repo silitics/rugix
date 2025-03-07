@@ -537,9 +537,12 @@ fn restore_machine_id(root_dir: &Path) -> SystemResult<()> {
         let machine_id = format!("{}", uuid::Uuid::new_v4().simple());
         fs::write(&system_machine_id, machine_id.as_bytes())
             .whatever("unable to write machine-id")?;
+        fs::copy(system_machine_id, state_machine_id)
+            .whatever("unable to copy machine id into state")?;
+    } else {
+        fs::copy(state_machine_id, system_machine_id)
+            .whatever("unable to copy machine id into /etc/machine-id")?;
     }
-    fs::copy(system_machine_id, state_machine_id)
-        .whatever("unable to copy machine id into state")?;
     Ok(())
 }
 
