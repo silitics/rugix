@@ -163,6 +163,8 @@ jobs:
       - bakery_metadata
       - build_bakery_images
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Download AMD64 Digest
         uses: actions/download-artifact@v4
         with:
