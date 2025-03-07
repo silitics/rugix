@@ -106,6 +106,7 @@ pub fn make_system(
     info!("RELEASE_ID=\"{release_id}\", RELEASE_VERSION=\"{release_version}\"");
 
     let system_info = SystemInfo {
+        name: system_name.to_owned(),
         release: SystemReleaseInfo {
             id: release_id,
             version: release_version.to_owned(),
@@ -364,6 +365,7 @@ pub struct SystemBuildInput {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SystemInfo {
+    pub name: String,
     pub release: SystemReleaseInfo,
 }
 
