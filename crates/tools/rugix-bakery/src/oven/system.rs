@@ -21,7 +21,7 @@ use rugix_common::utils::units::NumBytes;
 use rugix_common::{grub_patch_env, rpi_patch_boot, rpi_patch_config};
 
 use crate::config::images::{Filesystem, ImageLayout};
-use crate::config::load_config;
+use crate::config::load_json;
 use crate::config::systems::{SystemConfig, Target};
 use crate::oven::targets;
 use crate::oven::targets::generic_grub_efi::initialize_grub;
@@ -47,13 +47,14 @@ pub fn make_system(
     frozen: &FrozenLayer,
     out: &Path,
 ) -> BakeryResult<()> {
+    let system_build_input = out.join("system-build-input.json");
     let system_build_info = out.join("system-build-info.json");
     if system_build_info.exists() {
         let system_mtime = mtime(&system_build_info).whatever("unable to get system mtime")?;
         let layer_mtime = frozen.last_modified()?;
         if layer_mtime < system_mtime {
             info!("system is newer than layer");
-            let system_info = load_config::<BakeryBuildInfo>(&system_build_info)?;
+            let system_info = load_json::<SystemBuildInput>(&system_build_info)?;
             if &system_info.release == release_info {
                 info!("release info has not changed, skipping build");
                 return Ok(());
@@ -62,6 +63,15 @@ pub fn make_system(
             info!("layer is newer than system");
         }
     }
+
+    std::fs::write(
+        &system_build_input,
+        serde_json::to_string_pretty(&SystemBuildInput {
+            release: release_info.clone(),
+        })
+        .unwrap(),
+    )
+    .whatever("unable to write system info")?;
 
     std::fs::remove_dir_all(out).ok();
     std::fs::create_dir_all(out).ok();
@@ -340,18 +350,15 @@ pub fn make_system(
 
     std::fs::write(
         &system_build_info,
-        serde_json::to_string_pretty(&BakeryBuildInfo {
-            release: release_info.clone(),
-        })
-        .unwrap(),
+        &serde_json::to_string_pretty(&system_info).unwrap(),
     )
-    .whatever("unable to write system info")?;
+    .whatever("unable to write `system-build-info.json`")?;
 
     Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BakeryBuildInfo {
+pub struct SystemBuildInput {
     pub release: ReleaseInfo,
 }
 
