@@ -178,6 +178,31 @@ jobs:
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 2
+  
+  test_bakery_image:
+    name: Test Bakery Image
+    runs-on: ubuntu-latest
+    needs:
+      - bakery_metadata
+      - build_bakery_images
+    steps:
+      - name: Download AMD64 Digest
+        uses: actions/download-artifact@v4
+        with:
+          pattern: bakery-digest-amd64
+          path: /tmp/digests
+      - name: Run Tests
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          DIGEST=$(ls /tmp/digests)
+
+          cd tests
+
+          ./generate-test-keys.sh
+          export RUGIX_BAKERY_IMAGE="sha256:$DIGEST"
+          ./run-update-tests.sh
 
   build_bakery_image:
     name: Build and Push Bakery Image
@@ -185,6 +210,7 @@ jobs:
     needs:
       - bakery_metadata
       - build_bakery_images
+      - test_bakery_image
     outputs:
       digest: ${{ steps.digest.outputs.digest }}
     steps:
