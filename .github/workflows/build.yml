@@ -175,12 +175,13 @@ jobs:
         run: |
           set -euo pipefail
 
-          DIGEST=$(ls /tmp/digests)
+          DIGEST=$(ls /tmp/digests/bakery-digest-amd64/)
 
           cd tests
 
           ./generate-test-keys.sh
-          export RUGIX_BAKERY_IMAGE="sha256:$DIGEST"
+          export RUGIX_BAKERY_IMAGE="${{ env.IMAGE_NAME }}@sha256:$DIGEST"
+          echo "RUGIX_BAKERY_IMAGE=$RUGIX_BAKERY_IMAGE"
           ./run-update-tests.sh
 
   build_bakery_image:
