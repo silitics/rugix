@@ -170,6 +170,8 @@ jobs:
         with:
           pattern: bakery-digest-amd64
           path: /tmp/digests
+      - name: Configure `binfmt_misc` for Foreign Architectures
+        run: docker run --privileged --rm tonistiigi/binfmt --install arm64
       - name: Run Tests
         shell: bash
         run: |
