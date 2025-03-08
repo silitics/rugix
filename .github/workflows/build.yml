@@ -68,7 +68,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Build Binaries
         run: |
-          ./cross build --release --target ${{ matrix.target }} --bin rugix-bundler
+          cargo build --release --target ${{ matrix.target }} --bin rugix-bundler
       - name: Create Artifact
         run: |
           cd target/${{ matrix.target }}/release
