@@ -66,6 +66,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+            target: ${{ matrix.target }}
       - name: Build Binaries
         run: |
           cargo build --release --target ${{ matrix.target }} --bin rugix-bundler
