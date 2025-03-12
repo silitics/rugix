@@ -375,9 +375,12 @@ fn install_update_stream(
         let mut bundle_source = HttpSource::new(image)?;
         let should_reboot =
             install_update_bundle(system, &mut bundle_source, verify_bundle, boot_group)?;
+        let stats = bundle_source.get_download_stats();
         info!(
-            "downloaded {:.1}% of the full bundle",
-            bundle_source.get_download_ratio() * 100.0
+            "downloaded {:.1}% ({}/{}) of the full bundle",
+            stats.download_ratio() * 100.0,
+            stats.bytes_read,
+            stats.total_bytes(),
         );
         return Ok(should_reboot);
     }

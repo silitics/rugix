@@ -18,6 +18,22 @@ pub struct HttpSource {
     bytes_skipped: u64,
 }
 
+#[derive(Debug, Clone)]
+pub struct DownloadStats {
+    pub bytes_read: NumBytes,
+    pub bytes_skipped: NumBytes,
+}
+
+impl DownloadStats {
+    pub fn total_bytes(&self) -> NumBytes {
+        self.bytes_read + self.bytes_skipped
+    }
+
+    pub fn download_ratio(&self) -> f64 {
+        self.bytes_read.raw as f64 / self.total_bytes().raw as f64
+    }
+}
+
 impl HttpSource {
     pub fn new(url: &str) -> SystemResult<Self> {
         let response = ureq::get(url)
@@ -41,8 +57,11 @@ impl HttpSource {
 }
 
 impl HttpSource {
-    pub fn get_download_ratio(&self) -> f64 {
-        self.bytes_read as f64 / (self.bytes_read + self.bytes_skipped) as f64
+    pub fn get_download_stats(&self) -> DownloadStats {
+        DownloadStats {
+            bytes_read: NumBytes::new(self.bytes_read),
+            bytes_skipped: NumBytes::new(self.bytes_skipped),
+        }
     }
 }
 
