@@ -72,7 +72,7 @@ jobs:
             target: ${{ matrix.target }}
       - name: Build Binaries
         run: |
-          cargo build --release --target ${{ matrix.target }} --bin rugix-bundler
+          cargo build --release --target ${{ matrix.target }} --bin rugix-bundler -F xz2/static
       - name: Create Artifact
         run: |
           cd target/${{ matrix.target }}/release
