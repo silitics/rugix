@@ -56,10 +56,9 @@ const config: Config = {
     announcementBar: {
       // id: "release",
       content: `
-          We are excited to announce the release of Rugix version 0.8! 🎉
-          Read the <a href="/rugix/blog/releases/0.8">release blog post</a>.
+          <a target="_blank" href="https://www.hannovermesse.de/exhibitor/silitics/N1582866">📣 Visit us at HANNOVER MESSE 2025, hall 15 stand G17. 📣</a>
         `,
-      backgroundColor: "#bdddfb",
+      backgroundColor: "#6ee7b7",
       // backgroundColor: "#bdddfb",
       // textColor: "#000000",
       isCloseable: false,

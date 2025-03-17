@@ -124,7 +124,7 @@ export default function Home(): JSX.Element {
       <HomepageHeader />
       <main className="py-16 space-y-16">
         <section>
-          <h2 className="text-center mb-8">They Trust Us</h2>
+          <h2 className="text-center mb-8">Trusted By</h2>
           <div className="px-4 flex-wrap  gap-y-8 flex items-center justify-center gap-x-12 opacity-85">
             <a href="https://goaqa.com/" target="_blank" className="flex">
               <img
@@ -180,7 +180,7 @@ export default function Home(): JSX.Element {
           <div id="user-story-enmo" className="flex items-center justify-center gap-x-8 flex-wrap gap-y-4 px-4">
             <img className="h-40" src="https://oss.silitics.com/third-party-logos/enmo-battery-brain.webp" />
             <div className="max-w-[60ch]">
-              <h3>BatteryBrain</h3>
+              <h3 className="mb-2">BatteryBrain</h3>
               <div className="italic leading-[1.5]">
                 “At Enmo, we use Rugix for our product, BatteryBrain—a device
                 optimizing battery systems based on spot prices, battery health,
@@ -190,7 +190,7 @@ export default function Home(): JSX.Element {
                 creation of a custom Raspberry Pi image and enabled seamless
                 over-the-air (OTA) updates.”
               </div>
-              <div className="mt-3">
+              <div className="mt-2">
                 – David Lekve, CTO at <a href="https://enmo.ai">enmo</a>
               </div>
             </div>
