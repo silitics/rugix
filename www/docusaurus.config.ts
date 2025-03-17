@@ -56,7 +56,8 @@ const config: Config = {
     announcementBar: {
       // id: "release",
       content: `
-          <a target="_blank" href="https://www.hannovermesse.de/exhibitor/silitics/N1582866">📣 Visit us at HANNOVER MESSE 2025, hall 15 stand G17. 📣</a>
+          📣 Visit us at HANNOVER MESSE 2025, <a target="_blank" href="https://www.hannovermesse.de/exhibitor/silitics/N1582866">hall 15 stand G17</a>.
+          <a href="mailto:hello@silitics.com">Reach out for a free ticket and make an appointment with our experts!</a> 📣
         `,
       backgroundColor: "#6ee7b7",
       // backgroundColor: "#bdddfb",
