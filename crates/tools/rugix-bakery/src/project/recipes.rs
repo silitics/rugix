@@ -49,7 +49,8 @@ impl RecipeLoader {
             .to_string_lossy()
             .into();
         let config_path = path.join("recipe.toml");
-        let config = load_config(&config_path)?;
+        let config =
+            load_config(&config_path).with_info(|_| format!("while loading recipe {name:?}"))?;
         let mut steps = Vec::new();
         let steps_dir = path.join("steps");
         if steps_dir.exists() {
