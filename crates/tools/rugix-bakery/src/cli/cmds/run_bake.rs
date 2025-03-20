@@ -30,7 +30,7 @@ pub fn run(args: &args::Args, cmd: &args::BakeCommand) -> BakeryResult<()> {
                 let output_image_path = output
                     .canonicalize()
                     .whatever("unable to canonicalize output image path")?;
-                if system_image_path == output_image_path {
+                if system_image_path != output_image_path {
                     std::fs::copy(system_image_path, output_image_path)
                         .whatever("error copying image")?;
                 }
