@@ -32,21 +32,13 @@ impl Hooks {
         info!("running hooks for \"{}/{}\"", self.operation, stage);
         for hook in self.hooks(stage) {
             info!("running hook {}", hook.name);
-            let output = run!([&hook.path, self.operation, stage]
+            run!([&hook.path, self.operation, stage]
                 .with_vars(vars.clone())
-                .with_stderr(xscript::Out::Capture)
-                .with_stdout(xscript::Out::Capture))
+                .with_stderr(xscript::Out::Inherit)
+                .with_stdout(xscript::Out::Inherit))
             .whatever_with(|_| {
                 format!("hook \"{}/{}/{}\" failed", self.operation, stage, hook.name)
             })?;
-            std::io::stderr()
-                .write_all(
-                    output
-                        .stderr
-                        .as_deref()
-                        .expect("stderr output has been captured"),
-                )
-                .ok();
         }
         Ok(())
     }
