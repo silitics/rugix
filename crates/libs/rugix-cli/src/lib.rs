@@ -49,6 +49,7 @@ impl CliBuilder {
                 .compact();
             tracing_subscriber::fmt()
                 .with_writer(StderrWriter::new())
+                .with_ansi(Term::stderr().is_term())
                 .event_format(format)
                 .init();
         }
