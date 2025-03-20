@@ -34,11 +34,11 @@ docker run --privileged --rm tonistiigi/binfmt --install armhf
 For `armhf`, note that the architecture reported by `uname -m` during the build process is `armv7l`, however, when running the image later on a non-ARMv7 board (e.g., Pi Zero or Pi 1), then the architecture will be `armv6l`.
 Make sure that the binaries you install are compatible with the `armv6l` architecture, if you aim to deploy the image to these boards.
 
-### Raspberry Pi 5
+## Raspberry Pi 5
 
 Updating the bootloader is not necessary for Raspberry Pi 5, as it already comes with the `tryboot` feature out-of-the-box.
 
-### Raspberry Pi 4 and Compute Module 4
+## Raspberry Pi 4 and Compute Module 4
 
 The bootloader version shipped with Raspberry Pi 4 and Compute Module 4 does not support the `tryboot` feature out-of-the-box.
 To use Rugix Bakery with these boards, the bootloader stored in the EEPROM must be updated to at least version `2023-05-11`.
@@ -48,7 +48,20 @@ The bootloader will then be automatically updated when first booting the image.
 Note that after the first boot, the automatic update will be disabled, i.e., you cannot take the SD card to another Raspberry Pi which does not yet have the update installed.
 Note that the resulting image will be specific for Raspberry Pi 4, do not use it for any other models.
 
-### Other Models
+## Updating `cmdline.txt` and `config.txt`
+
+If you are using the `tryboot` boot flow on a Raspberry Pi 4 or 5, you can also update the files `cmdline.txt` and `config.txt`.
+Those files are placed by the respective core recipes in the following directory:
+
+```
+${RUGIX_LAYER_DIR}/roots/boot/
+```
+
+Have a look at the recipes [`rpi-debian-setup`](https://github.com/silitics/rugix/tree/main/bakery/repositories/core/recipes/rpi-debian-setup) and [`rpi-alpine-setup`](https://github.com/silitics/rugix/tree/main/bakery/repositories/core/recipes/rpi-alpine-setup) for details.
+You can modify the files in the `roots/boot` directory with custom recipes.
+For builds based on Raspberry Pi OS, Rugix Bakery will extract the boot partition to `roots/boot`.
+
+## Other Models
 
 For other models than Pi 5, Pi 4, Pi 400, and CM 4, you must use the `rpi-uboot` target.
 
