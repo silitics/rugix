@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::io;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 use tracing::{info, warn};
@@ -32,13 +32,21 @@ impl Hooks {
         info!("running hooks for \"{}/{}\"", self.operation, stage);
         for hook in self.hooks(stage) {
             info!("running hook {}", hook.name);
-            run!([&hook.path, self.operation, stage]
+            let output = run!([&hook.path, self.operation, stage]
                 .with_vars(vars.clone())
                 .with_stderr(xscript::Out::Capture)
                 .with_stdout(xscript::Out::Capture))
             .whatever_with(|_| {
                 format!("hook \"{}/{}/{}\" failed", self.operation, stage, hook.name)
             })?;
+            std::io::stderr()
+                .write_all(
+                    output
+                        .stderr
+                        .as_deref()
+                        .expect("stderr output has been captured"),
+                )
+                .ok();
         }
         Ok(())
     }
