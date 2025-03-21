@@ -24,3 +24,9 @@ Always test any images and update bundles before deploying anything in productio
 ## Pre-Commit Hooks
 
 Make sure to have proper [pre-commit hooks](./ctrl/hooks.md) installed to prevent any commits as long as there are issues. In particular, make sure that the system is still able to reach any remote servers necessary for remote control or update installation. Without pre-commit hooks, **you risk rendering your device inoperable, loosing the ability to reach it remotely, and loosing the ability to deploy updates**.
+
+## System Users and Groups
+
+If you are creating users or groups with recipes, make sure to use fixed user and group IDs.
+If you don't assign fixed IDs, the IDs might change over time as you add further users or groups or change the order in which such users or groups are created.
+If you then deploy an update where the user and group IDs have changed over the old version, you are prone to permission errors for persisted state.
