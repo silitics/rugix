@@ -163,7 +163,7 @@ export default function Home(): JSX.Element {
               />
             </a>
           </div>
-          <div className="flex items-center justify-center mt-8">
+          <div className="flex flex-col items-center justify-center mt-8 gap-y-5">
             <div className="text-center max-w-[30ch]">
               <div className="italic leading-[1.5]">
                 “If you’re not using Rugix, you’re making things harder than
@@ -173,12 +173,30 @@ export default function Home(): JSX.Element {
                 – David Lekve, CTO at <a href="https://enmo.ai">enmo</a>
               </div>
             </div>
+            <div className="text-center max-w-[45ch]">
+              <div className="italic leading-[1.5]">
+                “Rugix is thoughtfully designed, fast to get started with, and
+                flexible in all the right ways. It’s the tool suite for embedded
+                Linux I’ve always wanted, and now finally have.”
+              </div>
+              <div>
+                – Rameen Aryanpur, CEO at <a href="https://goaqa.com/">Aqa</a>
+              </div>
+            </div>
           </div>
         </section>
         <section>
-          <h2 id="user-success-stories" className="text-center mb-8">User Success Stories</h2>
-          <div id="user-story-enmo" className="flex items-center justify-center gap-x-8 flex-wrap gap-y-4 px-4">
-            <img className="h-40" src="https://oss.silitics.com/third-party-logos/enmo-battery-brain.webp" />
+          <h2 id="user-success-stories" className="text-center mb-8">
+            User Success Stories
+          </h2>
+          <div
+            id="user-story-enmo"
+            className="flex items-center justify-center gap-x-8 flex-wrap gap-y-4 px-4"
+          >
+            <img
+              className="h-40"
+              src="https://oss.silitics.com/third-party-logos/enmo-battery-brain.webp"
+            />
             <div className="max-w-[60ch]">
               <h3 className="mb-2">BatteryBrain</h3>
               <div className="italic leading-[1.5]">
