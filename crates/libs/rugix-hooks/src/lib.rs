@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::io::{self, Write};
+use std::io::{self};
 use std::path::{Path, PathBuf};
 
 use tracing::{info, warn};
@@ -21,6 +21,18 @@ pub struct Hooks {
     stages: HashMap<String, Vec<Hook>>,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct RunOptions {
+    pub silent: bool,
+}
+
+impl RunOptions {
+    pub fn with_silent(&mut self, silent: bool) -> &mut Self {
+        self.silent = silent;
+        self
+    }
+}
+
 impl Hooks {
     /// Iterator over the hooks for the given stage.
     pub fn hooks(&self, stage: &str) -> &[Hook] {
@@ -28,14 +40,19 @@ impl Hooks {
     }
 
     /// Run the hooks for the given stage.
-    pub fn run_hooks(&self, stage: &str, vars: Vars) -> Result<(), Report<HooksRunError>> {
-        info!("running hooks for \"{}/{}\"", self.operation, stage);
+    pub fn run_hooks(&self, stage: &str, vars: Vars, opts: &RunOptions) -> Result<(), Report<HooksRunError>> {
+        if !opts.silent {
+            info!("running hooks for \"{}/{}\"", self.operation, stage);
+        }
         for hook in self.hooks(stage) {
-            info!("running hook {}", hook.name);
+            if !opts.silent {
+                info!("running hook {}", hook.name);
+            }
+            let out = if opts.silent { xscript::Out::Discard } else {xscript::Out::Inherit};
             run!([&hook.path, self.operation, stage]
                 .with_vars(vars.clone())
-                .with_stderr(xscript::Out::Inherit)
-                .with_stdout(xscript::Out::Inherit))
+                .with_stderr(out.clone())
+                .with_stdout(out))
             .whatever_with(|_| {
                 format!("hook \"{}/{}/{}\" failed", self.operation, stage, hook.name)
             })?;

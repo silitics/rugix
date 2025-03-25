@@ -91,7 +91,7 @@ fn main() -> BundleResult<()> {
                         .write(true)
                         .open(&unpack_cmd.dst)
                         .whatever("unable to open payload target")?;
-                    payload_reader.decode_into(target, None)?;
+                    payload_reader.decode_into(target, None, &mut |_| {})?;
                     did_read = true;
                     break;
                 }

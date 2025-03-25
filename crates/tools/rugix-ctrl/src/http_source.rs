@@ -16,6 +16,7 @@ pub struct HttpSource {
     skip_buffer: Vec<u8>,
     bytes_read: u64,
     bytes_skipped: u64,
+    total_bytes: Option<NumBytes>,
 }
 
 #[derive(Debug, Clone)]
@@ -39,6 +40,15 @@ impl HttpSource {
         let response = ureq::get(url)
             .call()
             .whatever("unable to get bundle from URL")?;
+        let content_length = response.headers().get("Content-Length").and_then(|length| {
+            length
+                .to_str()
+                .ok()?
+                .trim()
+                .parse::<u64>()
+                .ok()
+                .map(NumBytes::new)
+        });
         Ok(Self {
             url: url.to_owned(),
             supports_range: response
@@ -52,6 +62,7 @@ impl HttpSource {
             skip_buffer: Vec::new(),
             bytes_read: 0,
             bytes_skipped: 0,
+            total_bytes: content_length,
         })
     }
 }
@@ -108,5 +119,13 @@ impl BundleSource for HttpSource {
     fn skip(&mut self, length: byte_calc::NumBytes) -> rugix_bundle::BundleResult<()> {
         self.current_skipped += length.raw;
         Ok(())
+    }
+
+    fn bytes_read(&self) -> Option<NumBytes> {
+        Some(NumBytes::new(self.bytes_read + self.bytes_skipped))
+    }
+
+    fn bytes_total(&self) -> Option<NumBytes> {
+        self.total_bytes
     }
 }

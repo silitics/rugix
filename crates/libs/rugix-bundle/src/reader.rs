@@ -114,10 +114,11 @@ impl<'r, S: BundleSource> PayloadReader<'r, S> {
         Ok(read)
     }
 
-    pub fn decode_into<T: PayloadTarget>(
+    pub fn decode_into<T: PayloadTarget, F: FnMut(&S)>(
         mut self,
         mut target: T,
         provider: Option<&dyn StoredBlockProvider>,
+        progress: &mut F,
     ) -> BundleResult<()> {
         let mut buffer = vec![0; 8192];
         let mut payload_hasher = self.reader.header.hash_algorithm.hasher();
@@ -208,6 +209,7 @@ impl<'r, S: BundleSource> PayloadReader<'r, S> {
                 current_target_offset += buffer.byte_len();
                 target.write(&buffer)?;
                 payload_hasher.update(&buffer);
+                progress(&self.reader.source);
             }
         } else {
             loop {
@@ -217,6 +219,7 @@ impl<'r, S: BundleSource> PayloadReader<'r, S> {
                 }
                 target.write(&buffer[..read])?;
                 payload_hasher.update(&buffer[..read]);
+                progress(&self.reader.source);
             }
         }
         if payload_hasher.finalize().raw()

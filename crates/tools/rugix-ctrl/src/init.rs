@@ -163,12 +163,12 @@ fn init() -> SystemResult<()> {
             .whatever("unable to load `state-reset` hooks")?;
 
         reset_hooks
-            .run_hooks("pre-reset", Vars::new())
+            .run_hooks("pre-reset", Vars::new(), &Default::default())
             .whatever("unable to run `pre-reset` hooks")?;
         // The existence of the file indicates that the state shall be reset.
         fs::remove_dir_all(state_profile).ok();
         reset_hooks
-            .run_hooks("pre-reset", Vars::new())
+            .run_hooks("pre-reset", Vars::new(), &Default::default())
             .whatever("unable to run `post-reset` hooks")?;
     }
     fs::create_dir_all(state_profile).ok();
@@ -214,7 +214,7 @@ fn bootstrap(root: &SystemRoot) -> SystemResult<()> {
         .whatever("unable to load bootstrap hooks")?;
 
     bootstrap_hooks
-        .run_hooks("prepare", Vars::new())
+        .run_hooks("prepare", Vars::new(), &Default::default())
         .whatever("unable to run `bootstrap/prepare` hooks")?;
 
     let bootstrap_config = load_bootstrap_config()?;
@@ -259,7 +259,7 @@ fn bootstrap(root: &SystemRoot) -> SystemResult<()> {
 
     if let Some(schema) = schema {
         bootstrap_hooks
-            .run_hooks("pre-layout", Vars::new())
+            .run_hooks("pre-layout", Vars::new(), &Default::default())
             .whatever("unable to run `bootstrap/pre-layout` hooks")?;
         if let Some((old_table, _)) = bootstrap_partitions(&schema, root)? {
             // Partition is new, let's see whether we need to create a filesystem.
@@ -301,7 +301,7 @@ fn bootstrap(root: &SystemRoot) -> SystemResult<()> {
             }
         }
         bootstrap_hooks
-            .run_hooks("post-layout", Vars::new())
+            .run_hooks("post-layout", Vars::new(), &Default::default())
             .whatever("unable to run `bootstrap/post-layout` hooks")?;
     }
 

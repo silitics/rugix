@@ -11,8 +11,8 @@ use rugix_bundle::reader::PayloadTarget;
 use rugix_bundle::source::{BundleSource, ReaderSource, SkipRead};
 use rugix_bundle::BUNDLE_MAGIC;
 use rugix_hashes::{HashAlgorithm, HashDigest};
-use rugix_hooks::HooksLoader;
-use tracing::{error, info};
+use rugix_hooks::{HooksLoader, RunOptions};
+use tracing::{error, info, warn};
 
 use crate::system::boot_groups::{BootGroup, BootGroupIdx};
 use crate::system::slots::SlotKind;
@@ -68,7 +68,7 @@ pub fn main() -> SystemResult<()> {
                     .whatever("unable to load `state-reset` hooks")?;
 
                 reset_hooks
-                    .run_hooks("prepare", Vars::new())
+                    .run_hooks("prepare", Vars::new(), &Default::default())
                     .whatever("unable to run `state-reset/prepare` hooks")?;
                 create_rugix_state_directory()?;
                 set_rugix_state_flag("reset-state")?;
@@ -149,7 +149,7 @@ pub fn main() -> SystemResult<()> {
                     };
 
                     hooks
-                        .run_hooks("pre-update", hook_vars.clone())
+                        .run_hooks("pre-update", hook_vars.clone(), &Default::default())
                         .whatever("error running `pre-update` hooks")?;
 
                     if !keep_overlay {
@@ -168,7 +168,7 @@ pub fn main() -> SystemResult<()> {
                     )?;
 
                     hooks
-                        .run_hooks("post-update", hook_vars.clone())
+                        .run_hooks("post-update", hook_vars.clone(), &Default::default())
                         .whatever("error running `post-update` hooks")?;
 
                     let reboot_type = reboot_type.clone().unwrap_or(should_reboot);
@@ -233,11 +233,11 @@ pub fn main() -> SystemResult<()> {
                         .load_hooks("system-commit")
                         .whatever("unable to load `system-commit` hooks")?;
                     hooks
-                        .run_hooks("pre-commit", Vars::new())
+                        .run_hooks("pre-commit", Vars::new(), &Default::default())
                         .whatever("unable to run `pre-commit` hooks")?;
                     system.commit()?;
                     hooks
-                        .run_hooks("post-commit", Vars::new())
+                        .run_hooks("post-commit", Vars::new(), &Default::default())
                         .whatever("unable to run `post-commit` hooks")?;
                 } else {
                     println!("Active boot group is already the default!");
@@ -544,6 +544,32 @@ fn install_update_bundle<R: BundleSource>(
             .whatever("error executing pre-install step")?;
     }
 
+    let mut progress = {
+        let hooks = HooksLoader::default()
+            .load_hooks("update-install")
+            .whatever("unable to load `update-install` hooks")?;
+
+        let mut last_progress = 0.0;
+        move |source: &R| {
+            let Some(bytes_total) = source.bytes_total() else {
+                return;
+            };
+            let Some(bytes_read) = source.bytes_read() else {
+                return;
+            };
+            let current_progress = (bytes_read.raw as f64) / (bytes_total.raw as f64) * 100.0;
+            if current_progress - last_progress > 0.9 {
+                let hook_vars = vars! {
+                    RUGIX_UPDATE_PROGRESS = format!("{current_progress:.2}")
+                };
+                if let Err(error) = hooks.run_hooks("progress", hook_vars.clone(), &RunOptions::default().with_silent(true)) {
+                    warn!("error running 'update-install/progress' hooks: {error:?}");
+                }
+                last_progress = current_progress;
+            }
+        }
+    };
+
     while let Some(payload) = bundle_reader
         .next_payload()
         .whatever("unable to read payload")?
@@ -598,6 +624,7 @@ fn install_update_bundle<R: BundleSource>(
                                 block_provider
                                     .as_ref()
                                     .map(|p| p as &dyn StoredBlockProvider),
+                                &mut progress,
                             )
                             .whatever("unable to decode payload")?;
                     }
@@ -615,6 +642,7 @@ fn install_update_bundle<R: BundleSource>(
                                 block_provider
                                     .as_ref()
                                     .map(|p| p as &dyn StoredBlockProvider),
+                                &mut progress,
                             )
                             .whatever("unable to decode payload")?;
                     }
@@ -626,6 +654,7 @@ fn install_update_bundle<R: BundleSource>(
                                 block_provider
                                     .as_ref()
                                     .map(|p| p as &dyn StoredBlockProvider),
+                                &mut progress,
                             )
                             .whatever("unable to decode payload")?;
                     }
@@ -642,7 +671,7 @@ fn install_update_bundle<R: BundleSource>(
             eprintln!("executing update payload {}", payload.idx(),);
             let target = CustomTarget::new(type_execute.handler.iter().map(|arg| arg.as_str()))?;
             payload
-                .decode_into(target, None)
+                .decode_into(target, None, &mut progress)
                 .whatever("unable to decode payload")?;
             continue;
         }

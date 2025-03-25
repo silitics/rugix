@@ -38,19 +38,35 @@ pub trait BundleSource {
         }
         Ok(())
     }
+
+    fn bytes_read(&self) -> Option<NumBytes> {
+        None
+    }
+
+    fn bytes_total(&self) -> Option<NumBytes> {
+        None
+    }
 }
 
 impl<S: BundleSource + ?Sized> BundleSource for &mut S {
     fn read(&mut self, slice: &mut [u8]) -> BundleResult<usize> {
-        (*self).read(slice)
+        (**self).read(slice)
     }
 
     fn skip(&mut self, length: NumBytes) -> BundleResult<()> {
-        (*self).skip(length)
+        (**self).skip(length)
     }
 
     fn read_exact(&mut self, slice: &mut [u8]) -> BundleResult<()> {
-        (*self).read_exact(slice)
+        (**self).read_exact(slice)
+    }
+
+    fn bytes_read(&self) -> Option<NumBytes> {
+        (**self).bytes_read()
+    }
+
+    fn bytes_total(&self) -> Option<NumBytes> {
+        (**self).bytes_total()
     }
 }
 
@@ -65,6 +81,14 @@ impl<S: BundleSource + ?Sized> BundleSource for Box<S> {
 
     fn read_exact(&mut self, slice: &mut [u8]) -> BundleResult<()> {
         (**self).read_exact(slice)
+    }
+
+    fn bytes_read(&self) -> Option<NumBytes> {
+        (**self).bytes_read()
+    }
+
+    fn bytes_total(&self) -> Option<NumBytes> {
+        (**self).bytes_total()
     }
 }
 
@@ -212,5 +236,13 @@ impl<S: BundleSource> BundleSource for SourceHasher<S> {
         } else {
             self.source.skip(length)
         }
+    }
+
+    fn bytes_read(&self) -> Option<NumBytes> {
+        self.source.bytes_read()
+    }
+
+    fn bytes_total(&self) -> Option<NumBytes> {
+        self.source.bytes_total()
     }
 }
