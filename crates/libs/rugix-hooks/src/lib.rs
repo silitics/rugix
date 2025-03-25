@@ -40,7 +40,12 @@ impl Hooks {
     }
 
     /// Run the hooks for the given stage.
-    pub fn run_hooks(&self, stage: &str, vars: Vars, opts: &RunOptions) -> Result<(), Report<HooksRunError>> {
+    pub fn run_hooks(
+        &self,
+        stage: &str,
+        vars: Vars,
+        opts: &RunOptions,
+    ) -> Result<(), Report<HooksRunError>> {
         if !opts.silent {
             info!("running hooks for \"{}/{}\"", self.operation, stage);
         }
@@ -48,7 +53,11 @@ impl Hooks {
             if !opts.silent {
                 info!("running hook {}", hook.name);
             }
-            let out = if opts.silent { xscript::Out::Discard } else {xscript::Out::Inherit};
+            let out = if opts.silent {
+                xscript::Out::Discard
+            } else {
+                xscript::Out::Inherit
+            };
             run!([&hook.path, self.operation, stage]
                 .with_vars(vars.clone())
                 .with_stderr(out.clone())

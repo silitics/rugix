@@ -562,7 +562,11 @@ fn install_update_bundle<R: BundleSource>(
                 let hook_vars = vars! {
                     RUGIX_UPDATE_PROGRESS = format!("{current_progress:.2}")
                 };
-                if let Err(error) = hooks.run_hooks("progress", hook_vars.clone(), &RunOptions::default().with_silent(true)) {
+                if let Err(error) = hooks.run_hooks(
+                    "progress",
+                    hook_vars.clone(),
+                    &RunOptions::default().with_silent(true),
+                ) {
                     warn!("error running 'update-install/progress' hooks: {error:?}");
                 }
                 last_progress = current_progress;
