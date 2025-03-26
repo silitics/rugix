@@ -10,6 +10,26 @@ sed -i "s/RELEASE/bookworm/g" "/etc/apt/sources.list.d/raspberrypi.list"
 apt-get update -y
 apt-get install -y raspberrypi-archive-keyring
 
+if [ "${RECIPE_PARAM_WITH_NONFREE}" == "true" ]; then
+    # Make sure that the non-free sources are available.
+    sed -i '/main/!b; /non-free/b; s/$/ non-free/' /etc/apt/sources.list
+    sed -i '/main/!b; /non-free-firmware/b; s/$/ non-free-firmware/' /etc/apt/sources.list
+
+    apt-get update -y
+
+    if [ "${RECIPE_PARAM_WITH_FIRMWARE}" == "true" ]; then
+        echo "Installing nonfree firmware..."
+        apt-get install -y \
+            firmware-atheros \
+            firmware-brcm80211 \
+            firmware-libertas \
+            firmware-misc-nonfree \
+            firmware-realtek
+    fi
+else
+    echo "Without non-free firmware, WiFi cards will likely not work."
+fi
+
 apt-get install -y \
     initramfs-tools \
     raspi-firmware \
