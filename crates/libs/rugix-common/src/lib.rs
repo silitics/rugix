@@ -2,8 +2,8 @@
 #![cfg_attr(feature = "nightly", feature(doc_auto_cfg))]
 
 use std::collections::HashMap;
+use std::fs;
 use std::path::Path;
-use std::{fs, io};
 
 use boot::grub::grub_envblk_encode;
 use reportify::{Report, ResultExt};
@@ -83,21 +83,6 @@ pub fn rpi_patch_boot(
         Ok(())
     }
     _patch_cmdline(path.as_ref(), root.as_ref())
-}
-
-/// Patches `config.txt` to not use `initramfs`.
-pub fn rpi_patch_config(path: impl AsRef<Path>) -> io::Result<()> {
-    fn _patch_config(path: &Path) -> io::Result<()> {
-        let config = fs::read_to_string(path)?;
-        let lines = config
-            .lines()
-            .filter(|line| !line.trim_start().starts_with("auto_initramfs"))
-            .map(str::to_owned)
-            .collect::<Vec<_>>();
-        fs::write(path, lines.join("\n"))?;
-        Ok(())
-    }
-    _patch_config(path.as_ref())
 }
 
 /// Runs a closure on drop.

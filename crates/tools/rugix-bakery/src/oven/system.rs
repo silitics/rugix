@@ -18,7 +18,7 @@ use rugix_common::disk::{
 use rugix_common::fsutils::allocate_file;
 use rugix_common::utils::ascii_numbers;
 use rugix_common::utils::units::NumBytes;
-use rugix_common::{grub_patch_env, rpi_patch_boot, rpi_patch_config};
+use rugix_common::{grub_patch_env, rpi_patch_boot};
 
 use crate::config::images::{Filesystem, ImageLayout};
 use crate::config::load_json;
@@ -199,9 +199,6 @@ pub fn make_system(
             info!("Patching boot configuration.");
             rpi_patch_boot(&boot_dir, format!("PARTUUID={disk_id:08X}-05"))
                 .whatever("unable to patch boot configuration")?;
-            info!("Patching `config.txt`.");
-            rpi_patch_config(boot_dir.join("config.txt"))
-                .whatever("unable to patch `config.txt`")?;
         }
         if matches!(target, Target::GenericGrubEfi) {
             let root_part = &table.partitions[3];
