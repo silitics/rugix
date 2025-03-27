@@ -30,7 +30,9 @@ if [ -t 0 ] && [ -t 1 ]; then
 fi
 
 if [ -n "${RUGIX_CACHE_VOLUME}" ]; then
-    $DOCKER volume create "${RUGIX_CACHE_VOLUME}" >/dev/null
+    if ! $DOCKER volume inspect "${RUGIX_CACHE_VOLUME}" >/dev/null 2>&1; then
+        $DOCKER volume create "${RUGIX_CACHE_VOLUME}" >/dev/null
+    fi
     DOCKER_FLAGS="${DOCKER_FLAGS} -v ${RUGIX_CACHE_VOLUME}:/run/rugix/bakery/cache"
 fi
 
