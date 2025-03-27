@@ -47,7 +47,14 @@ In the following, we document the available hooks.
 For the installation of updates, the stages of `update-install` hooks are:
 
 - `pre-update`: Runs directly before installing an update.
+- `progress`: Runs periodically while installing an update.
 - `post-update`: Runs directly after installing an update (before rebooting).
+
+When running the `update-install/progress` hook, the progress of the update as a percentage is provided in the environment variable `RUGIX_UPDATE_PROGRESS`, including fractional digits.
+Any outputs of such hooks are discarded and any errors will merely result in a warning, i.e., will not abort the update process.
+Such hooks are only intended to report update progress to users and are thus not considered mission critical.
+**There is neither a guarantee on the frequency with which such hooks run nor that they run at all.**
+In particular, such hooks will **not** run when streaming an update from an arbitrary source.
 
 For committing to an update or rollback, the stages of `system-commit` hooks are:
 
