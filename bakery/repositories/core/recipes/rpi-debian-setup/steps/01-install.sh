@@ -2,7 +2,14 @@
 
 set -euo pipefail
 
-BOOT_DIR="${RUGIX_LAYER_DIR}/roots/boot/"
+BOOT_DIR="${RUGIX_LAYER_DIR}/roots/boot"
+
+if [ "${RECIPE_PARAM_WITH_SQUASHFS}" == "true" ]; then
+    apt-get install -y initramfs-tools
+    echo "squashfs" > "/usr/share/initramfs-tools/modules.d/rugix"
+fi
+
+mkdir -p "${BOOT_DIR}"
 
 install -m 644 "${RECIPE_DIR}/files/raspberrypi.list" "/etc/apt/sources.list.d/"
 sed -i "s/RELEASE/bookworm/g" "/etc/apt/sources.list.d/raspberrypi.list"
