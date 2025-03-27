@@ -62,3 +62,6 @@ if [ ! -x /usr/sbin/sfdisk ]; then
     echo "Sfdisk is missing and cannot be installed!"
     exit 1
 fi
+
+# Compatibility for updates from versions prior to v0.8.
+ln -s /usr/bin/rugix-ctrl /usr/bin/rugpi-ctrl
