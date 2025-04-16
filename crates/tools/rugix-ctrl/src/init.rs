@@ -440,7 +440,7 @@ fn setup_persistent_state(
             PersistConfig::Directory(PersistDirectoryConfig { directory }) => {
                 let directory = path_strip_root(directory.as_ref());
                 eprintln!(
-                    "Setting up bind mounds for directory `{}`...",
+                    "Setting up bind mounts for directory `{}`...",
                     directory.to_string_lossy()
                 );
                 let system_path = root_dir.join(directory);
@@ -471,7 +471,7 @@ fn setup_persistent_state(
             PersistConfig::File(PersistFileConfig { file, default }) => {
                 let file = path_strip_root(file.as_ref());
                 eprintln!(
-                    "Setting up bind mounds for file `{}`...",
+                    "Setting up bind mounts for file `{}`...",
                     file.to_string_lossy()
                 );
                 let system_path = root_dir.join(file);
