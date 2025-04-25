@@ -319,10 +319,7 @@ fn mount_essential_filesystems() -> SystemResult<()> {
         );
     }
     if let Err(error) = run!([MOUNT, "-t", "sysfs", "sys", "/sys"]) {
-        eprintln!(
-            "{:?}",
-            error.whatever::<SystemError, _>("error mounting /sys"),
-        );
+        eprintln!("'/sys' appears to be already mounted: {error}");
     }
     if let Err(error) = run!([MOUNT, "-t", "tmpfs", "tmp", "/run"]) {
         eprintln!(
