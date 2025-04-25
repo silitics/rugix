@@ -46,7 +46,7 @@ record LayoutPartitionConfig {
     filesystem?: Filesystem,
 }
 
-#[json(tag="type")]
+#[json(tag="type", rename_all = "lowercase")]
 variant Filesystem {
     Ext4: Ext4Filesystem,
 }

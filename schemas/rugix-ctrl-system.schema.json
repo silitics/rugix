@@ -78,7 +78,7 @@
           "type": "object",
           "properties": {
             "type": {
-              "const": "Ext4"
+              "const": "ext4"
             },
             "label": {
               "type": "string"
@@ -423,13 +423,13 @@
             "type": {
               "const": "custom"
             },
-            "path": {
+            "controller": {
               "type": "string"
             }
           },
           "required": [
             "type",
-            "path"
+            "controller"
           ]
         }
       ]
@@ -456,12 +456,12 @@
       "type": "object",
       "description": "Custom boot flow configuration.",
       "properties": {
-        "path": {
+        "controller": {
           "type": "string"
         }
       },
       "required": [
-        "path"
+        "controller"
       ],
       "unevaluatedProperties": false
     },
