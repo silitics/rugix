@@ -7,6 +7,7 @@ use std::io::Write;
 
 use custom::CustomBootFlow;
 use reportify::{bail, Report, ResultExt};
+use rugix_common::disk::PartitionTable;
 use serde::{Deserialize, Serialize};
 use tempfile::tempdir;
 
@@ -353,7 +354,10 @@ fn tryboot_uboot_post_install(
             format!("PARTUUID={disk_id}-06")
         }
     } else {
-        todo!("use the GPT partition UUID");
+        let table =
+            PartitionTable::read(&root.device).whatever("unable to read partition table")?;
+        let partition = &table.partitions[if entry == inner.entry_a { 4 } else { 5 }];
+        format!("PARTUUID={}", partition.gpt_id.unwrap())
     };
     rpi_patch_boot(temp_dir_spare, root).whatever("unable to patch boot partition")?;
     Ok(())
