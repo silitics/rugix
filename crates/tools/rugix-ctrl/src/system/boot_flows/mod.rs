@@ -356,7 +356,8 @@ fn tryboot_uboot_post_install(
     } else {
         let table =
             PartitionTable::read(&root.device).whatever("unable to read partition table")?;
-        let partition = &table.partitions[if entry == inner.entry_a { 4 } else { 5 }];
+        // Use partitions 4 (index 3) and 5 (index 4).
+        let partition = &table.partitions[if entry == inner.entry_a { 3 } else { 4 }];
         format!("PARTUUID={}", partition.gpt_id.unwrap())
     };
     rpi_patch_boot(temp_dir_spare, root).whatever("unable to patch boot partition")?;
