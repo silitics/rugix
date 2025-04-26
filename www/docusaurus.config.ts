@@ -53,17 +53,16 @@ const config: Config = {
       disableSwitch: true,
       respectPrefersColorScheme: false,
     },
-    // announcementBar: {
-    //   // id: "release",
-    //   content: `
-    //       📣 Visit us at HANNOVER MESSE 2025, <a target="_blank" href="https://www.hannovermesse.de/exhibitor/silitics/N1582866">hall 15 stand G17</a>.
-    //       <a href="mailto:hello@silitics.com">Reach out for a free ticket and make an appointment with our experts!</a> 📣
-    //     `,
-    //   backgroundColor: "#6ee7b7",
-    //   // backgroundColor: "#bdddfb",
-    //   // textColor: "#000000",
-    //   isCloseable: false,
-    // },
+    announcementBar: {
+      // id: "release",
+      content: `
+          📣 <a target="_blank" href="/rugix/docs/ctrl/advanced/yocto-integration">We now provide an experimental Yocto layers for Rugix Ctrl. Any feedback is appreciated!</a> 📣
+        `,
+      backgroundColor: "#6ee7b7",
+      // backgroundColor: "#bdddfb",
+      // textColor: "#000000",
+      isCloseable: false,
+    },
     navbar: {
       title: "Rugix",
       logo: {

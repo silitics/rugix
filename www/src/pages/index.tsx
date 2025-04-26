@@ -260,6 +260,16 @@ export default function Home(): JSX.Element {
               ✅ Provides powerful interfaces to built your own update workflow
               upon.
             </li>
+            <li>
+              ✅ Open-source{" "}
+              <a
+                href="https://github.com/silitics/meta-rugix/"
+                target="_blank"
+              >
+                Yocto layers
+              </a>{" "}
+              for seamless Rugix integration.
+            </li>
           </ul>
           <p className="mx-auto max-w-[75ch] text-center">
             Rugix Ctrl{" "}

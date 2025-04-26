@@ -138,11 +138,10 @@ Now, here is the promised feature-wise comparison of the different solutions.[^c
 | Security: Embedded Signatures | ✅ | ✅ | ✅ | ❌ | Embed signatures into an update. |
 | Security: External Signatures | ❌ | ❌ | ❌ | ✅ | Use an external signature/root of trust. |
 | Security: Encrypted Updates | ❌ | ✅ | ✅ | ❌ | Encrypted update artifacts.
-| Yocto Integration | ✅ | ✅ | ❌[^swu-yocto] | ✔️[^rugix-yocto] | Ready-made Yocto integration. |
+| Yocto Integration | ✅ | ✅ | ❌[^swu-yocto] | ✅ | Ready-made Yocto integration. |
 
 [^mender-update-modules]: With Mender's update modules you could build this yourself, however, there is no built-in support.
 [^mender-delta]: Only supported in the enterprise version, not the open-source version.
 [^build-yourself]: You can build this yourself using third-party tools.
 [^tryboot]: Official mechanism to realize A/B updates on Raspberry Pi.
 [^swu-yocto]: You need to build this yourself based on your concrete update workflow.
-[^rugix-yocto]: Available commercially from [Silitics](/commercial-support).

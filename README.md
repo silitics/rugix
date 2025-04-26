@@ -22,6 +22,7 @@ Currently, the tool suite consists of two main tools:
 
 While these tools are designed two work seamlessly together, **they can be used independently**.
 By providing a unified and efficient modern development workflow, **Rugix enables better results at a lower cost**.
+If you prefer [Yocto](https://www.yoctoproject.org) over Rugix Bakery, we also provide open-source [Yocto layers for Rugix](https://github.com/silitics/meta-rugix/).
 
 [**Get started today! Build your first system and deploy an update, all in under 30 minutes!**](https://rugix.org/docs/getting-started) 🚀
 
@@ -38,6 +39,7 @@ Rugix Ctrl has all features you would expect from a state-of-the-art update solu
 - **Robust state management mechanism** inspired by container-based architectures.
 - Integrates well with [different fleet management solutions](https://rugix.org/docs/ctrl/advanced/fleet-management) (avoids vendor lock-in).
 - Provides powerful interfaces to built your own update workflow upon.
+- Open-source [Yocto layers](https://github.com/silitics/meta-rugix/) for seamless Rugix integration.
 
 Rugix Ctrl **supports or can be adapted to almost any requirements you may have** when it comes to robust and secure updates of your entire system as well as its individual components.
 
