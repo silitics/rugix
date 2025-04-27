@@ -65,6 +65,18 @@
           "required": [
             "type"
           ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "xz-mt"
+            },
+            "level": {}
+          },
+          "required": [
+            "type"
+          ]
         }
       ]
     },

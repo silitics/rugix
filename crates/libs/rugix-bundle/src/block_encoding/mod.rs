@@ -105,9 +105,7 @@ pub fn encode_payload_file(
             .compression
             .as_ref()
             .map(|compression| match compression {
-                manifest::Compression::Xz(opts) if opts.multithreaded.unwrap_or(false) => {
-                    rugix_compression::CompressionFormat::XzMt
-                }
+                manifest::Compression::XzMt(_)  => rugix_compression::CompressionFormat::XzMt,
                 manifest::Compression::Xz(_) => rugix_compression::CompressionFormat::Xz,
             }),
         chunker: block_index.config().chunker.clone(),
