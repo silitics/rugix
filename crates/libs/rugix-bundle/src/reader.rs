@@ -395,7 +395,7 @@ pub fn expect_value(source: &mut dyn BundleSource, tag: Tag) -> BundleResult<Num
 
 fn uncompress_bytes(format: CompressionFormat, bytes: &[u8]) -> Vec<u8> {
     match format {
-        CompressionFormat::Xz => {
+        CompressionFormat::Xz | CompressionFormat::XzMt => {
             let mut decoder = rugix_compression::XzDecoder::new();
             let mut output = Vec::new();
             decoder.process(bytes, &mut output).unwrap();

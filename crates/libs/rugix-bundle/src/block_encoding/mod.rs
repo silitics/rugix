@@ -40,8 +40,11 @@ pub fn encode_payload_file(
                 .whatever("unable to seek in payload file")?;
             match &block_encoding.compression {
                 Some(manifest::Compression::Xz(compression)) => {
-                    let mut compressor =
-                        rugix_compression::XzEncoder::new(compression.level.unwrap_or(6));
+                    let mut compressor = if compression.multithreaded.unwrap_or(false) {
+                        rugix_compression::XzMtEncoder::new(compression.level.unwrap_or(6))
+                    } else {
+                        rugix_compression::XzEncoder::new(compression.level.unwrap_or(6))
+                    };
                     let start_position = payload_data
                         .stream_position()
                         .whatever("unable to get position in payload data")?;
@@ -102,6 +105,9 @@ pub fn encode_payload_file(
             .compression
             .as_ref()
             .map(|compression| match compression {
+                manifest::Compression::Xz(opts) if opts.multithreaded.unwrap_or(false) => {
+                    rugix_compression::CompressionFormat::XzMt
+                }
                 manifest::Compression::Xz(_) => rugix_compression::CompressionFormat::Xz,
             }),
         chunker: block_index.config().chunker.clone(),
@@ -129,7 +135,8 @@ pub fn encode_payload_file(
 fn compress_bytes(block_encoding: &BlockEncoding, bytes: &[u8]) -> Vec<u8> {
     match &block_encoding.compression {
         Some(manifest::Compression::Xz(compression)) => {
-            let mut compressor = rugix_compression::XzEncoder::new(compression.level.unwrap_or(6));
+            // Default to XzMt encoder unless explicitly disabled
+            let mut compressor = rugix_compression::XzMtEncoder::new(compression.level.unwrap_or(6));
             let mut output = Vec::new();
             compressor.process(bytes, &mut output).unwrap();
             compressor.finalize(&mut output).unwrap();
