@@ -10,6 +10,7 @@ homepage.workspace = true
 [dependencies]
 serde.workspace = true
 xz2.workspace = true
+num_cpus.workspace = true
 
 [lints]
 workspace = true
