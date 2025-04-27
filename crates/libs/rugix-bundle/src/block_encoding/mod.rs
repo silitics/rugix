@@ -39,11 +39,14 @@ pub fn encode_payload_file(
                 .seek(std::io::SeekFrom::Start(entry.offset.raw))
                 .whatever("unable to seek in payload file")?;
             match &block_encoding.compression {
-                Some(manifest::Compression::Xz(compression)) => {
-                    let mut compressor = if compression.multithreaded.unwrap_or(false) {
-                        rugix_compression::XzMtEncoder::new(compression.level.unwrap_or(6))
-                    } else {
-                        rugix_compression::XzEncoder::new(compression.level.unwrap_or(6))
+                Some(compression) => {
+                    let mut compressor: Box<dyn ByteProcessor<Output = std::io::Result<()>>> = match compression {
+                        manifest::Compression::Xz(config) => {
+                            Box::new(rugix_compression::XzEncoder::new(config.level.unwrap_or(6)))
+                        }
+                        manifest::Compression::XzMt(config) => {
+                            Box::new(rugix_compression::XzMtEncoder::new(config.level.unwrap_or(6)))
+                        }
                     };
                     let start_position = payload_data
                         .stream_position()
@@ -133,7 +136,13 @@ pub fn encode_payload_file(
 fn compress_bytes(block_encoding: &BlockEncoding, bytes: &[u8]) -> Vec<u8> {
     match &block_encoding.compression {
         Some(manifest::Compression::Xz(compression)) => {
-            // Default to XzMt encoder unless explicitly disabled
+            let mut compressor = rugix_compression::XzEncoder::new(compression.level.unwrap_or(6));
+            let mut output = Vec::new();
+            compressor.process(bytes, &mut output).unwrap();
+            compressor.finalize(&mut output).unwrap();
+            output
+        }
+        Some(manifest::Compression::XzMt(compression)) => {
             let mut compressor = rugix_compression::XzMtEncoder::new(compression.level.unwrap_or(6));
             let mut output = Vec::new();
             compressor.process(bytes, &mut output).unwrap();
