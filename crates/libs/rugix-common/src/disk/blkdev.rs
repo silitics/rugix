@@ -104,19 +104,34 @@ impl BlockDevice {
     /// Query the size of the block device in bytes.
     pub fn size(&self) -> io::Result<u64> {
         use nix::ioctl_read;
-        use nix::libc::c_ulonglong;
+        use nix::libc::{c_ulonglong, size_t};
 
         ioctl_read! {
             /// Get the size of the block device in bytes.
-            ioctl_get_size, 0x12, 114, c_ulonglong
+            ioctl_get_size64, 0x12, 114, c_ulonglong
+        }
+
+        ioctl_read! {
+            /// Get the size of the block device in 512-byte sectors.
+            ioctl_get_size, 012, 112, size_t
         }
 
         let file = fs::File::open(&self.path)?;
         let mut size = 0;
+        #[cfg(not(target_pointer_width = "32"))]
         unsafe {
             // SAFETY: The file points to a block device.
-            ioctl_get_size(file.as_raw_fd(), &mut size)
+            ioctl_get_size64(file.as_raw_fd(), &mut size)
         }?;
+        #[cfg(target_pointer_width = "32")]
+        {
+            let mut sectors = 0;
+            unsafe {
+                // SAFETY: The file points to a block device.
+                ioctl_get_size(file.as_raw_fd(), &mut sectors);
+            }
+            size = u64::from(sectors) * 512;
+        }
         Ok(size)
     }
 
