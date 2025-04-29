@@ -130,7 +130,7 @@ impl BlockDevice {
                 // SAFETY: The file points to a block device.
                 ioctl_get_size(file.as_raw_fd(), &mut sectors);
             }
-            size = u64::from(sectors) * 512;
+            size = (sectors as u64) * 512;
         }
         Ok(size)
     }
