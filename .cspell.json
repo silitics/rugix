@@ -21,6 +21,7 @@
     "autoboot",
     "avahi",
     "blkdev",
+    "BLKGETSIZE",
     "blkid",
     "blkpg",
     "BLKRRPART",

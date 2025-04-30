@@ -103,39 +103,28 @@ impl BlockDevice {
 
     /// Query the size of the block device in bytes.
     pub fn size(&self) -> io::Result<u64> {
-        use nix::ioctl_read;
-        use nix::libc::{c_ulonglong, size_t};
+        use nix::libc::c_int;
+        use nix::{ioctl_read_bad, request_code_read};
 
-        ioctl_read! {
+        /// The `ioctl` request code for `BLKGETSIZE64`.
+        const IOCTL_REQUEST_CODE: c_int =
+            request_code_read!(0x12, 114, std::mem::size_of::<*mut u64>()) as c_int;
+
+        // We have to use `ioctl_read_bad` here because the code is computed with
+        // `*mut u64` but the actual type needs to be `u64`. There might be a bug in
+        // the `ioctl_read` macro provided by `nix`.
+        ioctl_read_bad! {
             /// Get the size of the block device in bytes.
-            ioctl_get_size64, 0x12, 114, c_ulonglong
-        }
-
-        ioctl_read! {
-            /// Get the size of the block device in 512-byte blocks.
-            ioctl_get_size, 0x12, 96, size_t
+            ioctl_get_size64, IOCTL_REQUEST_CODE, u64
         }
 
         let file = fs::File::open(&self.path)?;
-
-        #[cfg(not(target_pointer_width = "32"))]
-        {
-            let mut size = 0;
+        let mut size = 0;
+        unsafe {
             // SAFETY: The file points to a block device.
-            unsafe {
-                ioctl_get_size64(file.as_raw_fd(), &mut size)?;
-            }
-            return Ok(size);
+            ioctl_get_size64(file.as_raw_fd(), &mut size)?;
         }
-        #[cfg(target_pointer_width = "32")]
-        {
-            let mut blocks = 0;
-            unsafe {
-                // SAFETY: The file points to a block device.
-                ioctl_get_size(file.as_raw_fd(), &mut blocks)?;
-            }
-            Ok((blocks as u64) * 512)
-        }
+        Ok(size)
     }
 
     /// Find the parent device of the block device, if any.
