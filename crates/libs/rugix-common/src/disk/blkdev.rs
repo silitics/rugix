@@ -112,27 +112,30 @@ impl BlockDevice {
         }
 
         ioctl_read! {
-            /// Get the size of the block device in 512-byte sectors.
-            ioctl_get_size, 012, 112, size_t
+            /// Get the size of the block device in 512-byte blocks.
+            ioctl_get_size, 0x12, 96, size_t
         }
 
         let file = fs::File::open(&self.path)?;
-        let mut size = 0;
+
         #[cfg(not(target_pointer_width = "32"))]
-        unsafe {
+        {
+            let mut size = 0;
             // SAFETY: The file points to a block device.
-            ioctl_get_size64(file.as_raw_fd(), &mut size)
-        }?;
+            unsafe {
+                ioctl_get_size64(file.as_raw_fd(), &mut size)?;
+            }
+            return Ok(size);
+        }
         #[cfg(target_pointer_width = "32")]
         {
-            let mut sectors = 0;
+            let mut blocks = 0;
             unsafe {
                 // SAFETY: The file points to a block device.
-                ioctl_get_size(file.as_raw_fd(), &mut sectors);
+                ioctl_get_size(file.as_raw_fd(), &mut blocks)?;
             }
-            size = (sectors as u64) * 512;
+            Ok((blocks as u64) * 512)
         }
-        Ok(size)
     }
 
     /// Find the parent device of the block device, if any.
