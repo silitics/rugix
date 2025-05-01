@@ -39,43 +39,70 @@ pub fn encode_payload_file(
                 .seek(std::io::SeekFrom::Start(entry.offset.raw))
                 .whatever("unable to seek in payload file")?;
             match &block_encoding.compression {
-                Some(compression) => {
-                    let mut compressor: Box<dyn ByteProcessor<Output = std::io::Result<()>>> = match compression {
-                        manifest::Compression::Xz(config) => {
-                            Box::new(rugix_compression::XzEncoder::new(config.level.unwrap_or(6)))
+                Some(compression) => match compression {
+                    manifest::Compression::Xz(config) => {
+                        let mut compressor =
+                            rugix_compression::XzEncoder::new(config.level.unwrap_or(6));
+                        let start_position = payload_data
+                            .stream_position()
+                            .whatever("unable to get position in payload data")?;
+                        let mut remaining = entry.size;
+                        while remaining > 0 {
+                            let buffer = payload_file
+                                .fill_buf()
+                                .whatever("unable to read payload file")?;
+                            if buffer.is_empty() {
+                                bail!("payload file has been truncated");
+                            };
+                            let chunk = &buffer[..remaining.min(buffer.byte_len()).unwrap_usize()];
+                            compressor
+                                .process(chunk, &mut payload_data)
+                                .whatever("unable to write compressed data")?;
+                            remaining -= chunk.byte_len();
+                            let consumed = chunk.len();
+                            payload_file.consume(consumed);
                         }
-                        manifest::Compression::XzMt(config) => {
-                            Box::new(rugix_compression::XzMtEncoder::new(config.level.unwrap_or(6)))
-                        }
-                    };
-                    let start_position = payload_data
-                        .stream_position()
-                        .whatever("unable to get position in payload data")?;
-                    let mut remaining = entry.size;
-                    while remaining > 0 {
-                        let buffer = payload_file
-                            .fill_buf()
-                            .whatever("unable to read payload file")?;
-                        if buffer.is_empty() {
-                            bail!("payload file has been truncated");
-                        };
-                        let chunk = &buffer[..remaining.min(buffer.byte_len()).unwrap_usize()];
                         compressor
-                            .process(chunk, &mut payload_data)
+                            .finalize(&mut payload_data)
                             .whatever("unable to write compressed data")?;
-                        remaining -= chunk.byte_len();
-                        let consumed = chunk.len();
-                        payload_file.consume(consumed);
+                        let block_size = payload_data
+                            .stream_position()
+                            .whatever("unable to get position in payload data")?
+                            - start_position;
+                        block_sizes.push(NumBytes::new(block_size));
                     }
-                    compressor
-                        .finalize(&mut payload_data)
-                        .whatever("unable to write compressed data")?;
-                    let block_size = payload_data
-                        .stream_position()
-                        .whatever("unable to get position in payload data")?
-                        - start_position;
-                    block_sizes.push(NumBytes::new(block_size));
-                }
+                    manifest::Compression::XzMt(config) => {
+                        let mut compressor =
+                            rugix_compression::XzMtEncoder::new(config.level.unwrap_or(6));
+                        let start_position = payload_data
+                            .stream_position()
+                            .whatever("unable to get position in payload data")?;
+                        let mut remaining = entry.size;
+                        while remaining > 0 {
+                            let buffer = payload_file
+                                .fill_buf()
+                                .whatever("unable to read payload file")?;
+                            if buffer.is_empty() {
+                                bail!("payload file has been truncated");
+                            };
+                            let chunk = &buffer[..remaining.min(buffer.byte_len()).unwrap_usize()];
+                            compressor
+                                .process(chunk, &mut payload_data)
+                                .whatever("unable to write compressed data")?;
+                            remaining -= chunk.byte_len();
+                            let consumed = chunk.len();
+                            payload_file.consume(consumed);
+                        }
+                        compressor
+                            .finalize(&mut payload_data)
+                            .whatever("unable to write compressed data")?;
+                        let block_size = payload_data
+                            .stream_position()
+                            .whatever("unable to get position in payload data")?
+                            - start_position;
+                        block_sizes.push(NumBytes::new(block_size));
+                    }
+                },
                 None => {
                     let mut remaining = entry.size;
                     while remaining > 0 {
@@ -108,7 +135,7 @@ pub fn encode_payload_file(
             .compression
             .as_ref()
             .map(|compression| match compression {
-                manifest::Compression::XzMt(_)  => rugix_compression::CompressionFormat::XzMt,
+                manifest::Compression::XzMt(_) => rugix_compression::CompressionFormat::XzMt,
                 manifest::Compression::Xz(_) => rugix_compression::CompressionFormat::Xz,
             }),
         chunker: block_index.config().chunker.clone(),
@@ -143,7 +170,8 @@ fn compress_bytes(block_encoding: &BlockEncoding, bytes: &[u8]) -> Vec<u8> {
             output
         }
         Some(manifest::Compression::XzMt(compression)) => {
-            let mut compressor = rugix_compression::XzMtEncoder::new(compression.level.unwrap_or(6));
+            let mut compressor =
+                rugix_compression::XzMtEncoder::new(compression.level.unwrap_or(6));
             let mut output = Vec::new();
             compressor.process(bytes, &mut output).unwrap();
             compressor.finalize(&mut output).unwrap();

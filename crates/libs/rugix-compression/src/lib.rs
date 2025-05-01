@@ -141,7 +141,6 @@ impl XzMtEncoder {
             .check(xz2::stream::Check::Crc64)
             .encoder()
             .expect("options should be valid");
-        
         Self {
             buffer: Vec::with_capacity(32 * 1024),
             stream,
