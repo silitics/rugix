@@ -6,6 +6,7 @@ use byte_calc::{ByteLen, NumBytes};
 use reportify::{bail, whatever, ResultExt};
 use rugix_compression::{ByteProcessor, CompressionFormat};
 use rugix_hashes::HashDigest;
+use tracing::{debug, error};
 
 use crate::block_encoding::block_index::{BlockId, RawBlockIndex};
 use crate::block_encoding::block_table::BlockTable;
@@ -151,8 +152,8 @@ impl<'r, S: BundleSource> PayloadReader<'r, S> {
             let mut table = BlockTable::new();
             let mut current_target_offset = NumBytes::ZERO;
             let num_blocks = block_index_raw.len() / block_encoding.hash_algorithm.hash_size();
-            let mut target_offsets = Vec::with_capacity(num_blocks);
-            let mut target_sizes = Vec::with_capacity(num_blocks);
+            let mut target_offsets = Vec::<NumBytes>::with_capacity(num_blocks);
+            let mut target_sizes = Vec::<NumBytes>::with_capacity(num_blocks);
             let mut next_size_idx = 0;
             for (idx, block_hash) in block_index_raw
                 .chunks_exact(block_encoding.hash_algorithm.hash_size())
@@ -173,6 +174,14 @@ impl<'r, S: BundleSource> PayloadReader<'r, S> {
                         .min(self.remaining_data.raw);
                     next_size_idx += 1;
                     if let Some(stored_block) = provider.and_then(|p| p.query(block_hash)) {
+                        debug!(
+                            block_idx = idx,
+                            block_size_bundle = block_size,
+                            stored_block_file = ?stored_block.file,
+                            stored_block_offset = stored_block.offset.raw,
+                            stored_block_size = stored_block.size.raw,
+                            "using stored block from provider"
+                        );
                         // We already have the block, let's skip it.
                         self.reader.source.skip(block_size.into())?;
                         self.remaining_data -= block_size;
@@ -192,16 +201,35 @@ impl<'r, S: BundleSource> PayloadReader<'r, S> {
                         if let Some(format) = block_encoding.compression {
                             buffer = uncompress_bytes(format, &buffer);
                         }
+                        debug!(
+                            block_idx = idx,
+                            block_size = buffer.len(),
+                            block_size_bundle = block_size,
+                            "using block from bundle"
+                        );
                     }
                 } else {
                     // The block has been deduplicated, read from target.
                     assert!(first_idx.raw < idx);
                     let offset = target_offsets[first_idx.raw];
                     let size = target_sizes[first_idx.raw];
+                    debug!(
+                        block_idx = idx,
+                        block_offset = offset.raw,
+                        block_size = size.raw,
+                        "using deduplicated block from target"
+                    );
                     target.read_block(offset, size, &mut buffer)?;
                 }
                 // At this point, we have the uncompressed block in the buffer.
-                if block_encoding.hash_algorithm.hash(&buffer).raw() != block_hash {
+                let hash_found = block_encoding.hash_algorithm.hash(&buffer);
+                if hash_found.raw() != block_hash {
+                    error!(
+                        block_idx = idx,
+                        hash_expected = block_hash,
+                        hash_found = hash_found.raw(),
+                        "invalid block hash"
+                    );
                     bail!("invalid block hash of block {idx} of size {}", buffer.len());
                 }
                 target_offsets.push(current_target_offset);

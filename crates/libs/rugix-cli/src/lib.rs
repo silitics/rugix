@@ -10,7 +10,9 @@ use console::Term;
 use rugix_tasks::{is_canceled_payload, spawn_blocking};
 use style::{Style, Styled};
 use tracing::info;
+use tracing::level_filters::LevelFilter;
 use tracing_subscriber::fmt::MakeWriter;
+use tracing_subscriber::EnvFilter;
 
 use crate::rate_limiter::RateLimiter;
 
@@ -51,6 +53,12 @@ impl CliBuilder {
                 .with_writer(StderrWriter::new())
                 .with_ansi(Term::stderr().is_term())
                 .event_format(format)
+                .with_env_filter(
+                    EnvFilter::builder()
+                        .with_default_directive(LevelFilter::INFO.into())
+                        .with_env_var("RUGIX_LOG")
+                        .from_env_lossy(),
+                )
                 .init();
         }
         if self.start_drawing_thread {
