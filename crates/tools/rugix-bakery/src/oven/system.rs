@@ -119,6 +119,20 @@ pub fn make_system(
     )
     .whatever("unable to write `/etc/rugix/system-build-info.json`")?;
 
+    info!("Generating SBOM");
+    run!([
+        "syft",
+        system_dir,
+        "--source-name",
+        system_name,
+        "--source-version",
+        release_version,
+        "--quiet",
+        "-o",
+        format!("spdx-json={}", out.join("sbom.spdx.json").to_string_lossy())
+    ])
+    .whatever("unable to generate SBOM")?;
+
     // Create directories for config and boot partitions.
     info!("Creating config and boot directories.");
     let config_dir = layer_path.join("roots/config");

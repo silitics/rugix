@@ -71,6 +71,8 @@ RUN cd /tmp \
     && cd .. \
     && rm -rf e2fsprogs-1.47.2*
 
+RUN curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+
 # Add a `build` user for unprivileged builds.
 RUN useradd -ms /usr/bin/zsh build
 USER build
