@@ -295,6 +295,9 @@ export default function Home(): JSX.Element {
           <SupportedDistributions />
           <h3 className="text-center">Feature Highlights</h3>
           <ul className="list-none mx-auto w-fit">
+          <li>
+              ✅ <strong>Built-in SBOM generation</strong> for straightforward CRA compliance.
+            </li>
             <li>
               ✅ <strong>Over-the-air update capabilities</strong> powered by
               Rugix Ctrl out of the box.
