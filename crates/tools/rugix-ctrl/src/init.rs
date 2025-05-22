@@ -128,7 +128,7 @@ fn init() -> SystemResult<()> {
     };
 
     // 3️⃣ Check and mount the data partition.
-    if let Err(error) = run!([FSCK, "-p", "-y", data_partition.path()]) {
+    if let Err(error) = run!([FSCK, "-p", data_partition.path()]) {
         println!("fsck reported: {error}")
     }
     fs::create_dir_all(MOUNT_POINT_DATA).ok();
