@@ -36,6 +36,7 @@ tokio = { version = "1.43.0", features = ["full"] }
 toml = "0.8.19"
 tracing = "0.1"
 xz2 = "0.1.7"
+num_cpus = "1.16"
 
 # In-house crates.
 sidex = { git = "https://github.com/silitics/sidex.git" }
