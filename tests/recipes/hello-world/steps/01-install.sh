@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+apt-get install time
+
 systemctl enable nginx
 
 rm -rf /var/www/html
