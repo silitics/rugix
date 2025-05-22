@@ -56,7 +56,7 @@ const config: Config = {
     announcementBar: {
       // id: "release",
       content: `
-          📣 <a target="_blank" href="/rugix/docs/ctrl/advanced/yocto-integration">We now provide an experimental Yocto layers for Rugix Ctrl. Any feedback is appreciated!</a> 📣
+          📣 <a target="_blank" href="/rugix/docs/ctrl/advanced/yocto-integration">We now provide experimental Yocto layers for Rugix Ctrl. Any feedback is appreciated!</a> 📣
         `,
       backgroundColor: "#6ee7b7",
       // backgroundColor: "#bdddfb",
