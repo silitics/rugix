@@ -1,0 +1,24 @@
+[package]
+name = "rugix-delta"
+edition = "2024"
+authors.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+clap.workspace = true
+rugix-bundle.workspace = true
+rugix-chunker.workspace = true
+rugix-compression.workspace = true
+rugix-hashes.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+si-crypto-hashes = "0.1.0"
+si-observability = { version = "0.1.2", features = ["clap4"] }
+tracing.workspace = true
+walkdir = "2.5.0"
+
+[lints]
+workspace = true

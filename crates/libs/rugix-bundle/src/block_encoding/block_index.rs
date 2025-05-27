@@ -120,6 +120,11 @@ impl BlockIndex {
         }
     }
 
+    /// Number of blocks in the index.
+    pub fn num_blocks(&self) -> usize {
+        self.hashes.len()
+    }
+
     /// Encode the index for storage.
     pub fn encode(&self) -> Vec<u8> {
         let mut buffer = Vec::new();
