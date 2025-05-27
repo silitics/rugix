@@ -28,6 +28,7 @@ allow = [
     "CC0-1.0",
     "Zlib",
     "NCSA",
+    "CDLA-Permissive-2.0",
 ]
 confidence-threshold = 0.96
 
