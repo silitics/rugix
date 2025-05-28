@@ -22,6 +22,14 @@ const config: Config = {
     locales: ["en"],
   },
 
+  scripts: [
+    {
+      src: "https://plausible.io/js/script.hash.outbound-links.js",
+      defer: true,
+      "data-domain": "oss.silitics.com",
+    },
+  ],
+
   markdown: {
     mermaid: true,
   },
