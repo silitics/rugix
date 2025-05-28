@@ -22,14 +22,6 @@ const config: Config = {
     locales: ["en"],
   },
 
-  scripts: [
-    {
-      src: "https://plausible.io/js/script.hash.outbound-links.js",
-      defer: true,
-      "data-domain": "oss.silitics.com",
-    },
-  ],
-
   markdown: {
     mermaid: true,
   },
@@ -173,6 +165,12 @@ const config: Config = {
   themes: ["@docusaurus/theme-mermaid", "docusaurus-json-schema-plugin"],
 
   plugins: [
+    [
+      'docusaurus-plugin-plausible',
+      {
+        domain: 'oss.silitics.com',
+      },
+    ],
     async function tailwind(context, options) {
       return {
         name: "docusaurus-tailwindcss",
