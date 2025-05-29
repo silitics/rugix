@@ -36,12 +36,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+          fetch-depth: 0
       - name: Install Cross
         run: |
           wget "https://github.com/cross-rs/cross/releases/download/v${{ env.CROSS_VERSION }}/cross-x86_64-unknown-linux-musl.tar.gz"
           tar -xvf cross-x86_64-unknown-linux-musl.tar.gz
       - name: Build Binaries
         run: |
+          export RUGIX_GIT_VERSION=$(git describe --tags --always)
           ./cross build --release --target ${{ matrix.target }}
       - name: Create Artifact
         run: |
@@ -66,12 +70,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+          fetch-depth: 0
       - name: Install Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
             target: ${{ matrix.target }}
       - name: Build Binaries
         run: |
+          export RUGIX_GIT_VERSION=$(git describe --tags --always)
           cargo build --release --target ${{ matrix.target }} --bin rugix-bundler -F xz2/static
       - name: Create Artifact
         run: |

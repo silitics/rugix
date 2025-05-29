@@ -910,6 +910,7 @@ impl FsChunker {
 }
 
 #[derive(Debug, Parser)]
+#[clap(version = rugix_version::RUGIX_GIT_VERSION)]
 pub struct Args {
     #[clap(flatten)]
     logging_args: si_observability::clap4::LoggingArgs,

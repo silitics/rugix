@@ -747,7 +747,7 @@ pub enum Boolean {
 }
 
 #[derive(Debug, Parser)]
-#[clap(author, about)]
+#[clap(author, version = rugix_version::RUGIX_GIT_VERSION, about)]
 pub struct Args {
     /// The command.
     #[clap(subcommand)]

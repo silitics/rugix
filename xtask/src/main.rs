@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use xscript::{run, LocalEnv, Out, Run};
+use xscript::{read_str, run, LocalEnv, Out, Run};
 
 #[derive(Debug, Parser)]
 pub struct Args {
@@ -32,7 +32,9 @@ pub fn get_target_dir() -> PathBuf {
 }
 
 pub fn build_binaries(target: &str) -> anyhow::Result<()> {
-    let env = LocalEnv::new(project_path());
+    let mut env = LocalEnv::new(project_path());
+    let git_version = read_str!(env, ["git", "describe", "--tags", "--always"])?;
+    env.set_var("RUGIX_GIT_VERSION", git_version.trim());
     run!(
         env,
         [

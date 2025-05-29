@@ -11,6 +11,7 @@ use rugix_bundle::BundleResult;
 use rugix_hashes::HashDigest;
 
 #[derive(Debug, Parser)]
+#[clap(version = rugix_version::RUGIX_GIT_VERSION)]
 pub struct Args {
     #[clap(subcommand)]
     cmd: Cmd,

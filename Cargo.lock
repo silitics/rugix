@@ -2310,6 +2310,7 @@ dependencies = [
  "rugix-fs",
  "rugix-hashes",
  "rugix-tasks",
+ "rugix-version",
  "russh",
  "russh-sftp",
  "serde",
@@ -2362,6 +2363,7 @@ dependencies = [
  "rugix-bundle",
  "rugix-cli",
  "rugix-hashes",
+ "rugix-version",
 ]
 
 [[package]]
@@ -2440,6 +2442,7 @@ dependencies = [
  "rugix-fs",
  "rugix-hashes",
  "rugix-hooks",
+ "rugix-version",
  "serde",
  "serde_json",
  "sha2",
@@ -2463,6 +2466,7 @@ dependencies = [
  "rugix-chunker",
  "rugix-compression",
  "rugix-hashes",
+ "rugix-version",
  "serde",
  "serde_json",
  "si-crypto-hashes",
@@ -2526,6 +2530,10 @@ dependencies = [
  "serde_json",
  "xscript 0.4.0",
 ]
+
+[[package]]
+name = "rugix-version"
+version = "0.1.0"
 
 [[package]]
 name = "russh"

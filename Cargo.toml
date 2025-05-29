@@ -51,13 +51,14 @@ reportify = { path = "crates/libs/reportify" }
 # Rugix-specific crates.
 rugix-bundle = { path = "crates/libs/rugix-bundle" }
 rugix-chunker = { path = "crates/libs/rugix-chunker" }
+rugix-cli = { path = "crates/libs/rugix-cli" }
+rugix-common = { path = "crates/libs/rugix-common" }
 rugix-compression = { path = "crates/libs/rugix-compression" }
 rugix-fs = { path = "crates/libs/rugix-fs" }
 rugix-hashes = { path = "crates/libs/rugix-hashes" }
 rugix-hooks = { path = "crates/libs/rugix-hooks" }
 rugix-tasks = { path = "crates/libs/rugix-tasks" }
-rugix-cli = { path = "crates/libs/rugix-cli" }
-rugix-common = { path = "crates/libs/rugix-common" }
+rugix-version = { path = "crates/libs/rugix-version" }
 
 [workspace.lints.clippy]
 needless_borrows_for_generic_args = "allow"

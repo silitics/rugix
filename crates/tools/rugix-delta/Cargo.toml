@@ -13,6 +13,7 @@ rugix-bundle.workspace = true
 rugix-chunker.workspace = true
 rugix-compression.workspace = true
 rugix-hashes.workspace = true
+rugix-version.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 si-crypto-hashes = "0.1.0"

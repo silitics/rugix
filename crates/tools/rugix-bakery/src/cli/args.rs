@@ -10,7 +10,7 @@ use crate::oven::BundleOpts;
 
 /// Command line arguments.
 #[derive(Debug, Parser)]
-#[command(author, about = None, long_about = None)]
+#[command(author, version = rugix_version::RUGIX_GIT_VERSION, about = None, long_about = None)]
 pub struct Args {
     /// Path to the `rugix-bakery.toml` configuration file.
     #[clap(long)]

@@ -44,6 +44,7 @@ rugix-bundle.workspace = true
 rugix-hashes.workspace = true
 jiff = "0.2.1"
 serde_json.workspace = true
+rugix-version.workspace = true
 
 [lints]
 workspace = true

@@ -14,6 +14,7 @@ reportify.workspace = true
 rugix-bundle.workspace = true
 rugix-hashes.workspace = true
 rugix-cli.workspace = true
+rugix-version.workspace = true
 
 [lints]
 workspace = true

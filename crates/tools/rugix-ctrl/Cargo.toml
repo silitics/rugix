@@ -38,6 +38,7 @@ rugix-hashes.workspace = true
 rugix-hooks.workspace = true
 hashbrown.workspace = true
 ureq = "3.0.3"
+rugix-version.workspace = true
 
 [lints]
 workspace = true

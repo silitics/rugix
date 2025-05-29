@@ -1,0 +1,4 @@
+[build.env]
+passthrough = [
+    "RUGIX_GIT_VERSION",
+]
