@@ -53,16 +53,16 @@ const config: Config = {
       disableSwitch: true,
       respectPrefersColorScheme: false,
     },
-    announcementBar: {
-      // id: "release",
-      content: `
-          📣 <a target="_blank" href="/rugix/docs/ctrl/advanced/yocto-integration">We now provide experimental Yocto layers for Rugix Ctrl. Any feedback is appreciated!</a> 📣
-        `,
-      backgroundColor: "#6ee7b7",
-      // backgroundColor: "#bdddfb",
-      // textColor: "#000000",
-      isCloseable: false,
-    },
+    // announcementBar: {
+    //   // id: "release",
+    //   content: `
+    //       📣 <a target="_blank" href="/rugix/docs/ctrl/advanced/yocto-integration">We now provide experimental Yocto layers for Rugix Ctrl. Any feedback is appreciated!</a> 📣
+    //     `,
+    //   backgroundColor: "#6ee7b7",
+    //   // backgroundColor: "#bdddfb",
+    //   // textColor: "#000000",
+    //   isCloseable: false,
+    // },
     navbar: {
       title: "Rugix",
       logo: {
