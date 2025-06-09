@@ -12,7 +12,7 @@ use rugix_bundle::source::{BundleSource, ReaderSource, SkipRead};
 use rugix_bundle::BUNDLE_MAGIC;
 use rugix_hashes::{HashAlgorithm, HashDigest};
 use rugix_hooks::{HooksLoader, RunOptions};
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::system::boot_groups::{BootGroup, BootGroupIdx};
 use crate::system::slots::SlotKind;
@@ -308,6 +308,56 @@ pub fn main() -> SystemResult<()> {
                         bail!("cannot create indices on custom slots");
                     }
                 }
+            }
+            SlotsCommand::Verify { slot } => {
+                let Some((_, slot)) = system.slots().find_by_name(slot) else {
+                    bail!("slot {slot} not found")
+                };
+                let Some(slot_state) = slot_db::get_stored_state(slot.name())? else {
+                    bail!("no stored state for slot {}", slot.name());
+                };
+                if slot_state.hashes.is_empty() {
+                    bail!("no hashes stored for slot {}", slot.name());
+                }
+                if !slot.is_immutable() {
+                    bail!("slot {} is not immutable, cannot verify", slot.name());
+                }
+                let hash = &slot_state.hashes[0];
+                let mut hasher = hash.algorithm().hasher();
+                let mut file = match slot.kind() {
+                    SlotKind::Block(block_slot) => {
+                        File::open(block_slot.device()).whatever("error opening block device")?
+                    }
+                    SlotKind::File { path } => File::open(path).whatever("error opening file")?,
+                    SlotKind::Custom { .. } => {
+                        bail!("cannot create indices on custom slots");
+                    }
+                };
+                info!(expected_hash = %hash, slot_name = slot.name(), size = slot_state.size.map(|s| s.raw), "verifying slot");
+                let mut buffer = [0; 4096];
+                let mut remaining = slot_state.size.map(|s| s.raw).unwrap_or(u64::MAX);
+                let mut bytes_hashed = 0;
+                while remaining > 0 {
+                    let read = file.read(&mut buffer).whatever("error reading slot file")?;
+                    if read == 0 {
+                        break;
+                    }
+                    let chunk = &buffer[..(read as u64).min(remaining) as usize];
+                    hasher.update(chunk);
+                    bytes_hashed += chunk.len() as u64;
+                    remaining = remaining.saturating_sub(read as u64);
+                }
+                debug!("hashed {} bytes from slot {}", bytes_hashed, slot.name());
+                let found = hasher.finalize();
+                if &found != hash {
+                    bail!(
+                        "hash mismatch for slot {}: expected {}, found {}",
+                        slot.name(),
+                        hash,
+                        found
+                    );
+                }
+                info!(slot_name = slot.name(), "slot verified successfully");
             }
         },
     }
@@ -809,6 +859,8 @@ pub enum StateCommand {
 
 #[derive(Debug, Parser)]
 pub enum SlotsCommand {
+    /// Verify the integrity of a slot.
+    Verify { slot: String },
     /// Query the state of a slot.
     Inspect { slot: String },
     /// Add an index to a slot.
