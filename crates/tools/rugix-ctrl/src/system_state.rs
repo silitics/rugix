@@ -1,3 +1,6 @@
+use tracing::error;
+
+use crate::slot_db;
 use crate::system::System;
 
 use crate::config::output::{
@@ -10,10 +13,24 @@ pub fn state_from_system(system: &System) -> SystemStateOutput {
         .slots()
         .iter()
         .map(|(_, slot)| {
+            let slot_state = match slot_db::get_stored_state(slot.name()) {
+                Ok(state) => state,
+                Err(error) => {
+                    error!("unable to get state for slot {}: {:?}", slot.name(), error);
+                    None
+                }
+            };
             (
                 slot.name().to_owned(),
                 SlotStateOutput {
                     active: Some(slot.active()),
+                    hashes: slot_state
+                        .as_ref()
+                        .map(|s| s.hashes.iter().map(|h| h.to_string()).collect()),
+                    size: slot_state.as_ref().and_then(|s| s.size.map(|s| s.raw)),
+                    updated_at: slot_state
+                        .as_ref()
+                        .and_then(|s| s.updated_at.map(|t| t.to_string())),
                 },
             )
         })

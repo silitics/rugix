@@ -5,6 +5,9 @@ record SystemStateOutput {
 
 record SlotStateOutput {
     active?: bool,
+    hashes?: [string],
+    size?: u64,
+    updated_at?: string,
 }
 
 record BootStateOutput {

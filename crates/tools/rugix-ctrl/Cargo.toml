@@ -39,6 +39,7 @@ rugix-hooks.workspace = true
 hashbrown.workspace = true
 ureq = "3.0.3"
 rugix-version.workspace = true
+jiff = { version = "0.2.14", default-features = false, features = ["std", "serde"] }
 
 [lints]
 workspace = true

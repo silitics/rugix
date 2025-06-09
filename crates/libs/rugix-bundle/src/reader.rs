@@ -120,9 +120,10 @@ impl<'r, S: BundleSource> PayloadReader<'r, S> {
         mut target: T,
         provider: Option<&dyn StoredBlockProvider>,
         progress: &mut F,
-    ) -> BundleResult<()> {
+    ) -> BundleResult<DecodedPayloadInfo> {
         let mut buffer = vec![0; 8192];
         let mut payload_hasher = self.reader.header.hash_algorithm.hasher();
+        let mut bytes_written = NumBytes::ZERO;
         if let Some(block_encoding) = self.header.block_encoding {
             let mut block_index_raw = block_encoding.block_hashes.raw;
             if let Some(format) = block_encoding.compression {
@@ -236,6 +237,7 @@ impl<'r, S: BundleSource> PayloadReader<'r, S> {
                 target_sizes.push(buffer.byte_len());
                 current_target_offset += buffer.byte_len();
                 target.write(&buffer)?;
+                bytes_written += buffer.byte_len();
                 payload_hasher.update(&buffer);
                 progress(&self.reader.source);
             }
@@ -247,18 +249,26 @@ impl<'r, S: BundleSource> PayloadReader<'r, S> {
                 }
                 target.write(&buffer[..read])?;
                 payload_hasher.update(&buffer[..read]);
+                bytes_written += NumBytes::from_usize(read);
                 progress(&self.reader.source);
             }
         }
-        if payload_hasher.finalize().raw()
-            != self.reader.header.payload_index[self.idx].file_hash.raw
-        {
+        let payload_hash = payload_hasher.finalize();
+        if payload_hash.raw() != self.reader.header.payload_index[self.idx].file_hash.raw {
             bail!("payload hash mismatch");
         }
         target.finalize()?;
         skip_until_end(&mut self.reader.source, tags::PAYLOAD)?;
-        Ok(())
+        Ok(DecodedPayloadInfo {
+            hash: payload_hash,
+            size: bytes_written,
+        })
     }
+}
+
+pub struct DecodedPayloadInfo {
+    pub hash: HashDigest,
+    pub size: NumBytes,
 }
 
 pub trait PayloadTarget: Sized {

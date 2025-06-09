@@ -26,7 +26,7 @@ use xscript::{vars, Vars};
 
 use crate::http_source::HttpSource;
 use crate::overlay::overlay_dir;
-use crate::slot_db::{self, BlockProvider};
+use crate::slot_db::{self, BlockProvider, SlotState};
 use crate::system_state;
 use crate::utils::{clear_flag, reboot, set_flag, DEFERRED_SPARE_REBOOT_FLAG};
 
@@ -621,7 +621,7 @@ fn install_update_bundle<R: BundleSource>(
                     }
                     block_provider = Some(provider);
                 }
-                match slot.kind() {
+                let decoded_payload_info = match slot.kind() {
                     SlotKind::Block(block_slot) => {
                         let target = std::fs::OpenOptions::new()
                             .read(true)
@@ -636,7 +636,7 @@ fn install_update_bundle<R: BundleSource>(
                                     .map(|p| p as &dyn StoredBlockProvider),
                                 &mut progress,
                             )
-                            .whatever("unable to decode payload")?;
+                            .whatever("unable to decode payload")?
                     }
                     SlotKind::File { path } => {
                         let target = std::fs::OpenOptions::new()
@@ -654,7 +654,7 @@ fn install_update_bundle<R: BundleSource>(
                                     .map(|p| p as &dyn StoredBlockProvider),
                                 &mut progress,
                             )
-                            .whatever("unable to decode payload")?;
+                            .whatever("unable to decode payload")?
                     }
                     SlotKind::Custom { handler } => {
                         let target = CustomTarget::new(handler.iter().map(|arg| arg.as_str()))?;
@@ -666,8 +666,18 @@ fn install_update_bundle<R: BundleSource>(
                                     .map(|p| p as &dyn StoredBlockProvider),
                                 &mut progress,
                             )
-                            .whatever("unable to decode payload")?;
+                            .whatever("unable to decode payload")?
                     }
+                };
+                if let Err(error) = slot_db::save_slot_state(
+                    slot.name(),
+                    &SlotState {
+                        hashes: vec![decoded_payload_info.hash],
+                        size: Some(decoded_payload_info.size),
+                        updated_at: Some(jiff::Timestamp::now()),
+                    },
+                ) {
+                    error!("unable to save slot state: {error:?}");
                 }
                 continue;
             } else {

@@ -1,6 +1,7 @@
 //! Slot database.
 
 use std::hash::BuildHasher;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use crate::system::SystemResult;
@@ -13,7 +14,7 @@ use rugix_bundle::format::{self, BlockIndex};
 use rugix_bundle::manifest::ChunkerAlgorithm;
 use rugix_bundle::reader::block_provider::{StoredBlock, StoredBlockProvider};
 use rugix_bundle::source::FileSource;
-use rugix_hashes::HashAlgorithm;
+use rugix_hashes::{HashAlgorithm, HashDigest};
 use tracing::warn;
 
 /// Stored block index.
@@ -193,6 +194,37 @@ pub fn get_stored_indices(slot: &str) -> SystemResult<Vec<StoredBlockIndex>> {
     Ok(indices)
 }
 
+/// Get the stored block state.
+pub fn get_stored_state(slot: &str) -> SystemResult<Option<SlotState>> {
+    let slot_dir = db_dir().join(slot);
+    let state_file = slot_dir.join("state.json");
+    if !state_file.exists() {
+        return Ok(None);
+    }
+    let state_json =
+        std::fs::read_to_string(&state_file).whatever("unable to read slot state file")?;
+    Ok(Some(
+        serde_json::from_str(&state_json).whatever("unable to decode slot state")?,
+    ))
+}
+
+/// Save the slot state.
+pub fn save_slot_state(slot: &str, state: &SlotState) -> SystemResult<()> {
+    let slot_dir = db_dir().join(slot);
+    std::fs::create_dir_all(&slot_dir).whatever("unable to create slot directory")?;
+    let state_file_tmp = slot_dir.join("state.json.tmp");
+    let state_json = serde_json::to_string(state).whatever("unable to encode slot state")?;
+    let mut file =
+        std::fs::File::create(&state_file_tmp).whatever("unable to create slot state file")?;
+    file.write_all(state_json.as_bytes())
+        .whatever("unable to write slot state file")?;
+    file.sync_all().whatever("unable to sync slot state file")?;
+    drop(file);
+    std::fs::rename(&state_file_tmp, slot_dir.join("state.json"))
+        .whatever("unable to rename slot state file")?;
+    Ok(())
+}
+
 /// Directory with the slot database.
 pub fn db_dir() -> &'static Path {
     const DATA_PATH: &str = "/run/rugix/mounts/data/rugix/slots";
@@ -202,4 +234,18 @@ pub fn db_dir() -> &'static Path {
     } else {
         Path::new(VAR_PATH)
     }
+}
+
+/// Slot state.
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct SlotState {
+    /// Hashes of the slot's contents.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hashes: Vec<HashDigest>,
+    /// Size of the slot's contents (well-defined part of the block device).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub size: Option<NumBytes>,
+    /// Timestamp when the slot was last updated.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<jiff::Timestamp>,
 }
