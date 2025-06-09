@@ -428,10 +428,16 @@ fn install_update_stream(
     let boot_slot = entry.get_slot("boot").unwrap();
     let system_slot = entry.get_slot("system").unwrap();
 
-    let SlotKind::Block(raw_boot_slot) = system.slots()[boot_slot].kind() else {
+    let boot_slot = &system.slots()[boot_slot];
+    let system_slot = &system.slots()[system_slot];
+
+    slot_db::erase(boot_slot.name())?;
+    slot_db::erase(system_slot.name())?;
+
+    let SlotKind::Block(raw_boot_slot) = boot_slot.kind() else {
         bail!("boot slot must be a block device");
     };
-    let SlotKind::Block(raw_system_slot) = system.slots()[system_slot].kind() else {
+    let SlotKind::Block(raw_system_slot) = system_slot.kind() else {
         bail!("system slot must be a block device");
     };
 
