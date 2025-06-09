@@ -118,7 +118,7 @@ impl Index<SlotIdx> for SystemSlots {
 pub struct Slot {
     name: String,
     kind: SlotKind,
-    _config: SlotConfig,
+    config: SlotConfig,
     active: Mutex<bool>,
 }
 
@@ -128,7 +128,7 @@ impl Slot {
         Self {
             name,
             kind,
-            _config: config,
+            config,
             active: Mutex::new(false),
         }
     }
@@ -143,6 +143,11 @@ impl Slot {
         &self.kind
     }
 
+    /// Slot configuration.
+    pub fn config(&self) -> &SlotConfig {
+        &self.config
+    }
+
     /// Indicates whether the slot is active.
     pub fn active(&self) -> bool {
         *self.active.lock().unwrap()
@@ -151,6 +156,15 @@ impl Slot {
     /// Indicates whether the slot is of type `block`.
     pub fn is_block(&self) -> bool {
         matches!(self.kind, SlotKind::Block(_))
+    }
+
+    /// Indicates whether the slot is immutable.
+    pub fn is_immutable(&self) -> bool {
+        match &self.config {
+            SlotConfig::Block(config) => config.immutable.unwrap_or(false),
+            SlotConfig::File(config) => config.immutable.unwrap_or(false),
+            SlotConfig::Custom(_) => false,
+        }
     }
 
     /// Mark the slot as active.
@@ -179,25 +193,25 @@ impl BlockSlot {
 
 /// Default slots of an MBR-partitioned root device.
 const DEFAULT_MBR_SLOTS: &[(&str, SlotConfig)] = &[
-    ("boot-a", default_slot_config(2)),
-    ("boot-b", default_slot_config(3)),
-    ("system-a", default_slot_config(5)),
-    ("system-b", default_slot_config(6)),
+    ("boot-a", default_slot_config(2, false)),
+    ("boot-b", default_slot_config(3, false)),
+    ("system-a", default_slot_config(5, true)),
+    ("system-b", default_slot_config(6, true)),
 ];
 
 /// Default slots of a GPT-partitioned root device.
 const DEFAULT_GPT_SLOTS: &[(&str, SlotConfig)] = &[
-    ("boot-a", default_slot_config(2)),
-    ("boot-b", default_slot_config(3)),
-    ("system-a", default_slot_config(4)),
-    ("system-b", default_slot_config(5)),
+    ("boot-a", default_slot_config(2, false)),
+    ("boot-b", default_slot_config(3, false)),
+    ("system-a", default_slot_config(4, true)),
+    ("system-b", default_slot_config(5, true)),
 ];
 
 /// Configuration of default slots for the given partition.
-const fn default_slot_config(partition: u32) -> SlotConfig {
+const fn default_slot_config(partition: u32, immutable: bool) -> SlotConfig {
     SlotConfig::Block(BlockSlotConfig {
         device: None,
         partition: Some(partition),
-        immutable: Some(true),
+        immutable: Some(immutable),
     })
 }

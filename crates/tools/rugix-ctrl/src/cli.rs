@@ -671,9 +671,18 @@ fn install_update_bundle<R: BundleSource>(
                 };
                 if let Err(error) = slot_db::save_slot_state(
                     slot.name(),
+                    // Only save the hashes and size if the slot is immutable.
                     &SlotState {
-                        hashes: vec![decoded_payload_info.hash],
-                        size: Some(decoded_payload_info.size),
+                        hashes: if slot.is_immutable() {
+                            vec![decoded_payload_info.hash]
+                        } else {
+                            vec![]
+                        },
+                        size: if slot.is_immutable() {
+                            Some(decoded_payload_info.size)
+                        } else {
+                            None
+                        },
                         updated_at: Some(jiff::Timestamp::now()),
                     },
                 ) {
