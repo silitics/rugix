@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use reportify::{bail, whatever, ResultExt};
-use xscript::{cmd, run, ParentEnv, Run};
+use xscript::{cmd, cmd_os, run, ParentEnv, Run};
 
 use rugix_common::disk::gpt::gpt_types;
 use rugix_common::disk::mbr::mbr_types;
@@ -245,7 +245,7 @@ pub fn make_system(
             );
             let fs_image = filesystems_dir.join(format!("partition-{}.img", partition + 1));
             match filesystem {
-                Filesystem::Ext4 => {
+                Filesystem::Ext4(options) => {
                     let size = table.blocks_to_bytes(image_partition.size);
                     allocate_file(&fs_image, size.into_raw())
                         .whatever("unable to allocate filesystem file")?;
@@ -272,12 +272,16 @@ pub fn make_system(
                         //     "hash_seed=035cb65d-0a86-404a-bad7-19c88d05e400",
                         //     &fs_image
                         // ])
-                        run!([
+                        let mut cmd = cmd_os!(
                             "mkfs.ext4",
                             "-d",
                             layer_path.join("roots").join(path),
                             &fs_image
-                        ])
+                        );
+                        if let Some(additional_options) = &options.additional_options {
+                            cmd.extend_args(additional_options);
+                        }
+                        ParentEnv.run(cmd)
                     } else {
                         run!(["mkfs.ext4", &fs_image])
                     }

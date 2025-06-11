@@ -4,7 +4,7 @@ use rugix_common::disk::gpt::gpt_types;
 use rugix_common::disk::mbr::mbr_types;
 
 use crate::config::images::{
-    Filesystem, ImageLayout, ImagePartition, PartitionTableType, SquashfsOptions,
+    Ext4Options, Filesystem, ImageLayout, ImagePartition, PartitionTableType, SquashfsOptions,
 };
 use crate::config::systems::Target;
 
@@ -54,7 +54,11 @@ fn default_mbr_layout(squashfs_options: Option<&SquashfsOptions>) -> ImageLayout
                     squashfs_options
                         .cloned()
                         .map(Filesystem::Squashfs)
-                        .unwrap_or(Filesystem::Ext4),
+                        .unwrap_or(Filesystem::Ext4(
+                            Ext4Options::new().with_additional_options(Some(
+                                ["-O", "^has_journal"].map(str::to_owned).into(),
+                            )),
+                        )),
                 ))
                 .with_root(Some("system".to_owned())),
         ]))
@@ -74,7 +78,7 @@ fn default_gpt_layout(squashfs_options: Option<&SquashfsOptions>) -> ImageLayout
             ImagePartition::new()
                 .with_size(Some(NumBytes::mebibytes(256)))
                 .with_ty(Some(gpt_types::LINUX))
-                .with_filesystem(Some(Filesystem::Ext4))
+                .with_filesystem(Some(Filesystem::Ext4(Ext4Options::new())))
                 .with_root(Some("boot".to_owned())),
             // `B` boot partition.
             ImagePartition::new()
@@ -87,7 +91,11 @@ fn default_gpt_layout(squashfs_options: Option<&SquashfsOptions>) -> ImageLayout
                     squashfs_options
                         .cloned()
                         .map(Filesystem::Squashfs)
-                        .unwrap_or(Filesystem::Ext4),
+                        .unwrap_or(Filesystem::Ext4(
+                            Ext4Options::new().with_additional_options(Some(
+                                ["-O", "^has_journal"].map(str::to_owned).into(),
+                            )),
+                        )),
                 ))
                 .with_root(Some("system".to_owned())),
         ]))

@@ -17,10 +17,10 @@ type = "slot"
 slot = "system"
 [payloads.delta-encoding]
 inputs = [
-    { hashes = ["sha512-256:25ae21bd01030edee58e2e33bdd3632361511dfef8a2f87f0dc962652444e229"] }
+    { hashes = ["sha512-256:bed7ec3a9ef07ee1cef81d160f80f0461bbef7679ddcf6b2fea0d80d7b07c53d"] }
 ]
-format = { type = "Xdelta" }
-hash = "sha512-256:622e6c88ee9b685d4a96d92004e50efb73d73c943705464e491cbd80f25e11e7"
+format = { type = "xdelta" }
+hash = "sha512-256:24e00b4dfe986359673dd5631ebdfc8950c8c72bd24988023dd3cf954bda7713"
 # We still want a block encoding to ensure that the blocks have not been tempered with.
 [payloads.block-encoding]
 chunker = "fixed-64"

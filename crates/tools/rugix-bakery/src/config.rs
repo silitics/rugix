@@ -94,7 +94,7 @@ impl Filesystem {
     /// Name of the filesystem.
     pub fn name(&self) -> &'static str {
         match self {
-            Filesystem::Ext4 => "ext4",
+            Filesystem::Ext4(_) => "ext4",
             Filesystem::Fat32 => "fat32",
             Filesystem::Squashfs(_) => "squashfs",
         }

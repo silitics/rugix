@@ -46,7 +46,7 @@ record DeltaEncoding {
     hash: HashDigest,
 }
 
-#[json(tag = "type")]
+#[json(tag = "type", rename_all = "lowercase")]
 variant DeltaEncodingFormat {
     /// Format emitted by Xdelta.
     /// 
