@@ -1,4 +1,4 @@
-#[rust(type="rugix_hashes::HashAlgorithm")]
+#[rust(type="si_crypto_hashes::HashAlgorithm")]
 opaque HashAlgorithm
 
 #[rust(type="rugix_chunker::ChunkerAlgorithm")]

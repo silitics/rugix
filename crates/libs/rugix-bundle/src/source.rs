@@ -12,7 +12,7 @@ use std::marker::PhantomData;
 
 use byte_calc::{ByteLen, NumBytes};
 use reportify::{bail, ResultExt};
-use rugix_hashes::{HashAlgorithm, HashDigest, Hasher};
+use si_crypto_hashes::{HashAlgorithm, HashDigest, Hasher};
 
 use crate::BundleResult;
 

@@ -1,6 +1,5 @@
 //! Definition of the command line interface (CLI).
 
-use std::collections::hash_map;
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::path::Path;
@@ -11,8 +10,8 @@ use rugix_bundle::reader::block_provider::StoredBlockProvider;
 use rugix_bundle::reader::PayloadTarget;
 use rugix_bundle::source::{BundleSource, ReaderSource, SkipRead};
 use rugix_bundle::BUNDLE_MAGIC;
-use rugix_hashes::{HashAlgorithm, HashDigest};
 use rugix_hooks::{HooksLoader, RunOptions};
+use si_crypto_hashes::{HashAlgorithm, HashDigest};
 use tracing::{debug, error, info, warn};
 
 use crate::system::boot_groups::{BootGroup, BootGroupIdx};

@@ -8,7 +8,7 @@ use rugix_bundle::format::tags::TagNameResolver;
 use rugix_bundle::reader::BundleReader;
 use rugix_bundle::source::FileSource;
 use rugix_bundle::BundleResult;
-use rugix_hashes::HashDigest;
+use si_crypto_hashes::HashDigest;
 
 #[derive(Debug, Parser)]
 #[clap(version = rugix_version::RUGIX_GIT_VERSION)]

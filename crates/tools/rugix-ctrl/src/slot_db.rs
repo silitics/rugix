@@ -14,7 +14,7 @@ use rugix_bundle::format::{self, BlockIndex};
 use rugix_bundle::manifest::ChunkerAlgorithm;
 use rugix_bundle::reader::block_provider::{StoredBlock, StoredBlockProvider};
 use rugix_bundle::source::FileSource;
-use rugix_hashes::{HashAlgorithm, HashDigest};
+use si_crypto_hashes::{HashAlgorithm, HashDigest};
 use tracing::warn;
 
 /// Stored block index.

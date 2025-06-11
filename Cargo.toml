@@ -39,6 +39,7 @@ xz2 = "0.1.7"
 
 # In-house crates.
 si-observability = { version = "0.1.2", features = ["clap4"] }
+si-crypto-hashes = { version = "0.1.1", features = ["serde", "legacy"] }
 sidex = { git = "https://github.com/silitics/sidex.git" }
 sidex-build-rs = { git = "https://github.com/silitics/sidex.git" }
 sidex-serde = { git = "https://github.com/silitics/sidex.git" }
@@ -55,7 +56,6 @@ rugix-cli = { path = "crates/libs/rugix-cli" }
 rugix-common = { path = "crates/libs/rugix-common" }
 rugix-compression = { path = "crates/libs/rugix-compression" }
 rugix-fs = { path = "crates/libs/rugix-fs" }
-rugix-hashes = { path = "crates/libs/rugix-hashes" }
 rugix-hooks = { path = "crates/libs/rugix-hooks" }
 rugix-tasks = { path = "crates/libs/rugix-tasks" }
 rugix-version = { path = "crates/libs/rugix-version" }

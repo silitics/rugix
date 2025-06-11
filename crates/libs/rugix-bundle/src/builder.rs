@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use byte_calc::NumBytes;
 use reportify::ResultExt;
-use rugix_hashes::HashDigest;
+use si_crypto_hashes::HashDigest;
 
 use crate::block_encoding::encode_payload_file;
 use crate::format::stlv::{write_atom_head, write_segment_end, write_segment_start};
@@ -19,7 +19,7 @@ pub fn pack(path: &Path, dst: &Path) -> BundleResult<()> {
     .whatever("unable to parse bundle manifest")?;
     let hash_algorithm = manifest
         .hash_algorithm
-        .unwrap_or(rugix_hashes::HashAlgorithm::Sha512_256);
+        .unwrap_or(si_crypto_hashes::HashAlgorithm::Sha512_256);
     let mut bundle_header = format::BundleHeader {
         manifest: Some(serde_json::to_string(&manifest).unwrap()),
         is_incremental: matches!(manifest.update_type, UpdateType::Incremental),
@@ -62,7 +62,10 @@ pub fn pack(path: &Path, dst: &Path) -> BundleResult<()> {
                 None
             },
             header_hash: Bytes {
-                raw: hash_algorithm.hash(&payload_header).raw().to_vec(),
+                raw: hash_algorithm
+                    .hash::<Box<[u8]>>(&payload_header)
+                    .raw()
+                    .to_vec(),
             },
             file_hash: Bytes {
                 raw: payload_file_hash.raw().to_vec(),
@@ -77,7 +80,7 @@ pub fn pack(path: &Path, dst: &Path) -> BundleResult<()> {
         BufWriter::new(std::fs::File::create(dst).whatever("unable to create bundle file")?);
     write_segment_start(&mut bundle_file, format::tags::BUNDLE).unwrap();
     let bundle_header = format::encode::to_vec(&bundle_header, format::tags::BUNDLE_HEADER);
-    let header_hash = hash_algorithm.hash(&bundle_header);
+    let header_hash = hash_algorithm.hash::<Box<[u8]>>(&bundle_header);
     bundle_file.write_all(&bundle_header).unwrap();
     write_segment_start(&mut bundle_file, format::tags::PAYLOADS).unwrap();
     for prepared in prepared_payloads.into_iter() {

@@ -5,7 +5,7 @@ use block_provider::StoredBlockProvider;
 use byte_calc::{ByteLen, NumBytes};
 use reportify::{bail, whatever, ResultExt};
 use rugix_compression::{ByteProcessor, CompressionFormat};
-use rugix_hashes::HashDigest;
+use si_crypto_hashes::HashDigest;
 use tracing::{debug, error};
 
 use crate::block_encoding::block_index::{BlockId, RawBlockIndex};
@@ -69,7 +69,13 @@ impl<S: BundleSource> BundleReader<S> {
             header_atom,
             PAYLOAD_HEADER_SIZE_LIMIT,
         )?;
-        if self.header.hash_algorithm.hash(&header_bytes).raw() != entry.header_hash.raw {
+        if self
+            .header
+            .hash_algorithm
+            .hash::<Box<[u8]>>(&header_bytes)
+            .raw()
+            != entry.header_hash.raw
+        {
             bail!("invalid payload header hash");
         }
         let remaining_data = skip_until_value(&mut self.source, tags::PAYLOAD_DATA)?;
@@ -223,7 +229,7 @@ impl<'r, S: BundleSource> PayloadReader<'r, S> {
                     target.read_block(offset, size, &mut buffer)?;
                 }
                 // At this point, we have the uncompressed block in the buffer.
-                let hash_found = block_encoding.hash_algorithm.hash(&buffer);
+                let hash_found = block_encoding.hash_algorithm.hash::<Box<[u8]>>(&buffer);
                 if hash_found.raw() != block_hash {
                     error!(
                         block_idx = idx,

@@ -2309,7 +2309,6 @@ dependencies = [
  "rugix-cli",
  "rugix-common",
  "rugix-fs",
- "rugix-hashes",
  "rugix-tasks",
  "rugix-version",
  "russh",
@@ -2317,6 +2316,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha1",
+ "si-crypto-hashes",
  "sidex",
  "sidex-build-rs",
  "sidex-serde",
@@ -2342,9 +2342,9 @@ dependencies = [
  "rugix-chunker",
  "rugix-compression",
  "rugix-fs",
- "rugix-hashes",
  "serde",
  "serde_json",
+ "si-crypto-hashes",
  "sidex",
  "sidex-build-rs",
  "sidex-serde",
@@ -2363,8 +2363,8 @@ dependencies = [
  "reportify",
  "rugix-bundle",
  "rugix-cli",
- "rugix-hashes",
  "rugix-version",
+ "si-crypto-hashes",
 ]
 
 [[package]]
@@ -2373,8 +2373,8 @@ version = "0.1.0"
 dependencies = [
  "byte-calc",
  "clap",
- "rugix-hashes",
  "serde",
+ "si-crypto-hashes",
 ]
 
 [[package]]
@@ -2442,12 +2442,12 @@ dependencies = [
  "rugix-cli",
  "rugix-common",
  "rugix-fs",
- "rugix-hashes",
  "rugix-hooks",
  "rugix-version",
  "serde",
  "serde_json",
  "sha2",
+ "si-crypto-hashes",
  "sidex",
  "sidex-build-rs",
  "sidex-serde",
@@ -2467,7 +2467,6 @@ dependencies = [
  "rugix-bundle",
  "rugix-chunker",
  "rugix-compression",
- "rugix-hashes",
  "rugix-version",
  "serde",
  "serde_json",
@@ -2488,15 +2487,6 @@ dependencies = [
  "tempfile",
  "tracing",
  "walkdir",
-]
-
-[[package]]
-name = "rugix-hashes"
-version = "0.1.0"
-dependencies = [
- "hex",
- "serde",
- "sha2",
 ]
 
 [[package]]
@@ -2976,9 +2966,9 @@ checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 
 [[package]]
 name = "si-crypto-hashes"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7283c03fb722e52f181448754dbd78d76d809bd1ae0a9d2936c1f3d3db5c5783"
+checksum = "b65f76d23cbb7557f99d71bf24b6629c6a0aae685199e6d6cfe0dd5c7852d6bf"
 dependencies = [
  "hex",
  "serde",

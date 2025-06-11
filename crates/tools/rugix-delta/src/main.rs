@@ -523,7 +523,7 @@ fn main() {
             target,
         } => {
             let config = BlockIndexConfig {
-                hash_algorithm: rugix_hashes::HashAlgorithm::Sha256,
+                hash_algorithm: si_crypto_hashes::HashAlgorithm::Sha256,
                 chunker: rugix_chunker::ChunkerAlgorithm::Casync {
                     avg_block_size_kib: 4,
                 },
@@ -563,7 +563,7 @@ fn main() {
             block_size_kib,
         } => {
             let config = BlockIndexConfig {
-                hash_algorithm: rugix_hashes::HashAlgorithm::Sha256,
+                hash_algorithm: si_crypto_hashes::HashAlgorithm::Sha256,
                 chunker: rugix_chunker::ChunkerAlgorithm::Casync {
                     avg_block_size_kib: *block_size_kib,
                 },
@@ -590,7 +590,7 @@ fn main() {
             block_size_kib,
         } => {
             let config = BlockIndexConfig {
-                hash_algorithm: rugix_hashes::HashAlgorithm::Sha256,
+                hash_algorithm: si_crypto_hashes::HashAlgorithm::Sha256,
                 chunker: rugix_chunker::ChunkerAlgorithm::Fixed {
                     block_size_kib: *block_size_kib,
                 },
@@ -634,7 +634,7 @@ pub fn copy_block(
     target: &Path,
     stats: &mut DeltaStats,
     config: &BlockIndexConfig,
-    source_table: &mut HashSet<rugix_hashes::HashDigest>,
+    source_table: &mut HashSet<si_crypto_hashes::HashDigest>,
 ) {
     let mut stream = DirStream::new(source);
     if !stream.seek_to(&expected_block.first) {
@@ -834,7 +834,7 @@ pub fn compute_blocks(path: &Path) -> Vec<FsEntryBlock> {
 pub fn compute_hash_set(
     config: &BlockIndexConfig,
     block: &[FsEntryBlock],
-) -> HashSet<rugix_hashes::HashDigest> {
+) -> HashSet<si_crypto_hashes::HashDigest> {
     let mut table = HashSet::new();
     for block in block {
         for entry in &block.entries {

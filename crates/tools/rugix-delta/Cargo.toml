@@ -12,11 +12,10 @@ clap.workspace = true
 rugix-bundle.workspace = true
 rugix-chunker.workspace = true
 rugix-compression.workspace = true
-rugix-hashes.workspace = true
 rugix-version.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-si-crypto-hashes = "0.1.0"
+si-crypto-hashes.workspace = true
 si-observability = { version = "0.1.2", features = ["clap4"] }
 tracing.workspace = true
 walkdir = "2.5.0"

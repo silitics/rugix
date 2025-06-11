@@ -10,7 +10,7 @@ use format::decode::decode_slice;
 use format::BundleHeader;
 use reader::{expect_start, read_into_vec};
 use reportify::{Report, ResultExt};
-use rugix_hashes::HashDigest;
+use si_crypto_hashes::HashDigest;
 use source::FileSource;
 
 pub mod block_encoding;

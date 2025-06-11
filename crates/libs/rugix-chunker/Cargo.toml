@@ -13,7 +13,7 @@ serde.workspace = true
 
 [dev-dependencies]
 clap.workspace = true
-rugix-hashes.workspace = true
+si-crypto-hashes.workspace = true
 
 [lints]
 workspace = true

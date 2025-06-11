@@ -9,7 +9,7 @@ use reportify::{bail, ResultExt};
 
 use rugix_chunker::ChunkerAlgorithm;
 use rugix_compression::CompressionFormat;
-use rugix_hashes::HashAlgorithm;
+use si_crypto_hashes::HashAlgorithm;
 
 use crate::source::BundleSource;
 use crate::BundleResult;

@@ -1,5 +1,6 @@
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use clap::Parser;
 
@@ -7,7 +8,7 @@ use byte_calc::{ByteLen, NumBytes};
 
 use rugix_chunker::casync::CasyncChunker;
 use rugix_chunker::Chunker;
-use rugix_hashes::HashAlgorithm;
+use si_crypto_hashes::HashAlgorithm;
 
 /// Command line arguments.
 #[derive(Debug, Parser)]
@@ -33,8 +34,8 @@ pub fn main() {
         chunk_hasher.update(&buffer[..offset.unwrap_or(buffer.len())]);
         let consume = if let Some(offset) = offset {
             chunk_size += NumBytes::from_usize(offset);
-            let chunk_digest =
-                std::mem::replace(&mut chunk_hasher, args.algorithm.hasher()).finalize();
+            let chunk_digest = std::mem::replace(&mut chunk_hasher, args.algorithm.hasher())
+                .finalize::<Arc<[u8]>>();
             println!("Offset: {chunk_offset:#}, Size: {chunk_size:#}, Hash: {chunk_digest}");
             chunk_offset += chunk_size;
             chunk_size = NumBytes::ZERO;

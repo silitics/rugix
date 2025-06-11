@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 use library::Library;
 use reportify::ResultExt;
 use repositories::ProjectRepositories;
-use rugix_hashes::HashAlgorithm;
+use si_crypto_hashes::HashAlgorithm;
 
 use crate::config::load_config;
 use crate::config::projects::ProjectConfig;
@@ -161,5 +161,10 @@ impl ProjectLoader {
 }
 
 fn local_id_from_bytes(bytes: &[u8]) -> LocalProjectId {
-    LocalProjectId(HashAlgorithm::Sha256.hash(bytes).raw_hex_string()[..10].into())
+    LocalProjectId(
+        HashAlgorithm::Sha256
+            .hash::<Arc<[u8]>>(bytes)
+            .raw_hex_string()[..10]
+            .into(),
+    )
 }

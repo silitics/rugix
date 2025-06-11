@@ -8,7 +8,7 @@ use byte_calc::{ByteLen, NumBytes};
 
 use reportify::ResultExt;
 use rugix_chunker::{AnyChunker, Chunker, ChunkerAlgorithm};
-use rugix_hashes::{HashAlgorithm, Hasher};
+use si_crypto_hashes::{HashAlgorithm, Hasher};
 
 use crate::format::encode::Encode;
 use crate::manifest::BlockEncoding;
@@ -42,7 +42,7 @@ pub fn index_for_block_encoding(
     let index_config = BlockIndexConfig {
         hash_algorithm: block_encoding
             .hash_algorithm
-            .unwrap_or(rugix_hashes::HashAlgorithm::Sha512_256),
+            .unwrap_or(si_crypto_hashes::HashAlgorithm::Sha512_256),
         chunker: block_encoding.chunker.clone(),
     };
     compute_block_index(index_config, payload_file)
@@ -272,7 +272,7 @@ impl BlockIndexBuilder {
     /// Finalize the current block.
     fn finalize_block(&mut self) {
         let hasher = self.index.config.hash_algorithm.hasher();
-        let hash = std::mem::replace(&mut self.hasher, hasher).finalize();
+        let hash = std::mem::replace(&mut self.hasher, hasher).finalize::<Box<[u8]>>();
         let entry = BlockIndexEntry {
             hash: hash.raw(),
             offset: self.pending_block_offset,
