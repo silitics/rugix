@@ -10,6 +10,7 @@ use rugix_bundle::reader::block_provider::StoredBlockProvider;
 use rugix_bundle::reader::PayloadTarget;
 use rugix_bundle::source::{BundleSource, ReaderSource, SkipRead};
 use rugix_bundle::BUNDLE_MAGIC;
+use rugix_common::slots::SlotState;
 use rugix_hooks::{HooksLoader, RunOptions};
 use si_crypto_hashes::{HashAlgorithm, HashDigest};
 use tracing::{debug, error, info, warn};
@@ -26,7 +27,7 @@ use xscript::{vars, Vars};
 
 use crate::http_source::HttpSource;
 use crate::overlay::overlay_dir;
-use crate::slot_db::{self, BlockProvider, SlotState};
+use crate::slot_db::{self, BlockProvider};
 use crate::system_state;
 use crate::utils::{clear_flag, reboot, set_flag, DEFERRED_SPARE_REBOOT_FLAG};
 

@@ -20,6 +20,7 @@ pub mod maybe_compressed;
 #[cfg(target_os = "linux")]
 pub mod mount;
 pub mod partitions;
+pub mod slots;
 pub mod stream_hasher;
 pub mod utils;
 

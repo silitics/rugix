@@ -2394,6 +2394,7 @@ dependencies = [
 name = "rugix-common"
 version = "0.1.0"
 dependencies = [
+ "byte-calc",
  "bytes",
  "clap",
  "console",
@@ -2402,12 +2403,14 @@ dependencies = [
  "hex",
  "indexmap",
  "indoc",
+ "jiff",
  "nix 0.29.0",
  "rand",
  "reportify",
  "serde",
  "serde_json",
  "sha1",
+ "si-crypto-hashes",
  "tempfile",
  "thiserror 1.0.69",
  "toml 0.8.22",

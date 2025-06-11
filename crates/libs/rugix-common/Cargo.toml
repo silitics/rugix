@@ -32,6 +32,9 @@ serde.workspace = true
 xscript.workspace = true
 
 reportify.workspace = true
+si-crypto-hashes.workspace = true
+jiff = "0.2.14"
+byte-calc.workspace = true
 
 [dev-dependencies]
 clap.workspace = true
