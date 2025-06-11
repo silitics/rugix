@@ -22,7 +22,7 @@ console = "0.15.10"
 ctrlc = { version = "3.4.5", features = ["termination"] }
 flume = { version = "0.11.1", features = ["async"] }
 futures = "0.3.31"
-hashbrown = "0.15.2"
+hashbrown = { version = "0.15.2", features = ["serde"] }
 hex = "0.4.3"
 libc = "0.2.169"
 nix = { version = "0.29", features = ["ioctl", "fs", "mount", "process", "zerocopy"] }

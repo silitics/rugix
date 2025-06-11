@@ -24,9 +24,12 @@ pub fn state_from_system(system: &System) -> SystemStateOutput {
                 slot.name().to_owned(),
                 SlotStateOutput {
                     active: Some(slot.active()),
-                    hashes: slot_state
-                        .as_ref()
-                        .map(|s| s.hashes.iter().map(|h| h.to_string()).collect()),
+                    hashes: slot_state.as_ref().map(|s| {
+                        s.hashes
+                            .iter()
+                            .map(|(a, h)| (a.name().to_owned(), h.to_string()))
+                            .collect()
+                    }),
                     size: slot_state.as_ref().and_then(|s| s.size.map(|s| s.raw)),
                     updated_at: slot_state
                         .as_ref()

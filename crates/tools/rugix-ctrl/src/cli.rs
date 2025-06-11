@@ -1,5 +1,6 @@
 //! Definition of the command line interface (CLI).
 
+use std::collections::hash_map;
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::path::Path;
@@ -316,13 +317,12 @@ pub fn main() -> SystemResult<()> {
                 let Some(slot_state) = slot_db::get_stored_state(slot.name())? else {
                     bail!("no stored state for slot {}", slot.name());
                 };
-                if slot_state.hashes.is_empty() {
-                    bail!("no hashes stored for slot {}", slot.name());
-                }
                 if !slot.is_immutable() {
                     bail!("slot {} is not immutable, cannot verify", slot.name());
                 }
-                let hash = &slot_state.hashes[0];
+                let Some((_, hash)) = &slot_state.hashes.iter().next() else {
+                    bail!("no hashes stored for slot {}", slot.name());
+                };
                 let mut hasher = hash.algorithm().hasher();
                 let mut file = match slot.kind() {
                     SlotKind::Block(block_slot) => {
@@ -349,7 +349,7 @@ pub fn main() -> SystemResult<()> {
                 }
                 debug!("hashed {} bytes from slot {}", bytes_hashed, slot.name());
                 let found = hasher.finalize();
-                if &found != hash {
+                if found != **hash {
                     bail!(
                         "hash mismatch for slot {}: expected {}, found {}",
                         slot.name(),
@@ -724,9 +724,14 @@ fn install_update_bundle<R: BundleSource>(
                     // Only save the hashes and size if the slot is immutable.
                     &SlotState {
                         hashes: if slot.is_immutable() {
-                            vec![decoded_payload_info.hash]
+                            [(
+                                decoded_payload_info.hash.algorithm(),
+                                decoded_payload_info.hash,
+                            )]
+                            .into_iter()
+                            .collect()
                         } else {
-                            vec![]
+                            Default::default()
                         },
                         size: if slot.is_immutable() {
                             Some(decoded_payload_info.size)

@@ -5,7 +5,7 @@ record SystemStateOutput {
 
 record SlotStateOutput {
     active?: bool,
-    hashes?: [string],
+    hashes?: [string: string],
     size?: u64,
     updated_at?: string,
 }

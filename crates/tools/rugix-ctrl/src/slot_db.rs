@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use crate::system::SystemResult;
 use byte_calc::NumBytes;
-use hashbrown::{DefaultHashBuilder, HashTable};
+use hashbrown::{DefaultHashBuilder, HashMap, HashTable};
 use reportify::{whatever, ResultExt};
 use rugix_bundle::block_encoding::block_index::{compute_block_index, BlockIndexConfig};
 use rugix_bundle::format::decode::{Decode, Decoder};
@@ -240,8 +240,8 @@ pub fn db_dir() -> &'static Path {
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct SlotState {
     /// Hashes of the slot's contents.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub hashes: Vec<HashDigest>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub hashes: HashMap<HashAlgorithm, HashDigest>,
     /// Size of the slot's contents (well-defined part of the block device).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub size: Option<NumBytes>,
