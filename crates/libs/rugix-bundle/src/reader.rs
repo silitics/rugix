@@ -96,6 +96,10 @@ pub struct PayloadReader<'r, S> {
 }
 
 impl<'r, S: BundleSource> PayloadReader<'r, S> {
+    pub fn reader(&self) -> &BundleReader<S> {
+        self.reader
+    }
+
     pub fn idx(&self) -> usize {
         self.idx
     }

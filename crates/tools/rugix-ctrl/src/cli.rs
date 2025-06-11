@@ -5,15 +5,17 @@ use std::io::{self, Read, Write};
 use std::path::Path;
 use std::process::Child;
 
-use rugix_bundle::manifest::ChunkerAlgorithm;
+use rugix_bundle::manifest::{ChunkerAlgorithm, DeltaEncoding};
 use rugix_bundle::reader::block_provider::StoredBlockProvider;
-use rugix_bundle::reader::PayloadTarget;
+use rugix_bundle::reader::{DecodedPayloadInfo, PayloadTarget};
 use rugix_bundle::source::{BundleSource, ReaderSource, SkipRead};
+use rugix_bundle::xdelta::xdelta_decompress;
 use rugix_bundle::BUNDLE_MAGIC;
+use rugix_common::pipe::{buffered_pipe, PipeWriter};
 use rugix_common::slots::SlotState;
 use rugix_hooks::{HooksLoader, RunOptions};
-use si_crypto_hashes::{HashAlgorithm, HashDigest};
-use tracing::{debug, error, info, warn};
+use si_crypto_hashes::{HashAlgorithm, HashDigest, Hasher};
+use tracing::{debug, error, info, trace, warn};
 
 use crate::system::boot_groups::{BootGroup, BootGroupIdx};
 use crate::system::slots::SlotKind;
@@ -671,52 +673,156 @@ fn install_update_bundle<R: BundleSource>(
                     }
                     block_provider = Some(provider);
                 }
-                let decoded_payload_info = match slot.kind() {
-                    SlotKind::Block(block_slot) => {
-                        let target = std::fs::OpenOptions::new()
+                let decoded_payload_info = if let Some(delta_encoding) =
+                    &payload_entry.delta_encoding
+                {
+                    let Ok(delta_encoding) = serde_json::from_str::<DeltaEncoding>(delta_encoding)
+                    else {
+                        bail!("invalid delta encoding");
+                    };
+                    if delta_encoding.inputs.len() != 1 {
+                        bail!("unsupported number of delta encoding inputs");
+                    }
+                    let input = &delta_encoding.inputs[0];
+                    let mut source = None;
+                    'slots: for (_, delta_slot) in system.slots().iter() {
+                        let Ok(Some(slot_state)) = slot_db::get_stored_state(delta_slot.name())
+                        else {
+                            continue;
+                        };
+                        for input_hash in &input.hashes {
+                            let Some(slot_hash) = slot_state.hashes.get(&input_hash.algorithm())
+                            else {
+                                trace!(slot_name = delta_slot.name(), algorithm = ?input_hash.algorithm(), "no hash found");
+                                continue;
+                            };
+                            if slot_hash == input_hash {
+                                // We found the slot to use as a source.
+                                source = Some(delta_slot);
+                                trace!(slot_name = delta_slot.name(), "delta source found");
+                                break 'slots;
+                            } else {
+                                trace!(slot_name = delta_slot.name(), %slot_hash, %input_hash, "hash does not match");
+                            }
+                        }
+                    }
+                    let Some(source) = source else {
+                        bail!("no slot suitable delta source found");
+                    };
+                    // This is here so that we get an error when introducing additional formats.
+                    match delta_encoding.format {
+                        rugix_bundle::manifest::DeltaEncodingFormat::Xdelta => { /* do nothing */ }
+                    }
+                    let source = match source.kind() {
+                        SlotKind::Block(block_slot) => block_slot.device().path().to_owned(),
+                        SlotKind::File { path } => path.to_owned(),
+                        SlotKind::Custom { .. } => {
+                            bail!("source slot must not be a custom slot");
+                        }
+                    };
+                    let target = match slot.kind() {
+                        SlotKind::Block(block_slot) => std::fs::OpenOptions::new()
                             .read(true)
                             .write(true)
                             .open(block_slot.device())
-                            .whatever("unable to open payload target")?;
-                        payload
-                            .decode_into(
-                                target,
-                                block_provider
-                                    .as_ref()
-                                    .map(|p| p as &dyn StoredBlockProvider),
-                                &mut progress,
-                            )
-                            .whatever("unable to decode payload")?
-                    }
-                    SlotKind::File { path } => {
-                        let target = std::fs::OpenOptions::new()
+                            .whatever("unable to open payload target")?,
+                        SlotKind::File { path } => std::fs::OpenOptions::new()
                             .read(true)
                             .write(true)
                             .create(true)
                             .truncate(true)
                             .open(path)
-                            .whatever("unable to open payload target")?;
-                        payload
-                            .decode_into(
-                                target,
-                                block_provider
-                                    .as_ref()
-                                    .map(|p| p as &dyn StoredBlockProvider),
-                                &mut progress,
-                            )
-                            .whatever("unable to decode payload")?
+                            .whatever("unable to open payload target")?,
+                        SlotKind::Custom { .. } => {
+                            bail!("custom slots do not support delta updates yet")
+                        }
+                    };
+                    let mut target_writer =
+                        HashWriter::new(delta_encoding.hash.algorithm(), target);
+                    let (mut patch_reader, patch_writer) = buffered_pipe(8192);
+
+                    let (decode_result, xdelta_result) = std::thread::scope(|scope| {
+                        let target_writer = &mut target_writer;
+                        // We must move the `patch_reader` here as we need it to be dropped when
+                        // the decompression fails. Otherwise, we get a deadlock when waiting for
+                        // the payload decoding in the following.
+                        let handle = scope.spawn(move || {
+                            trace!("starting xdelta");
+                            let result =
+                                xdelta_decompress(&source, &mut patch_reader, target_writer);
+                            trace!(?result, "xdelta terminated");
+                            result
+                        });
+                        let decode_result = payload.decode_into(
+                            BufferedPipeTarget {
+                                writer: patch_writer,
+                            },
+                            block_provider
+                                .as_ref()
+                                .map(|p| p as &dyn StoredBlockProvider),
+                            &mut progress,
+                        );
+                        trace!("finished decoding payload into pipe");
+                        (decode_result, handle.join().unwrap())
+                    });
+                    decode_result.whatever("unable to decode payload")?;
+                    xdelta_result.whatever("unable to decode delta update")?;
+                    let (target_hash, target_size) = target_writer.finalize();
+                    if target_hash != delta_encoding.hash {
+                        bail!("decoded slot data does not match hash");
                     }
-                    SlotKind::Custom { handler } => {
-                        let target = CustomTarget::new(handler.iter().map(|arg| arg.as_str()))?;
-                        payload
-                            .decode_into(
-                                target,
-                                block_provider
-                                    .as_ref()
-                                    .map(|p| p as &dyn StoredBlockProvider),
-                                &mut progress,
-                            )
-                            .whatever("unable to decode payload")?
+                    DecodedPayloadInfo {
+                        hash: target_hash,
+                        size: target_size.into(),
+                    }
+                } else {
+                    match slot.kind() {
+                        SlotKind::Block(block_slot) => {
+                            let target = std::fs::OpenOptions::new()
+                                .read(true)
+                                .write(true)
+                                .open(block_slot.device())
+                                .whatever("unable to open payload target")?;
+                            payload
+                                .decode_into(
+                                    target,
+                                    block_provider
+                                        .as_ref()
+                                        .map(|p| p as &dyn StoredBlockProvider),
+                                    &mut progress,
+                                )
+                                .whatever("unable to decode payload")?
+                        }
+                        SlotKind::File { path } => {
+                            let target = std::fs::OpenOptions::new()
+                                .read(true)
+                                .write(true)
+                                .create(true)
+                                .truncate(true)
+                                .open(path)
+                                .whatever("unable to open payload target")?;
+                            payload
+                                .decode_into(
+                                    target,
+                                    block_provider
+                                        .as_ref()
+                                        .map(|p| p as &dyn StoredBlockProvider),
+                                    &mut progress,
+                                )
+                                .whatever("unable to decode payload")?
+                        }
+                        SlotKind::Custom { handler } => {
+                            let target = CustomTarget::new(handler.iter().map(|arg| arg.as_str()))?;
+                            payload
+                                .decode_into(
+                                    target,
+                                    block_provider
+                                        .as_ref()
+                                        .map(|p| p as &dyn StoredBlockProvider),
+                                    &mut progress,
+                                )
+                                .whatever("unable to decode payload")?
+                        }
                     }
                 };
                 if let Err(error) = slot_db::save_slot_state(
@@ -770,6 +876,55 @@ fn install_update_bundle<R: BundleSource>(
         Ok(UpdateRebootType::Yes)
     } else {
         Ok(UpdateRebootType::No)
+    }
+}
+
+#[derive(Debug)]
+pub struct HashWriter<W> {
+    writer: W,
+    hasher: Hasher,
+    size: u64,
+}
+
+impl<W> HashWriter<W> {
+    pub fn new(algorithm: HashAlgorithm, writer: W) -> Self {
+        Self {
+            writer,
+            hasher: algorithm.hasher(),
+            size: 0,
+        }
+    }
+
+    pub fn finalize(self) -> (HashDigest, u64) {
+        (self.hasher.finalize(), self.size)
+    }
+}
+
+impl<W: Write> Write for HashWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        let written = self.writer.write(buf)?;
+        self.hasher.update(&buf[..written]);
+        self.size += buf.len() as u64;
+        Ok(written)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.writer.flush()
+    }
+}
+
+#[derive(Debug)]
+pub struct BufferedPipeTarget {
+    writer: PipeWriter,
+}
+
+impl PayloadTarget for BufferedPipeTarget {
+    fn write(&mut self, bytes: &[u8]) -> rugix_bundle::BundleResult<()> {
+        self.writer.write_all(bytes).whatever("write failed")
+    }
+
+    fn finalize(mut self) -> rugix_bundle::BundleResult<()> {
+        self.writer.flush().whatever("flush failed")
     }
 }
 

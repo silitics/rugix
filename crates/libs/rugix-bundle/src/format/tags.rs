@@ -148,6 +148,8 @@ define_tags! {
     PAYLOAD_ENTRY_HEADER_HASH = 0x5f6a60b1,
     /// Hash of the payload's file.
     PAYLOAD_ENTRY_FILE_HASH = 0x0c8d1fd0,
+    /// Payload entry delta encoding.
+    PAYLOAD_ENTRY_DELTA_ENCODING = 0x272cdf9f,
 
     PAYLOAD_TYPE_SLOT_SLOT = 0x1b231de7,
 

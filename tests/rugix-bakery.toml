@@ -38,6 +38,11 @@ layer = "customized-efi"
 architecture = "arm64"
 target = "generic-grub-efi"
 
+[systems.customized-arm64-delta]
+layer = "customized-efi-delta"
+architecture = "arm64"
+target = "generic-grub-efi"
+
 [systems.customized-arm64-squashfs]
 layer = "customized-efi"
 architecture = "arm64"

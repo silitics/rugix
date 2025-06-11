@@ -50,6 +50,8 @@ define_struct! {
         pub header_hash[PAYLOAD_ENTRY_HEADER_HASH]: Bytes,
         /// Hash of the payload file.
         pub file_hash[PAYLOAD_ENTRY_FILE_HASH]: Bytes,
+        /// Delta encoding.
+        pub delta_encoding[PAYLOAD_ENTRY_DELTA_ENCODING]: Option<String>,
     }
 }
 

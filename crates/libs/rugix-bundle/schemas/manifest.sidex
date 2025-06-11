@@ -1,6 +1,9 @@
 #[rust(type="si_crypto_hashes::HashAlgorithm")]
 opaque HashAlgorithm
 
+#[rust(type="si_crypto_hashes::HashDigest")]
+opaque HashDigest
+
 #[rust(type="rugix_chunker::ChunkerAlgorithm")]
 opaque ChunkerAlgorithm
 
@@ -28,6 +31,32 @@ record Payload {
     filename: string,
     /// Block encoding.
     block_encoding?: BlockEncoding,
+    /// Payload file has been delta encoded.
+    /// 
+    /// Specifies the delta encoding used to produce the payload file.
+    delta_encoding?: DeltaEncoding,
+}
+
+record DeltaEncoding {
+    /// Inputs to the encoding.
+    inputs: [DeltaEncodingInput],
+    /// Delta encoding format.
+    format: DeltaEncodingFormat,
+    /// Hash of the decoded data.
+    hash: HashDigest,
+}
+
+#[json(tag = "type")]
+variant DeltaEncodingFormat {
+    /// Format emitted by Xdelta.
+    /// 
+    /// While Xdelta claims to use the VCDIFF format, the patches it produces are non-compliant.
+    Xdelta,
+}
+
+record DeltaEncodingInput {
+    /// Hashes to identify the input.
+    hashes: [HashDigest],
 }
 
 #[json(tag="type", rename_all="kebab-case")]

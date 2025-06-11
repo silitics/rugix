@@ -19,6 +19,7 @@ pub mod format;
 pub mod manifest;
 pub mod reader;
 pub mod source;
+pub mod xdelta;
 
 /// Start sequence of an update bundle.
 pub const BUNDLE_MAGIC: &[u8] = &[

@@ -1,0 +1,26 @@
+#:schema https://raw.githubusercontent.com/silitics/rugix/refs/heads/main/schemas/rugix-bundle-manifest.schema.json
+
+update-type = "full"
+
+[[payloads]]
+filename = "boot.img"
+[payloads.delivery]
+type = "slot"
+slot = "boot"
+[payloads.block-encoding]
+chunker = "casync-64"
+
+[[payloads]]
+filename = "system.xdelta"
+[payloads.delivery]
+type = "slot"
+slot = "system"
+[payloads.delta-encoding]
+inputs = [
+    { hashes = ["sha512-256:25ae21bd01030edee58e2e33bdd3632361511dfef8a2f87f0dc962652444e229"] }
+]
+format = { type = "Xdelta" }
+hash = "sha512-256:622e6c88ee9b685d4a96d92004e50efb73d73c943705464e491cbd80f25e11e7"
+# We still want a block encoding to ensure that the blocks have not been tempered with.
+[payloads.block-encoding]
+chunker = "fixed-64"

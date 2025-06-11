@@ -70,6 +70,10 @@ pub fn pack(path: &Path, dst: &Path) -> BundleResult<()> {
             file_hash: Bytes {
                 raw: payload_file_hash.raw().to_vec(),
             },
+            delta_encoding: payload
+                .delta_encoding
+                .as_ref()
+                .map(|enc| serde_json::to_string(enc).unwrap()),
         });
         prepared_payloads.push(PreparedPayload {
             payload_header,
