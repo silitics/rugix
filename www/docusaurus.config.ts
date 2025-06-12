@@ -78,6 +78,11 @@ const config: Config = {
         },
         { to: "/blog", label: "Blog", position: "left" },
         {
+          to: "/cyber-resilience-act",
+          label: "Cyber Resilience Act",
+          position: "right",
+        },
+        {
           to: "/commercial-support",
           label: "Commercial Support",
           position: "right",
