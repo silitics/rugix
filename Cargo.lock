@@ -2969,9 +2969,9 @@ checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 
 [[package]]
 name = "si-crypto-hashes"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b65f76d23cbb7557f99d71bf24b6629c6a0aae685199e6d6cfe0dd5c7852d6bf"
+checksum = "fa7b922a9afcd3005a211ceb66972abdc9e771ad3c1851a202e62acfacd5a02c"
 dependencies = [
  "hex",
  "serde",

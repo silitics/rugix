@@ -147,8 +147,7 @@ pub fn add_index(
     hash_algorithm: &HashAlgorithm,
 ) -> SystemResult<()> {
     let path = db_dir().join(format!(
-        "{slot_name}/{chunker_algorithm}_{}.rugix-block-index",
-        hash_algorithm.name(),
+        "{slot_name}/{chunker_algorithm}_{hash_algorithm:#}.rugix-block-index"
     ));
     std::fs::create_dir_all(path.parent().unwrap()).ok();
     let index_config = BlockIndexConfig {
