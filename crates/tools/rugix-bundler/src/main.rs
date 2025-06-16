@@ -178,10 +178,10 @@ fn main() -> BundleResult<()> {
             }
         }
         Cmd::Delta(cmd) => {
-            let old_dir = tempdir::TempDir::new("rugix").unwrap();
+            let old_dir = tempfile::TempDir::new().unwrap();
             info!(directory = ?old_dir.path(), "unpacking old update bundle");
             unpack(&cmd.old, old_dir.path())?;
-            let new_dir = tempdir::TempDir::new("rugix").unwrap();
+            let new_dir = tempfile::TempDir::new().unwrap();
             info!(direction = ?new_dir.path(), "unpacking new update bundle");
             unpack(&cmd.new, new_dir.path())?;
             let old_manifest = toml::from_str::<BundleManifest>(

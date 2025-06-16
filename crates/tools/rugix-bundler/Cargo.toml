@@ -18,8 +18,8 @@ rugix-version.workspace = true
 toml.workspace = true
 tracing.workspace = true
 serde_json.workspace = true
-tempdir = "0.3.7"
 si-observability.workspace = true
+tempfile = "3.20.0"
 
 [lints]
 workspace = true
