@@ -42,3 +42,25 @@ where
     }
     Ok(())
 }
+
+#[tracing::instrument(level = Level::DEBUG)]
+pub fn xdelta_compress(old: &Path, new: &Path, patch: &Path) -> BundleResult<()> {
+    let mut child = Command::new("xdelta3")
+        .arg("-e")
+        .arg("-s")
+        .arg(old)
+        .arg(new)
+        .arg(patch)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .spawn()
+        .whatever("unable to spawn xdelta")?;
+    let exit_status = child.wait().whatever("error running xdelta")?;
+    if !exit_status.success() {
+        bail!(
+            "xdelta exited with non-zero return code: {:?}",
+            exit_status.code()
+        );
+    }
+    Ok(())
+}

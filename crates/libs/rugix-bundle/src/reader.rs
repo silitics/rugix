@@ -6,7 +6,7 @@ use byte_calc::{ByteLen, NumBytes};
 use reportify::{bail, whatever, ResultExt};
 use rugix_compression::{ByteProcessor, CompressionFormat};
 use si_crypto_hashes::HashDigest;
-use tracing::{debug, error};
+use tracing::{error, trace};
 
 use crate::block_encoding::block_index::{BlockId, RawBlockIndex};
 use crate::block_encoding::block_table::BlockTable;
@@ -185,7 +185,7 @@ impl<'r, S: BundleSource> PayloadReader<'r, S> {
                         .min(self.remaining_data.raw);
                     next_size_idx += 1;
                     if let Some(stored_block) = provider.and_then(|p| p.query(block_hash)) {
-                        debug!(
+                        trace!(
                             block_idx = idx,
                             block_size_bundle = block_size,
                             stored_block_file = ?stored_block.file,
@@ -212,7 +212,7 @@ impl<'r, S: BundleSource> PayloadReader<'r, S> {
                         if let Some(format) = block_encoding.compression {
                             buffer = uncompress_bytes(format, &buffer);
                         }
-                        debug!(
+                        trace!(
                             block_idx = idx,
                             block_size = buffer.len(),
                             block_size_bundle = block_size,
@@ -224,7 +224,7 @@ impl<'r, S: BundleSource> PayloadReader<'r, S> {
                     assert!(first_idx.raw < idx);
                     let offset = target_offsets[first_idx.raw];
                     let size = target_sizes[first_idx.raw];
-                    debug!(
+                    trace!(
                         block_idx = idx,
                         block_offset = offset.raw,
                         block_size = size.raw,

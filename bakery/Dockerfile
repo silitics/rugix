@@ -21,6 +21,7 @@ RUN apt-get -y update \
         qemu-utils \
         squashfs-tools \
         wget \
+        xdelta3 \
         xz-utils \
         zip \
         zsh \
