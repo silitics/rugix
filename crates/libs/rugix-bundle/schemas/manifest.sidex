@@ -87,8 +87,13 @@ record BlockEncoding{
 #[json(tag="type", rename_all="kebab-case")]
 variant Compression {
     Xz: XzCompression,
+    XzMt: XzMtCompression,
 }
 
 record XzCompression {
+    level?: u8,
+}
+
+record XzMtCompression {
     level?: u8,
 }
