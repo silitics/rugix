@@ -9,8 +9,9 @@ use reportify::{bail, ResultExt};
 
 use rugix_chunker::ChunkerAlgorithm;
 use rugix_compression::CompressionFormat;
-use si_crypto_hashes::HashAlgorithm;
+use si_crypto_hashes::{HashAlgorithm, HashDigest};
 
+use crate::manifest::DeltaEncodingFormat;
 use crate::source::BundleSource;
 use crate::BundleResult;
 
@@ -51,7 +52,35 @@ define_struct! {
         /// Hash of the payload file.
         pub file_hash[PAYLOAD_ENTRY_FILE_HASH]: Bytes,
         /// Delta encoding.
-        pub delta_encoding[PAYLOAD_ENTRY_DELTA_ENCODING]: Option<String>,
+        pub delta_encoding[PAYLOAD_ENTRY_DELTA_ENCODING]: Option<DeltaEncoding>,
+    }
+}
+
+define_struct! {
+    pub struct DeltaEncoding {
+        pub format[DELTA_ENCODING_FORMAT]: DeltaEncodingFormat,
+        pub inputs[DELTA_ENCODING_INPUT]: Vec<DeltaEncodingInput>,
+        pub original_hash[DELTA_ENCODING_ORIGINAL_HASH]: HashDigest,
+    }
+}
+
+define_struct! {
+    pub struct DeltaEncodingInput {
+        pub hashes[DELTA_ENCODING_INPUT_HASH]: Vec<HashDigest>,
+    }
+}
+
+impl Decode for HashDigest {
+    fn decode<S: BundleSource>(decoder: &mut Decoder<S>, atom: AtomHead) -> BundleResult<Self> {
+        String::decode(decoder, atom)?
+            .parse()
+            .whatever("invalid hash digest")
+    }
+}
+
+impl Encode for HashDigest {
+    fn encode(&self, writer: &mut dyn Write, tag: Tag) -> io::Result<()> {
+        write_value(writer, tag, self.to_string().as_bytes())
     }
 }
 
@@ -142,6 +171,27 @@ impl Decode for HashAlgorithm {
         String::decode(decoder, atom)?
             .parse()
             .whatever("unknown hash algorithm")
+    }
+}
+
+impl Encode for DeltaEncodingFormat {
+    fn encode(&self, writer: &mut dyn Write, tag: Tag) -> io::Result<()> {
+        write_value(
+            writer,
+            tag,
+            match self {
+                DeltaEncodingFormat::Xdelta => b"xdelta",
+            },
+        )
+    }
+}
+
+impl Decode for DeltaEncodingFormat {
+    fn decode<S: BundleSource>(decoder: &mut Decoder<S>, atom: AtomHead) -> BundleResult<Self> {
+        match String::decode(decoder, atom)?.as_str() {
+            "xdelta" => Ok(Self::Xdelta),
+            format => bail!("unknown delta encoding format '{format}'"),
+        }
     }
 }
 

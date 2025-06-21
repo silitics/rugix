@@ -73,7 +73,17 @@ pub fn pack(path: &Path, dst: &Path) -> BundleResult<()> {
             delta_encoding: payload
                 .delta_encoding
                 .as_ref()
-                .map(|enc| serde_json::to_string(enc).unwrap()),
+                .map(|encoding| format::DeltaEncoding {
+                    format: encoding.format.clone(),
+                    inputs: encoding
+                        .inputs
+                        .iter()
+                        .map(|input| format::DeltaEncodingInput {
+                            hashes: input.hashes.clone(),
+                        })
+                        .collect(),
+                    original_hash: encoding.original_hash.clone(),
+                }),
         });
         prepared_payloads.push(PreparedPayload {
             payload_header,

@@ -37,16 +37,17 @@ record Payload {
     delta_encoding?: DeltaEncoding,
 }
 
+#[json(rename_all="kebab-case")]
 record DeltaEncoding {
     /// Inputs to the encoding.
     inputs: [DeltaEncodingInput],
     /// Delta encoding format.
     format: DeltaEncodingFormat,
     /// Hash of the decoded data.
-    hash: HashDigest,
+    original_hash: HashDigest,
 }
 
-#[json(tag = "type", rename_all = "lowercase")]
+#[json(tagged=externally, rename_all="lowercase")]
 variant DeltaEncodingFormat {
     /// Format emitted by Xdelta.
     /// 

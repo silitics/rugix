@@ -188,4 +188,14 @@ define_tags! {
     BLOCK_ENCODING_BLOCK_HASHES = 0x76b3d7a0,
     /// Block sizes.
     BLOCK_ENCODING_BLOCK_SIZES = 0x27e5d3f2,
+
+    /// Delta encoding format.
+    DELTA_ENCODING_FORMAT = 0x3b8aeb9a,
+    /// Delta encoding input.
+    DELTA_ENCODING_INPUT = 0x4e08b9f1,
+    /// Delta encoding original hash.
+    DELTA_ENCODING_ORIGINAL_HASH = 0x64760e1c,
+
+    /// Hash to identify a delta encoding input.
+    DELTA_ENCODING_INPUT_HASH = 0x3a0d1307,
 }

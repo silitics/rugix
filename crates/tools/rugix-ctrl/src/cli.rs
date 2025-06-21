@@ -5,7 +5,7 @@ use std::io::{self, Read, Write};
 use std::path::Path;
 use std::process::Child;
 
-use rugix_bundle::manifest::{ChunkerAlgorithm, DeltaEncoding};
+use rugix_bundle::manifest::ChunkerAlgorithm;
 use rugix_bundle::reader::block_provider::StoredBlockProvider;
 use rugix_bundle::reader::{DecodedPayloadInfo, PayloadTarget};
 use rugix_bundle::source::{BundleSource, ReaderSource, SkipRead};
@@ -676,10 +676,7 @@ fn install_update_bundle<R: BundleSource>(
                 let decoded_payload_info = if let Some(delta_encoding) =
                     &payload_entry.delta_encoding
                 {
-                    let Ok(delta_encoding) = serde_json::from_str::<DeltaEncoding>(delta_encoding)
-                    else {
-                        bail!("invalid delta encoding");
-                    };
+                    let delta_encoding = delta_encoding.clone();
                     if delta_encoding.inputs.len() != 1 {
                         bail!("unsupported number of delta encoding inputs");
                     }
@@ -738,7 +735,7 @@ fn install_update_bundle<R: BundleSource>(
                         }
                     };
                     let mut target_writer =
-                        HashWriter::new(delta_encoding.hash.algorithm(), target);
+                        HashWriter::new(delta_encoding.original_hash.algorithm(), target);
                     let (mut patch_reader, patch_writer) = buffered_pipe(8192);
 
                     let (decode_result, xdelta_result) = std::thread::scope(|scope| {
@@ -768,7 +765,7 @@ fn install_update_bundle<R: BundleSource>(
                     decode_result.whatever("unable to decode payload")?;
                     xdelta_result.whatever("unable to decode delta update")?;
                     let (target_hash, target_size) = target_writer.finalize();
-                    if target_hash != delta_encoding.hash {
+                    if target_hash != delta_encoding.original_hash {
                         bail!("decoded slot data does not match hash");
                     }
                     DecodedPayloadInfo {
