@@ -1,0 +1,71 @@
+[[systems]]
+system  = "customized-arm64"
+ssh = { private-key = "./keys/id_rsa" }
+
+[[steps]]
+action = "run"
+description = "check system state prior to update"
+script = """
+#!/bin/bash
+set -euo pipefail
+rugix-system-assert ".boot.defaultGroup" "a"
+rugix-system-assert ".boot.activeGroup" "a"
+"""
+
+[[steps]]
+action = "run"
+description = "install a system update"
+stdin-file = "./build/customized-arm64/system.rugixb"
+# Rebooting may cause the SSH client to disconnect while executing the script.
+may-disconnect = true
+script = """
+#!/bin/bash
+set -euo pipefail
+rugix-ctrl update install -
+"""
+
+[[steps]]
+action = "wait"
+duration = 10
+
+[[steps]]
+action = "run"
+description = "check whether the update has been installed"
+script = """
+#!/bin/bash
+set -euo pipefail
+rugix-system-assert ".boot.defaultGroup" "a"
+rugix-system-assert ".boot.activeGroup" "b"
+rugix-ctrl system commit
+rugix-system-assert ".boot.defaultGroup" "b"
+rugix-system-assert ".boot.activeGroup" "b"
+"""
+
+[[steps]]
+action = "run"
+description = "install a static delta update"
+stdin-file = "./build/delta.rugixb"
+# Rebooting may cause the SSH client to disconnect while executing the script.
+may-disconnect = true
+script = """
+#!/bin/bash
+set -euo pipefail
+rugix-ctrl update install -
+"""
+
+[[steps]]
+action = "wait"
+duration = 10
+
+[[steps]]
+action = "run"
+description = "check whether the update has been installed"
+script = """
+#!/bin/bash
+set -euo pipefail
+rugix-system-assert ".boot.defaultGroup" "b"
+rugix-system-assert ".boot.activeGroup" "a"
+rugix-ctrl system commit
+rugix-system-assert ".boot.defaultGroup" "a"
+rugix-system-assert ".boot.activeGroup" "a"
+"""

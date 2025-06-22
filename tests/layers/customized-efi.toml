@@ -15,6 +15,7 @@ recipes = [
     "rugix-system-assert",
     "simple-sbom",
     "hello-world",
+    "xdelta3",
 ]
 
 [parameters."core/rugix-ctrl"]
