@@ -13,7 +13,7 @@
   <a href="https://github.com/silitics/rugix/actions"><img alt="Pipeline Status Badge" src="https://img.shields.io/github/actions/workflow/status/silitics/rugix/check-and-lint.yml"></a>
 </p>
 
-💡 **TL;DR**: Rugix (formerly Rugpi) is a suite of open-source tools to **build and deploy reliable embedded Linux devices at scale with efficient and secure over-the-air update capabilities**.
+💡 **TL;DR**: Rugix (formerly Rugpi) is a suite of open-source tools to **build and deploy reliable embedded Linux devices at scale with efficient and secure over-the-air (OTA) update capabilities**.
 Companies around the world use Rugix as a basis for their connected products.
 Currently, the tool suite consists of two main tools:
 
@@ -64,8 +64,7 @@ With Rugix Bakery, you get a **comprehensive tool to build, test, and run your s
 
 ## Why Rugix?
 
-Rugix has been started out of frustration with the current state of the embedded Linux ecosystem.
-While there are already tools for building images, updating systems, and managing state, integrating them into a robust, coherent solution remains a significant challenge.
+While there are already plenty of tools for building images, updating systems, and managing state in the embedded Linux ecosystem, integrating them into a robust, coherent solution remains a significant challenge.
 With Rugix, we aim to **simplify the development of embedded Linux devices by providing a unified, modern suite of tools that seamlessly integrate** to provide an efficient workflow for building, updating, and managing embedded Linux systems at scale.
 We believe that **building embedded Linux devices should not be as complicated as it often is today**.
 
