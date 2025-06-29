@@ -83,6 +83,7 @@ pub fn customize(
     src: Option<&Path>,
     target: &Path,
     layer_path: &Path,
+    source_date_epoch: u64,
 ) -> BakeryResult<()> {
     let library = project.library()?;
     // Collect the recipes to apply.
@@ -140,7 +141,15 @@ pub fn customize(
     let root_dir = bundle_dir.join("roots/system");
     std::fs::create_dir_all(&root_dir).ok();
     let logger = Logger::new(&layer.name, layer_path)?;
-    if let Err(error) = apply_recipes(&layer_ctx, &logger, project, arch, &jobs, &root_dir) {
+    if let Err(error) = apply_recipes(
+        &layer_ctx,
+        &logger,
+        project,
+        arch,
+        &jobs,
+        &root_dir,
+        source_date_epoch,
+    ) {
         let last_lines = logger.current_lines();
 
         cli_msg!("Log: {:?}", layer_path.join("build.log"));
@@ -151,8 +160,20 @@ pub fn customize(
         return Err(error);
     }
     info!("packing system files");
-    run!(["tar", "-c", "-f", &target, "-C", bundle_dir, "."])
-        .whatever("unable to package system files")?;
+    run!([
+        "tar",
+        "--sort=name",
+        "--pax-option=exthdr.name=%d/PaxHeaders/%f,delete=atime,delete=ctime",
+        "--clamp-mtime",
+        format!("--mtime=@{source_date_epoch}"),
+        "-c",
+        "-f",
+        &target,
+        "-C",
+        bundle_dir,
+        "."
+    ])
+    .whatever("unable to package system files")?;
     Ok(())
 }
 
@@ -303,6 +324,7 @@ fn apply_recipes(
     arch: Architecture,
     jobs: &[RecipeJob],
     root_dir_path: &Path,
+    source_date_epoch: u64,
 ) -> BakeryResult<()> {
     let mut mount_stack = MountStack::new();
 
@@ -395,7 +417,8 @@ fn apply_recipes(
                         cmd.extend_args(packages);
                         ParentEnv
                             .run(cmd.with_vars(vars! {
-                                DEBIAN_FRONTEND = "noninteractive"
+                                DEBIAN_FRONTEND = "noninteractive",
+                                SOURCE_DATE_EPOCH = source_date_epoch.to_string(),
                             }))
                             .whatever("unable to install packages")?;
                     }
@@ -432,6 +455,7 @@ fn apply_recipes(
                         LAYER_REBUILD_IF_CHANGED = Path::new("/run/rugix/bakery/project").join(&layer_ctx.output_dir).join("rebuild-if-changed.txt"),
                         RECIPE_DIR = "/run/rugix/bakery/recipe",
                         RECIPE_STEP_PATH = &script,
+                        SOURCE_DATE_EPOCH = source_date_epoch.to_string(),
                     };
                     for (name, value) in &job.parameters {
                         vars.set(format!("RECIPE_PARAM_{}", name.to_uppercase()), value);
@@ -459,6 +483,7 @@ fn apply_recipes(
                         LAYER_REBUILD_IF_CHANGED = project_dir.join(&layer_ctx.output_dir).join("rebuild-if-changed.txt"),
                         RECIPE_DIR = &recipe.path,
                         RECIPE_STEP_PATH = &script,
+                        SOURCE_DATE_EPOCH = source_date_epoch.to_string(),
                     };
                     for (name, value) in &job.parameters {
                         vars.set(format!("RECIPE_PARAM_{}", name.to_uppercase()), value);

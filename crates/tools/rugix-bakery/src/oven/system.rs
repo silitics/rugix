@@ -46,6 +46,7 @@ pub fn make_system(
     system_name: &str,
     frozen: &FrozenLayer,
     out: &Path,
+    source_date_epoch: u64,
 ) -> BakeryResult<()> {
     let system_build_input = out.join("system-build-input.json");
     let system_build_info = out.join("system-build-info.json");
@@ -250,32 +251,31 @@ pub fn make_system(
                     allocate_file(&fs_image, size.into_raw())
                         .whatever("unable to allocate filesystem file")?;
                     if let Some(path) = &layout_partition.root {
-                        // let root_tar = layer_path.join(".rugix-root.tar");
-                        // std::fs::remove_file(&root_tar).ok();
-                        // run!([
-                        //     "tar",
-                        //     "--sort=name",
-                        //     "--pax-option=exthdr.name=%d/PaxHeaders/%f,delete=atime,
-                        // delete=ctime",     "-cf",
-                        //     &root_tar,
-                        //     "-C",
-                        //     layer_path.join("roots").join(path),
-                        //     "."
-                        // ])
-                        // .whatever("unable to create root filesystem tar")?;
-                        // run!([
-                        //     "mkfs.ext4",
-                        //     "-F",
-                        //     "-d",
-                        //     root_tar,
-                        //     "-E",
-                        //     "hash_seed=035cb65d-0a86-404a-bad7-19c88d05e400",
-                        //     &fs_image
-                        // ])
+                        let tar_archive =
+                            filesystems_dir.join(format!("partition-{}.tar", partition + 1));
+                        std::fs::remove_file(&tar_archive).ok();
+                        run!([
+                            "tar",
+                            "--sort=name",
+                            "--pax-option=exthdr.name=%d/PaxHeaders/%f,delete=atime,delete=ctime",
+                            "--clamp-mtime",
+                            format!("--mtime=@{source_date_epoch}"),
+                            "-cf",
+                            &tar_archive,
+                            "-C",
+                            layer_path.join("roots").join(path),
+                            "."
+                        ])
+                        .whatever("unable to create root filesystem tar")?;
                         let mut cmd = cmd_os!(
                             "mkfs.ext4",
+                            "-F",
+                            "-E",
+                            "hash_seed=035cb65d-0a86-404a-bad7-19c88d05e400",
+                            "-U",
+                            "12341234-a4ec-4304-a70f-c549ea829da9",
                             "-d",
-                            layer_path.join("roots").join(path),
+                            &tar_archive,
                             &fs_image
                         );
                         if let Some(additional_options) = &options.additional_options {

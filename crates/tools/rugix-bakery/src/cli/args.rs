@@ -81,6 +81,8 @@ pub enum BakeCommand {
         output: Option<PathBuf>,
         #[clap(flatten)]
         release: ReleaseInfoArgs,
+        #[clap(long)]
+        source_date_epoch: Option<u64>,
     },
     /// Bake a layer.
     Layer {
@@ -89,6 +91,8 @@ pub enum BakeCommand {
         arch: Architecture,
         /// The name of the layer to bake.
         layer: String,
+        #[clap(long)]
+        source_date_epoch: Option<u64>,
     },
     /// Bake a bundle.
     Bundle {

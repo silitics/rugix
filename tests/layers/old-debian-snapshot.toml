@@ -4,9 +4,14 @@ recipes = [
     "core/debian-bootstrap",
     "core/debian-grub-setup",
     "core/ssh",
+    "core/set-hostname",
     "setup-network",
+    "make-reproducible",
 ]
 
 [parameters."core/debian-bootstrap"]
 suite = "bookworm"
 snapshot = "20240825T145253Z"
+
+[parameters."core/set-hostname"]
+hostname = "rugix"

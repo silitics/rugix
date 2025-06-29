@@ -16,9 +16,18 @@ pub fn run(args: &args::Args, cmd: &args::BakeCommand) -> BakeryResult<()> {
             system,
             output,
             release,
+            source_date_epoch,
         } => {
             let system_path = Path::new("build").join(system);
-            oven::bake_system(&project, &release.release_info(), system, &system_path)?;
+            let now = jiff::Timestamp::now().as_second() as u64;
+            let source_date_epoch = source_date_epoch.unwrap_or(now);
+            oven::bake_system(
+                &project,
+                &release.release_info(),
+                system,
+                &system_path,
+                source_date_epoch,
+            )?;
             if let Some(output) = output {
                 if let Some(parent) = output.parent() {
                     std::fs::create_dir_all(parent).ok();
@@ -36,8 +45,14 @@ pub fn run(args: &args::Args, cmd: &args::BakeCommand) -> BakeryResult<()> {
                 }
             }
         }
-        args::BakeCommand::Layer { layer, arch } => {
-            LayerBakery::new(&project, *arch).bake_root(layer)?;
+        args::BakeCommand::Layer {
+            layer,
+            arch,
+            source_date_epoch,
+        } => {
+            let now = jiff::Timestamp::now().as_second() as u64;
+            let source_date_epoch = source_date_epoch.unwrap_or(now);
+            LayerBakery::new(&project, *arch).bake_root(layer, source_date_epoch)?;
         }
         args::BakeCommand::Bundle {
             system,
@@ -46,7 +61,8 @@ pub fn run(args: &args::Args, cmd: &args::BakeCommand) -> BakeryResult<()> {
             release,
         } => {
             let system_path = Path::new("build").join(system);
-            oven::bake_system(&project, &release.release_info(), system, &system_path)?;
+            let now = jiff::Timestamp::now().as_second() as u64;
+            oven::bake_system(&project, &release.release_info(), system, &system_path, now)?;
             let output = output
                 .clone()
                 .unwrap_or_else(|| system_path.join("system.rugixb"));

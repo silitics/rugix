@@ -17,9 +17,17 @@ use crate::{oven, BakeryResult};
 pub fn run(args: &args::Args, cmd: &args::RunCommand) -> BakeryResult<()> {
     let project = load_project(args)?;
 
+    let now = jiff::Timestamp::now().as_second() as u64;
+
     let output = Path::new("build").join(&cmd.system);
-    oven::bake_system(&project, &cmd.release.release_info(), &cmd.system, &output)
-        .whatever("error baking image")?;
+    oven::bake_system(
+        &project,
+        &cmd.release.release_info(),
+        &cmd.system,
+        &output,
+        now,
+    )
+    .whatever("error baking image")?;
 
     let image_path = output.join("system.img");
 

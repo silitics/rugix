@@ -31,6 +31,7 @@ pub fn bake_system(
     release_info: &ReleaseInfo,
     system: &str,
     output: &Path,
+    source_date_epoch: u64,
 ) -> BakeryResult<()> {
     let system_config = project
         .config()
@@ -38,9 +39,16 @@ pub fn bake_system(
         .ok_or_else(|| whatever!("unable to find image {system}"))?;
     info!("baking image `{system}`");
     let layer_bakery = LayerBakery::new(project, system_config.architecture);
-    let baked_layer = layer_bakery.bake_root(&system_config.layer)?;
+    let baked_layer = layer_bakery.bake_root(&system_config.layer, source_date_epoch)?;
     let frozen = FrozenLayer::new(system_config.layer.clone(), baked_layer);
-    system::make_system(system_config, release_info, system, &frozen, output)
+    system::make_system(
+        system_config,
+        release_info,
+        system,
+        &frozen,
+        output,
+        source_date_epoch,
+    )
 }
 
 pub struct LayerBakery<'p> {
@@ -53,15 +61,15 @@ impl<'p> LayerBakery<'p> {
         Self { project, arch }
     }
 
-    pub fn bake_root(&self, layer: &str) -> BakeryResult<PathBuf> {
+    pub fn bake_root(&self, layer: &str, source_date_epoch: u64) -> BakeryResult<PathBuf> {
         let library = self.project.library()?;
         let Some(layer) = library.lookup_layer(library.repositories.root_repository, layer) else {
             bail!("unable to find layer {layer}");
         };
-        self.bake(layer)
+        self.bake(layer, source_date_epoch)
     }
 
-    pub fn bake(&self, layer: LayerIdx) -> BakeryResult<PathBuf> {
+    pub fn bake(&self, layer: LayerIdx, source_date_epoch: u64) -> BakeryResult<PathBuf> {
         let repositories = &self.project.repositories()?.repositories;
         let library = self.project.library()?;
         let layer = &library.layers[layer];
@@ -89,7 +97,7 @@ impl<'p> LayerBakery<'p> {
             let Some(parent) = library.lookup_layer(layer.repo, parent) else {
                 bail!("unable to find layer `{parent}`");
             };
-            let src = self.bake(parent)?;
+            let src = self.bake(parent, source_date_epoch)?;
             let layer_id = layer_id.finalize();
             let layer_path = PathBuf::from(format!(".rugix/layers/{layer_id}"));
             let target = self.project.dir().join(&layer_path).join("system.tar");
@@ -101,6 +109,7 @@ impl<'p> LayerBakery<'p> {
                 Some(&src),
                 &target,
                 &layer_path,
+                source_date_epoch,
             )?;
             Ok(target)
         } else if config.root.unwrap_or(false) {
@@ -109,7 +118,15 @@ impl<'p> LayerBakery<'p> {
             let layer_path = PathBuf::from(format!(".rugix/layers/{layer_id}"));
             let target = self.project.dir().join(&layer_path).join("system.tar");
             fs::create_dir_all(target.parent().unwrap()).ok();
-            customize::customize(self.project, self.arch, layer, None, &target, &layer_path)?;
+            customize::customize(
+                self.project,
+                self.arch,
+                layer,
+                None,
+                &target,
+                &layer_path,
+                source_date_epoch,
+            )?;
             Ok(target)
         } else {
             bail!("invalid layer configuration")
