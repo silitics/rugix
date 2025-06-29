@@ -20,14 +20,20 @@ case "${RUGIX_ARCH}" in
         exit 1
 esac
 
-MIRROR=""
 if [ "${RECIPE_PARAM_SNAPSHOT}" != "" ]; then 
-    MIRROR="https://snapshot.debian.org/archive/debian/${RECIPE_PARAM_SNAPSHOT}/"
+    mmdebstrap \
+        --skip=check/qemu \
+        --architectures="${DEBIAN_ARCH}" \
+        --aptopt='Acquire::Check-Valid-Until "false"' \
+        --aptopt='Apt::Key::gpgvcommand "/usr/libexec/mmdebstrap/gpgvnoexpkeysig"' \
+        --include="ca-certificates mmdebstrap" \
+        "${RECIPE_PARAM_SUITE}" \
+        "${RUGIX_ROOT_DIR}" \
+        "https://snapshot.debian.org/archive/debian/${RECIPE_PARAM_SNAPSHOT}/"
+else
+    mmdebstrap \
+        --skip=check/qemu \
+        --architectures="${DEBIAN_ARCH}" \
+        "${RECIPE_PARAM_SUITE}" \
+        "${RUGIX_ROOT_DIR}"
 fi
-
-mmdebstrap \
-    --skip=check/qemu \
-    --architectures="${DEBIAN_ARCH}" \
-    "${RECIPE_PARAM_SUITE}" \
-    "${RUGIX_ROOT_DIR}" \
-    ${MIRROR}

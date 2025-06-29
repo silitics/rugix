@@ -71,3 +71,8 @@ layer = "customized-efi"
 architecture = "arm64"
 target = "generic-grub-efi"
 size = "16G"
+
+[systems.old-debian-snapshot]
+layer = "old-debian-snapshot"
+architecture = "arm64"
+target = "generic-grub-efi"

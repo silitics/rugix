@@ -1,0 +1,12 @@
+root = true
+
+recipes = [
+    "core/debian-bootstrap",
+    "core/debian-grub-setup",
+    "core/ssh",
+    "setup-network",
+]
+
+[parameters."core/debian-bootstrap"]
+suite = "bookworm"
+snapshot = "20240825T145253Z"
