@@ -16,11 +16,11 @@ pub fn run(args: &args::Args, cmd: &args::BakeCommand) -> BakeryResult<()> {
             system,
             output,
             release,
-            source_date_epoch,
+            source_date,
         } => {
             let system_path = Path::new("build").join(system);
-            let now = jiff::Timestamp::now().as_second() as u64;
-            let source_date_epoch = source_date_epoch.unwrap_or(now);
+            let source_date_epoch =
+                source_date.unwrap_or_else(jiff::Timestamp::now).as_second() as u64;
             oven::bake_system(
                 &project,
                 &release.release_info(),
@@ -48,10 +48,10 @@ pub fn run(args: &args::Args, cmd: &args::BakeCommand) -> BakeryResult<()> {
         args::BakeCommand::Layer {
             layer,
             arch,
-            source_date_epoch,
+            source_date,
         } => {
-            let now = jiff::Timestamp::now().as_second() as u64;
-            let source_date_epoch = source_date_epoch.unwrap_or(now);
+            let source_date_epoch =
+                source_date.unwrap_or_else(jiff::Timestamp::now).as_second() as u64;
             LayerBakery::new(&project, *arch).bake_root(layer, source_date_epoch)?;
         }
         args::BakeCommand::Bundle {

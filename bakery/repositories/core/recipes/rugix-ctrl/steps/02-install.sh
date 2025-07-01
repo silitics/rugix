@@ -23,6 +23,9 @@ prog_exists() {
 
 if prog_exists apt; then
     apt-get install -y fdisk
+    if [ ! -x /usr/sbin/sfdisk ]; then
+        ln -s "$(which sfdisk)" /usr/sbin/sfdisk
+    fi
 elif prog_exists apk; then
     mkdir -p /etc/rugix || true
 

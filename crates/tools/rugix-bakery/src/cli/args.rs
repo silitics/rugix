@@ -82,7 +82,7 @@ pub enum BakeCommand {
         #[clap(flatten)]
         release: ReleaseInfoArgs,
         #[clap(long)]
-        source_date_epoch: Option<u64>,
+        source_date: Option<jiff::Timestamp>,
     },
     /// Bake a layer.
     Layer {
@@ -92,7 +92,7 @@ pub enum BakeCommand {
         /// The name of the layer to bake.
         layer: String,
         #[clap(long)]
-        source_date_epoch: Option<u64>,
+        source_date: Option<jiff::Timestamp>,
     },
     /// Bake a bundle.
     Bundle {

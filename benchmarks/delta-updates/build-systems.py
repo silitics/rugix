@@ -52,9 +52,8 @@ recipes = [
     "core/debian-grub-setup",
     "core/ssh",
     "core/set-hostname",
-    "rugix-extra/debian-setup-network",
     "make-reproducible",
-    "xdelta3",
+    "packages",
 ]
 
 [parameters."core/debian-bootstrap"]
@@ -86,7 +85,16 @@ for snapshot in SNAPSHOTS:
                 )
             )
             subprocess.check_call(
-                ["./run-bakery", "bake", "image", "snapshot"],
+                [
+                    "./run-bakery",
+                    "bake",
+                    "image",
+                    "snapshot",
+                    "--release-version",
+                    "20250701000000",
+                    "--source-date",
+                    "2025-07-01T00:00:00Z",
+                ],
                 cwd=BENCHMARK_DIR / "rugix-project",
             )
             build_dir.parent.mkdir(parents=True)
