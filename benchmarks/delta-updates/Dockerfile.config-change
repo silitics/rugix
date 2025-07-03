@@ -1,3 +1,0 @@
-FROM debian:bookworm-20240812
-
-RUN echo "test" >/etc/test-config-file
