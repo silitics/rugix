@@ -2,271 +2,26 @@
 
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsString;
+use std::io::Read;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use clap::{Parser, Subcommand};
-use dir_stream::DirStream;
 use rugix_bundle::block_encoding::block_index::{BlockIndexConfig, compute_block_index};
 use rugix_bundle::block_encoding::block_table::BlockTable;
 use rugix_chunker::{Chunker, ChunkerAlgorithm};
 use rugix_compression::ByteProcessor;
 use serde::Serialize;
 use si_crypto_hashes::{HashAlgorithm, HashDigest, Hasher};
+use tracing::info;
 use walkdir::WalkDir;
 
-mod dir_stream;
+use crate::deltar::Instruction;
+use crate::utils::compress_bytes;
 
-pub enum FsCommand {
-    Push {
-        path: OsString,
-    },
-    Pop,
-    File {
-        filename: OsString,
-        chunks: Vec<FileChunk>,
-        data: Vec<u8>,
-    },
-    Link {
-        filename: OsString,
-        target: PathBuf,
-    },
-    Owner {
-        uid: u32,
-        gid: u32,
-    },
-    Mode {
-        mode: u32,
-    },
-}
-
-pub struct FileChunk {
-    hash: HashDigest,
-    block_number: u32,
-    chunk_number: u16,
-}
-
-pub fn compute_plan_size(plan: &[FsCommand]) -> u64 {
-    let mut size = 0;
-    for cmd in plan {
-        size += 1;
-        match cmd {
-            FsCommand::Push { path } => {
-                size += 1;
-                size += path.as_encoded_bytes().len() as u64;
-            }
-            FsCommand::Pop => { /* no args */ }
-            FsCommand::File {
-                filename, chunks, ..
-            } => {
-                size += 1;
-                size += filename.as_encoded_bytes().len() as u64;
-                size += 2;
-                size += 32 * chunks.len() as u64;
-                size += 4 * chunks.len() as u64;
-                size += 2 * chunks.len() as u64;
-            }
-            FsCommand::Link { filename, target } => {
-                size += 1;
-                size += filename.as_encoded_bytes().len() as u64;
-                size += 2;
-                size += target.as_os_str().as_encoded_bytes().len() as u64;
-            }
-            FsCommand::Owner { .. } => {
-                size += 8;
-            }
-            FsCommand::Mode { .. } => {
-                size += 4;
-            }
-        }
-    }
-    size
-}
-
-pub fn serialize_plan(root: &PathBuf, plan: &[FsCommand]) -> Vec<u8> {
-    let mut current = root.to_path_buf();
-    let mut serialized = Vec::new();
-    for cmd in plan {
-        match cmd {
-            FsCommand::Push { path } => {
-                serialized.push(1);
-                current.push(path);
-                let path = path.as_encoded_bytes();
-                serialized.push(u8::try_from(path.len()).unwrap());
-                serialized.extend_from_slice(path);
-            }
-            FsCommand::Pop => {
-                current.pop();
-                serialized.push(2);
-            }
-            FsCommand::File {
-                filename, chunks, ..
-            } => {
-                serialized.push(3);
-                current.push(filename);
-                let filename = filename.as_encoded_bytes();
-                serialized.push(u8::try_from(filename.len()).unwrap());
-                serialized.extend_from_slice(filename);
-                serialized.extend_from_slice(&u16::try_from(chunks.len()).unwrap().to_be_bytes());
-                for chunk in chunks {
-                    serialized.extend_from_slice(chunk.hash.as_ref());
-                    serialized.extend_from_slice(&chunk.block_number.to_be_bytes());
-                    serialized.extend_from_slice(&chunk.chunk_number.to_be_bytes());
-                }
-                current.pop();
-            }
-            FsCommand::Link { filename, target } => {
-                serialized.push(3);
-                let filename = filename.as_encoded_bytes();
-                serialized.push(u8::try_from(filename.len()).unwrap());
-                serialized.extend_from_slice(filename);
-                let target = target.as_os_str().as_encoded_bytes();
-                serialized.extend_from_slice(&u16::try_from(target.len()).unwrap().to_be_bytes());
-                serialized.extend_from_slice(target);
-            }
-            FsCommand::Owner { uid, gid } => {
-                serialized.push(4);
-                serialized.extend_from_slice(&uid.to_be_bytes());
-                serialized.extend_from_slice(&gid.to_be_bytes());
-            }
-            FsCommand::Mode { mode } => {
-                serialized.push(5);
-                serialized.extend_from_slice(&mode.to_be_bytes());
-            }
-        }
-    }
-    serialized
-}
-
-pub struct ChunkCollector {
-    table: HashMap<HashDigest, (u32, u16)>,
-    chunk_blocks: Vec<ChunkBlock>,
-    pending_data: Vec<u8>,
-    current_chunks: u16,
-    block_size_limit: usize,
-}
-
-pub struct ChunkBlock {
-    data: Vec<u8>,
-    compressed: Vec<u8>,
-}
-
-impl ChunkCollector {
-    pub fn new(block_size_limit: usize) -> Self {
-        Self {
-            table: HashMap::new(),
-            chunk_blocks: Vec::new(),
-            pending_data: Vec::new(),
-            current_chunks: 0,
-            block_size_limit,
-        }
-    }
-
-    pub fn flush(&mut self) {
-        if self.pending_data.len() > 0 {
-            let data = std::mem::take(&mut self.pending_data);
-            let mut compressed = Vec::new();
-            let mut compressor = rugix_compression::XzEncoder::new(6);
-            compressor.process(&data, &mut compressed).unwrap();
-            compressor.finalize(&mut compressed).unwrap();
-            self.chunk_blocks.push(ChunkBlock { data, compressed });
-            self.current_chunks = 0;
-        }
-    }
-
-    pub fn add_chunk(&mut self, hash: &HashDigest, chunk: &[u8]) -> (u32, u16) {
-        if let Some(addr) = self.table.get(hash) {
-            return *addr;
-        }
-        let chunk_idx = u32::try_from(self.chunk_blocks.len()).unwrap();
-        let number = self.current_chunks;
-        self.pending_data
-            .extend_from_slice(&u32::try_from(chunk.len()).unwrap().to_be_bytes());
-        self.pending_data.extend_from_slice(chunk);
-        self.current_chunks += 1;
-        if self.pending_data.len() > self.block_size_limit {
-            self.flush();
-        }
-        let addr = (chunk_idx, number);
-        self.table.insert(hash.clone(), addr);
-        addr
-    }
-
-    pub fn finalize(mut self) -> Vec<ChunkBlock> {
-        self.flush();
-        self.chunk_blocks
-    }
-}
-
-pub fn compute_plan(
-    chunker_algorithm: &ChunkerAlgorithm,
-    path: &mut PathBuf,
-    plan: &mut Vec<FsCommand>,
-    owner: &mut (u32, u32),
-    mode: &mut u32,
-    chunk_collector: &mut ChunkCollector,
-) {
-    let metadata = std::fs::symlink_metadata(&path).unwrap();
-    let uid = metadata.uid();
-    let gid = metadata.gid();
-    if owner.0 != uid || owner.1 != gid {
-        *owner = (uid, gid);
-        plan.push(FsCommand::Owner { uid, gid })
-    }
-    let entry_mode = metadata.permissions().mode();
-    if entry_mode != *mode {
-        *mode = entry_mode;
-        plan.push(FsCommand::Mode { mode: entry_mode })
-    }
-    let file_type = metadata.file_type();
-    if file_type.is_file() {
-        let data = std::fs::read(&path).unwrap();
-        let mut chunks = Vec::new();
-        for chunk in chunker_algorithm.chunker().unwrap().chunks(&data) {
-            let hash = HashAlgorithm::Sha256.hash::<Arc<[u8]>>(chunk);
-            let (block_number, chunk_number) = chunk_collector.add_chunk(&hash, chunk);
-            chunks.push(FileChunk {
-                hash,
-                block_number,
-                chunk_number,
-            })
-        }
-        plan.push(FsCommand::File {
-            filename: path.file_name().unwrap().into(),
-            data,
-            chunks,
-        })
-    } else if file_type.is_dir() {
-        let mut entries = std::fs::read_dir(&path)
-            .unwrap()
-            .into_iter()
-            .map(|e| {
-                let e = e.unwrap();
-                (e.file_name(), e.file_type().unwrap())
-            })
-            .collect::<Vec<_>>();
-        entries.sort_by(|(a, _), (b, _)| a.cmp(b));
-        for (file_name, file_type) in entries {
-            path.push(&file_name);
-            if file_type.is_dir() {
-                plan.push(FsCommand::Push { path: file_name })
-            }
-            compute_plan(chunker_algorithm, path, plan, owner, mode, chunk_collector);
-            path.pop();
-            if file_type.is_dir() {
-                plan.push(FsCommand::Pop)
-            }
-        }
-    } else if file_type.is_symlink() {
-        plan.push(FsCommand::Link {
-            filename: path.file_name().unwrap().into(),
-            target: std::fs::read_link(path).unwrap(),
-        })
-    } else {
-        println!("WARNING: Ignored path {path:?}. Unsupported file type.");
-    }
-}
+pub mod deltar;
+pub mod utils;
 
 fn main() {
     let args = Args::parse();
@@ -389,446 +144,127 @@ fn main() {
                 .unwrap();
             }
         },
-        Cmd::ComputePlan { path } => {
-            let mut plan = Vec::new();
-            let chunker_algorithm = ChunkerAlgorithm::Casync {
-                avg_block_size_kib: 64,
-            };
-            let mut chunk_collector = ChunkCollector::new(64 * 1024);
-            compute_plan(
-                &chunker_algorithm,
-                &mut path.clone(),
-                &mut plan,
-                &mut (0, 0),
-                &mut 0,
-                &mut chunk_collector,
-            );
-            let serialized = serialize_plan(path, &plan);
-            println!("Plan Length: {}", plan.len());
-            println!(
-                "Plan Size: {} ({})",
-                compute_plan_size(&plan),
-                serialized.len()
-            );
-            let mut compressor = rugix_compression::XzEncoder::new(6);
-            let mut output = Vec::new();
-            compressor.process(&serialized, &mut output).unwrap();
-            compressor.finalize(&mut output).unwrap();
-            println!("Compressed Plan: {}", output.len());
-        }
-        Cmd::CopyPlanned {
-            original,
-            source,
-            casync_block_size,
-            compressor_block_size,
-        } => {
-            let mut plan = Vec::new();
-            let chunker_algorithm = ChunkerAlgorithm::Casync {
-                avg_block_size_kib: *casync_block_size,
-            };
-            let mut chunk_collector = ChunkCollector::new(*compressor_block_size * 1024);
-            compute_plan(
-                &chunker_algorithm,
-                &mut original.clone(),
-                &mut plan,
-                &mut (0, 0),
-                &mut 0,
-                &mut chunk_collector,
-            );
-            let chunk_blocks = chunk_collector.finalize();
-            let serialized = serialize_plan(source, &plan);
-            println!("Plan Length: {}", plan.len());
-            println!(
-                "Plan Size: {} ({})",
-                compute_plan_size(&plan),
-                serialized.len()
-            );
-            let mut compressor = rugix_compression::XzEncoder::new(6);
-            let mut output = Vec::new();
-            compressor.process(&serialized, &mut output).unwrap();
-            compressor.finalize(&mut output).unwrap();
-            let compressed_plan = output.len();
-            println!("Compressed Plan: {}", compressed_plan);
-            let mut current_path = PathBuf::new();
-            let mut local_chunks = HashSet::new();
-            for entry in WalkDir::new(source) {
-                let entry = entry.unwrap();
-                if entry.file_type().is_file() {
-                    let data = std::fs::read(entry.path()).unwrap();
-                    for chunk in chunker_algorithm.chunker().unwrap().chunks(&data) {
-                        local_chunks.insert(HashAlgorithm::Sha256.hash::<Arc<[u8]>>(chunk));
-                    }
-                }
-            }
-            let mut downloaded_data = 0;
-            let mut downloaded_compressed = 0;
-            let mut downloaded_blocks = HashSet::new();
-            for cmd in &plan {
-                match cmd {
-                    FsCommand::Push { path } => {
-                        current_path.push(path);
-                    }
-                    FsCommand::Pop => {
-                        current_path.pop();
-                    }
-                    FsCommand::File {
-                        filename, chunks, ..
-                    } => {
-                        current_path.push(filename);
-                        for chunk in chunks {
-                            if local_chunks.insert(chunk.hash.clone()) {
-                                if downloaded_blocks.insert(chunk.block_number) {
-                                    let block = &chunk_blocks[chunk.block_number as usize];
-                                    downloaded_data += block.data.len() as u64;
-                                    downloaded_compressed += block.compressed.len() as u64;
-                                }
-                            }
+        Cmd::Deltar(cmd) => match cmd {
+            DeltarCmd::Plan {
+                path,
+                group_size_limit,
+                chunker,
+            } => {
+                let archive =
+                    tar::Archive::new(std::io::BufReader::new(std::fs::File::open(path).unwrap()));
+                let (plan, _) = deltar::compute_plan(*group_size_limit, chunker, archive);
+                for instr in plan {
+                    match instr {
+                        deltar::Instruction::Push { path } => {
+                            println!("Push: {path:?}");
+                        }
+                        deltar::Instruction::Pop => {
+                            println!("Pop");
+                        }
+                        deltar::Instruction::Owner { uid, gid } => {
+                            println!("Owner: {uid}:{gid}");
+                        }
+                        deltar::Instruction::Mode { mode } => {
+                            println!("Mode: {mode:#o}");
+                        }
+                        deltar::Instruction::File { chunks } => {
+                            println!("File: {}", chunks.len());
+                        }
+                        deltar::Instruction::Directory => {
+                            println!("Directory");
+                        }
+                        deltar::Instruction::CharacterDevice { major, minor } => {
+                            println!("CharacterDevice: {major}:{minor}");
+                        }
+                        deltar::Instruction::BlockDevice { major, minor } => {
+                            println!("BlockDevice: {major}:{minor}");
+                        }
+                        deltar::Instruction::Link { target } => {
+                            println!("Link: {target:?}");
                         }
                     }
-                    FsCommand::Link { .. } => { /* nothing to do */ }
-                    FsCommand::Owner { .. } => { /* nothing to do */ }
-                    FsCommand::Mode { .. } => { /* nothing to do */ }
                 }
             }
-            println!("Total Blocks: {}", chunk_blocks.len());
-            println!("Downloaded Blocks: {}", downloaded_blocks.len());
-            println!("Downloaded Data: {downloaded_data}");
-            println!("Downloaded Compressed: {}", downloaded_compressed);
-            let total_downloaded = downloaded_compressed + compressed_plan as u64;
-            println!("Total: {}", total_downloaded);
-            println!(
-                "Plan %: {:.2}",
-                compressed_plan as f64 / total_downloaded as f64 * 100.0
-            );
-        }
-        Cmd::ComputeBlocks { path } => {
-            let blocks = compute_blocks(path);
-            for block in &blocks {
-                println!("Block:");
-                println!("  First: {:?}", block.first);
-                println!("  Last: {:?}", block.last);
-                println!("  Hash: {}", block.hash);
-                println!("  Entries: {:?}", block.entries.len());
-            }
-            println!("Blocks: {}", blocks.len());
-            println!(
-                "Avg. Block Size: {:.2} entries",
-                (blocks.iter().map(|b| b.entries.len()).sum::<usize>() as f64)
-                    / (blocks.len() as f64)
-            )
-        }
-        Cmd::DeltaCopy {
-            original,
-            source,
-            target,
-        } => {
-            let config = BlockIndexConfig {
-                hash_algorithm: si_crypto_hashes::HashAlgorithm::Sha256,
-                chunker: rugix_chunker::ChunkerAlgorithm::Casync {
-                    avg_block_size_kib: 4,
-                },
-            };
-            let mut stats = DeltaStats::default();
-            let blocks = compute_blocks(&original);
-            println!("Target Blocks: {}", blocks.len());
-            let source_blocks = compute_blocks(&source);
-            println!("Source Blocks: {}", blocks.len());
-            let mut source_table = compute_hash_set(&config, &source_blocks);
-            drop(source_blocks);
-            for block in &blocks {
-                copy_block(
-                    &block,
-                    source,
-                    target,
-                    &mut stats,
-                    &config,
-                    &mut source_table,
+            DeltarCmd::Benchmark {
+                old,
+                new,
+                group_size_limit,
+                group_overhead,
+                chunker,
+            } => {
+                let archive_new =
+                    tar::Archive::new(std::io::BufReader::new(std::fs::File::open(new).unwrap()));
+                let (plan, groups) = deltar::compute_plan(*group_size_limit, chunker, archive_new);
+                let serialized_plan = deltar::serialize_plan(&plan);
+                let compressed_plan = utils::compress_bytes(&serialized_plan);
+                let mut local_blocks = HashSet::new();
+                let mut archive_old =
+                    tar::Archive::new(std::io::BufReader::new(std::fs::File::open(old).unwrap()));
+                for entry in archive_old.entries().unwrap() {
+                    let mut entry = entry.unwrap();
+                    if !matches!(entry.header().entry_type(), tar::EntryType::Regular) {
+                        continue;
+                    }
+                    let mut data = Vec::new();
+                    entry.read_to_end(&mut data).unwrap();
+                    for chunk in chunker.chunker().unwrap().chunks(&data) {
+                        let hash: HashDigest = HashAlgorithm::Sha256.hash(chunk);
+                        local_blocks.insert(hash);
+                    }
+                }
+                let mut downloaded_groups = HashSet::new();
+                let mut downloaded_size = 0;
+                for instruction in &plan {
+                    let Instruction::File { chunks } = instruction else {
+                        continue;
+                    };
+                    for chunk in chunks {
+                        let hash = &chunk.hash;
+                        if local_blocks.contains(hash) {
+                            // Nothing to download, block is locally available.
+                            continue;
+                        }
+                        if !downloaded_groups.insert(chunk.address.group_number) {
+                            // We already downloaded this group.
+                            continue;
+                        }
+                        let group = &groups[chunk.address.group_number as usize];
+                        downloaded_size += group.compressed.len() as u64;
+                        downloaded_size += group_overhead;
+                    }
+                }
+                info!(
+                    "Plan Size: {:.2} MiB",
+                    compressed_plan.len() as f64 / 1024.0 / 1024.0
                 );
-            }
-            println!("Blocks Downloaded: {}", blocks.len());
-            println!("Entries Downloaded: {}", stats.entries_downloaded);
-            println!("Data Downloaded: {}", stats.data_downloaded);
-        }
-        Cmd::Fingerprint { path } => {
-            let blocks = compute_blocks(path);
-            let mut hasher = HashAlgorithm::Sha256.hasher();
-            for block in blocks {
-                hasher.update(block.hash.as_ref());
-            }
-            println!("Hash: {}", hasher.finalize::<Arc<[u8]>>());
-        }
-        Cmd::CasyncDelta {
-            source,
-            target,
-            block_size_kib,
-        } => {
-            let config = BlockIndexConfig {
-                hash_algorithm: si_crypto_hashes::HashAlgorithm::Sha256,
-                chunker: rugix_chunker::ChunkerAlgorithm::Casync {
-                    avg_block_size_kib: *block_size_kib,
-                },
-            };
-            let mut table = HashMap::new();
-            let source_index = compute_block_index(config.clone(), source).unwrap();
-            for block in source_index.iter() {
-                table.insert(source_index.block_hash(block), block);
-            }
-            let target_index = compute_block_index(config.clone(), target).unwrap();
-            let mut download_size = 0;
-            for block in target_index.iter() {
-                let hash = target_index.block_hash(block);
-                if !table.contains_key(hash) {
-                    download_size += target_index.block_size(block).raw;
-                    table.insert(hash, block);
-                }
-            }
-            println!("Download Size: {download_size}");
-        }
-        Cmd::FixedDelta {
-            source,
-            target,
-            block_size_kib,
-        } => {
-            let config = BlockIndexConfig {
-                hash_algorithm: si_crypto_hashes::HashAlgorithm::Sha256,
-                chunker: rugix_chunker::ChunkerAlgorithm::Fixed {
-                    block_size_kib: *block_size_kib,
-                },
-            };
-            let mut table = HashMap::new();
-            let source_index = compute_block_index(config.clone(), source).unwrap();
-            for block in source_index.iter() {
-                table.insert(source_index.block_hash(block), block);
-            }
-            let target_index = compute_block_index(config.clone(), target).unwrap();
-            let mut download_size = 0;
-            for block in target_index.iter() {
-                let hash = target_index.block_hash(block);
-                if !table.contains_key(hash) {
-                    download_size += target_index.block_size(block).raw;
-                    table.insert(hash, block);
-                }
-            }
-            println!("Download Size: {download_size}");
-        }
-    }
-}
+                info!(
+                    "Data Size: {:.2} MiB",
+                    downloaded_size as f64 / 1024.0 / 1024.0
+                );
 
-fn compress_bytes(bytes: &[u8]) -> Vec<u8> {
-    let mut compressor = rugix_compression::XzEncoder::new(6);
-    let mut compressed = Vec::new();
-    compressor.process(&bytes, &mut compressed).unwrap();
-    compressor.finalize(&mut compressed).unwrap();
-    compressed
+                #[derive(Serialize)]
+                struct Output {
+                    plan: u64,
+                    data: u64,
+                }
+
+                serde_json::to_writer_pretty(
+                    &std::io::stdout(),
+                    &Output {
+                        plan: compressed_plan.len() as u64,
+                        data: downloaded_size,
+                    },
+                )
+                .unwrap();
+            }
+        },
+    }
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct DeltaStats {
     entries_downloaded: usize,
     data_downloaded: u64,
-}
-
-pub fn copy_block(
-    expected_block: &FsEntryBlock,
-    source: &Path,
-    target: &Path,
-    stats: &mut DeltaStats,
-    config: &BlockIndexConfig,
-    source_table: &mut HashSet<si_crypto_hashes::HashDigest>,
-) {
-    let mut stream = DirStream::new(source);
-    if !stream.seek_to(&expected_block.first) {
-        todo!("first is beyond the end of the source, trigger full reconstruction");
-    }
-    let mut chunker = FsChunker::new();
-    let copied_block = loop {
-        if stream.current_position() > expected_block.last {
-            break chunker.flush();
-        }
-        let path = stream.current_path();
-        let Some(entry) = FsEntry::from_path(path, stream.current_position().to_path_buf()) else {
-            if stream.next() {
-                continue;
-            } else {
-                break chunker.flush();
-            }
-        };
-        let entry_target = target.join(&entry.position);
-        if let Some(parent) = entry_target.parent() {
-            std::fs::create_dir_all(parent).unwrap()
-        }
-        match &entry.kind {
-            FsEntryKind::Directory => {
-                std::fs::create_dir_all(&entry_target).unwrap();
-            }
-            FsEntryKind::File { data, .. } => {
-                std::fs::write(&entry_target, &data).unwrap();
-            }
-            FsEntryKind::Symlink { target } => {
-                std::os::unix::fs::symlink(target, &entry_target).unwrap();
-            }
-        }
-        if let Some(read_block) = chunker.push(entry) {
-            break Some(read_block);
-        }
-        if !stream.next() {
-            break chunker.flush();
-        }
-    };
-    let Some(copied_block) = copied_block else {
-        todo!("no block has been copied, reconstruct full block")
-    };
-    if copied_block.hash != expected_block.hash {
-        // We need to download the entries of the expected block.
-        stats.entries_downloaded += expected_block.entries.len();
-        let expected_entries = &expected_block.entries;
-        let copied_entries = &copied_block.entries;
-        let mut expected_idx = 0;
-        let mut copied_idx = 0;
-        while expected_idx < expected_entries.len() || copied_idx < copied_entries.len() {
-            if expected_idx < expected_entries.len() && copied_idx < copied_entries.len() {
-                let expected_entry = &expected_entries[expected_idx];
-                let copied_entry = &copied_entries[copied_idx];
-                // Expected entry is missing, materialize.
-                let target_path = target.join(&expected_entry.position);
-                let copied_path = target.join(&copied_entry.position);
-                if let Some(parent) = target_path.parent() {
-                    std::fs::create_dir_all(parent).unwrap();
-                }
-                if expected_entry.position == copied_entry.position {
-                    if expected_entry.kind != copied_entry.kind {
-                        if target_path.exists() {
-                            match &copied_entry.kind {
-                                FsEntryKind::Directory => {
-                                    std::fs::remove_dir_all(&target_path).unwrap();
-                                }
-                                FsEntryKind::File { .. } => {
-                                    std::fs::remove_file(&target_path).unwrap();
-                                }
-                                FsEntryKind::Symlink { .. } => {
-                                    std::fs::remove_file(&target_path).unwrap();
-                                }
-                            }
-                        }
-                        match &expected_entry.kind {
-                            FsEntryKind::Directory => {
-                                std::fs::create_dir_all(target_path).unwrap();
-                            }
-                            FsEntryKind::File { data, .. } => {
-                                // We need to download the data of the file.
-                                for chunk in config.chunker.chunker().unwrap().chunks(data) {
-                                    let hash = config.hash_algorithm.hash(chunk);
-                                    if source_table.insert(hash) {
-                                        stats.data_downloaded += chunk.len() as u64;
-                                    }
-                                }
-                                std::fs::write(&target_path, data).unwrap();
-                            }
-                            FsEntryKind::Symlink { target } => {
-                                std::os::unix::fs::symlink(target, &target_path).unwrap();
-                            }
-                        }
-                    }
-                    expected_idx += 1;
-                    copied_idx += 1;
-                } else if expected_entry.position < copied_entry.position {
-                    match &expected_entry.kind {
-                        FsEntryKind::Directory => {
-                            std::fs::create_dir_all(target_path).unwrap();
-                        }
-                        FsEntryKind::File { data, .. } => {
-                            // We need to download the data of the file.
-                            for chunk in config.chunker.chunker().unwrap().chunks(data) {
-                                let hash = config.hash_algorithm.hash(chunk);
-                                if source_table.insert(hash) {
-                                    stats.data_downloaded += chunk.len() as u64;
-                                }
-                            }
-                            std::fs::write(&target_path, data).unwrap();
-                        }
-                        FsEntryKind::Symlink { target } => {
-                            std::os::unix::fs::symlink(target, &target_path).unwrap();
-                        }
-                    }
-                    expected_idx += 1;
-                } else {
-                    if copied_path.exists() {
-                        match &copied_entry.kind {
-                            FsEntryKind::Directory => {
-                                std::fs::remove_dir_all(&copied_path).unwrap();
-                            }
-                            FsEntryKind::File { .. } => {
-                                std::fs::remove_file(&copied_path).unwrap();
-                            }
-                            FsEntryKind::Symlink { .. } => {
-                                std::fs::remove_file(&copied_path).unwrap();
-                            }
-                        }
-                    }
-                    copied_idx += 1;
-                }
-            } else if expected_idx < expected_entries.len() {
-                let expected_entry = &expected_entries[expected_idx];
-                // Expected entry is missing, materialize.
-                let target_path = target.join(&expected_entry.position);
-                if let Some(parent) = target_path.parent() {
-                    std::fs::create_dir_all(parent).unwrap();
-                }
-                match &expected_entry.kind {
-                    FsEntryKind::Directory => {
-                        std::fs::create_dir_all(target_path).unwrap();
-                    }
-                    FsEntryKind::File { data, .. } => {
-                        // We need to download the data of the file.
-                        for chunk in config.chunker.chunker().unwrap().chunks(data) {
-                            let hash = config.hash_algorithm.hash(chunk);
-                            if source_table.insert(hash) {
-                                stats.data_downloaded += chunk.len() as u64;
-                            }
-                        }
-                        std::fs::write(&target_path, data).unwrap();
-                    }
-                    FsEntryKind::Symlink { target } => {
-                        std::os::unix::fs::symlink(target, &target_path).unwrap();
-                    }
-                }
-                expected_idx += 1;
-            } else {
-                let copied_entry = &copied_entries[copied_idx];
-                let copied_path = target.join(&copied_entry.position);
-                if copied_path.exists() {
-                    match &copied_entry.kind {
-                        FsEntryKind::Directory => {
-                            std::fs::remove_dir_all(&copied_path).unwrap();
-                        }
-                        FsEntryKind::File { .. } => {
-                            std::fs::remove_file(&copied_path).unwrap();
-                        }
-                        FsEntryKind::Symlink { .. } => {
-                            std::fs::remove_file(&copied_path).unwrap();
-                        }
-                    }
-                }
-                copied_idx += 1;
-            }
-        }
-    }
-}
-
-pub fn compute_blocks(path: &Path) -> Vec<FsEntryBlock> {
-    let mut stream = DirStream::new(path);
-    let mut chunker = FsChunker::new();
-    loop {
-        let path = stream.current_path();
-        let Some(entry) = FsEntry::from_path(path, stream.current_position().to_path_buf()) else {
-            if stream.next() { continue } else { break }
-        };
-        chunker.push(entry);
-        if !stream.next() {
-            break;
-        }
-    }
-    chunker.finalize()
 }
 
 pub fn compute_hash_set(
@@ -851,66 +287,6 @@ pub fn compute_hash_set(
     table
 }
 
-pub struct FsChunker {
-    divider_threshold: u64,
-    max_block_size: usize,
-    min_block_size: usize,
-    blocks: Vec<FsEntryBlock>,
-    pending_entries: Vec<FsEntry>,
-    current_hasher: Hasher,
-}
-
-impl FsChunker {
-    pub fn new() -> Self {
-        Self {
-            divider_threshold: u64::MAX / 64,
-            max_block_size: 128,
-            min_block_size: 32,
-            blocks: Vec::new(),
-            pending_entries: Vec::new(),
-            current_hasher: HashAlgorithm::Sha256.hasher(),
-        }
-    }
-
-    pub fn flush(&mut self) -> Option<&FsEntryBlock> {
-        if self.pending_entries.is_empty() {
-            return None;
-        }
-        let first = self.pending_entries.first().unwrap().position.clone();
-        let last = self.pending_entries.last().unwrap().position.clone();
-        let entries = std::mem::take(&mut self.pending_entries);
-        let hash =
-            std::mem::replace(&mut self.current_hasher, HashAlgorithm::Sha256.hasher()).finalize();
-        self.blocks.push(FsEntryBlock {
-            first,
-            last,
-            hash,
-            entries,
-        });
-        Some(self.blocks.last().unwrap())
-    }
-
-    pub fn push(&mut self, entry: FsEntry) -> Option<&FsEntryBlock> {
-        let entry_hash = entry.stable_hash();
-        self.current_hasher.update(entry_hash.as_ref());
-        self.pending_entries.push(entry);
-        if self.pending_entries.len() >= self.max_block_size {
-            return self.flush();
-        } else if self.pending_entries.len() >= self.min_block_size {
-            let divider_value = u64::from_be_bytes(entry_hash.as_ref()[..8].try_into().unwrap());
-            if divider_value < self.divider_threshold {
-                return self.flush();
-            }
-        }
-        None
-    }
-
-    pub fn finalize(mut self) -> Vec<FsEntryBlock> {
-        self.flush();
-        self.blocks
-    }
-}
-
 #[derive(Debug, Parser)]
 #[clap(version = rugix_version::RUGIX_GIT_VERSION)]
 pub struct Args {
@@ -924,39 +300,39 @@ pub struct Args {
 pub enum Cmd {
     #[clap(subcommand)]
     BlockBased(BlockBasedCmd),
-    ComputePlan {
+    /// Delta updates with the experimental deltar format.
+    #[clap(subcommand)]
+    Deltar(DeltarCmd),
+}
+
+#[derive(Debug, Subcommand)]
+pub enum DeltarCmd {
+    /// Compute and print a plan from the given input tar archive.
+    Plan {
+        /// Path to the tar archive.
         path: PathBuf,
+        /// Maximum size of a chunk group.
+        #[clap(long, default_value = "32768")]
+        group_size_limit: usize,
+        /// Chunker algorithm.
+        #[clap(long, default_value = "casync-16")]
+        chunker: ChunkerAlgorithm,
     },
-    CopyPlanned {
-        #[clap(long, default_value = "16")]
-        casync_block_size: u16,
-        #[clap(long, default_value = "32")]
-        compressor_block_size: usize,
-        original: PathBuf,
-        source: PathBuf,
-    },
-    ComputeBlocks {
-        path: PathBuf,
-    },
-    DeltaCopy {
-        original: PathBuf,
-        source: PathBuf,
-        target: PathBuf,
-    },
-    Fingerprint {
-        path: PathBuf,
-    },
-    CasyncDelta {
-        source: PathBuf,
-        target: PathBuf,
-        #[clap(default_value = "64")]
-        block_size_kib: u16,
-    },
-    FixedDelta {
-        source: PathBuf,
-        target: PathBuf,
-        #[clap(default_value = "4")]
-        block_size_kib: u16,
+    /// Benchmark a delta update.
+    Benchmark {
+        /// Old version.
+        old: PathBuf,
+        /// New version.
+        new: PathBuf,
+        /// Maximum size of a chunk group.
+        #[clap(long, default_value = "32768")]
+        group_size_limit: usize,
+        /// Overhead for downloading a group.
+        #[clap(long, default_value = "512")]
+        group_overhead: u64,
+        /// Chunker algorithm.
+        #[clap(long, default_value = "casync-16")]
+        chunker: ChunkerAlgorithm,
     },
 }
 
