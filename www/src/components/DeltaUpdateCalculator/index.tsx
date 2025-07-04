@@ -39,6 +39,44 @@ const COMPRESSION_FACTORS = {
       "deltar-fixed-4096-0-1": 0.10076456805642212,
     },
   },
+  bullseye: {
+    annually: {
+      compression: 0.19741822894169053,
+      xdelta: 0.045349538182381494,
+      "block-based-fixed-4-512-32768": 0.1081803835687683,
+      "block-based-casync-64-512": 0.11445637086148198,
+      "block-based-casync-8-512": 0.1018785551894886,
+      "deltar-casync-16-1024-32768": 0.0926871000071811,
+      "deltar-fixed-4096-0-1": 0.08925375634194667,
+    },
+    monthly: {
+      compression: 0.1969738541008065,
+      xdelta: 0.01955606838714521,
+      "block-based-fixed-4-512-32768": 0.04007564651811199,
+      "block-based-casync-64-512": 0.04292892854966435,
+      "block-based-casync-8-512": 0.03481094970156947,
+      "deltar-casync-16-1024-32768": 0.02935040199544383,
+      "deltar-fixed-4096-0-1": 0.02793363031826973,
+    },
+    quarterly: {
+      compression: 0.196552353809911,
+      xdelta: 0.02750123536038977,
+      "block-based-fixed-4-512-32768": 0.05784816521025224,
+      "block-based-casync-64-512": 0.06184640715200246,
+      "block-based-casync-8-512": 0.05208612041639993,
+      "deltar-casync-16-1024-32768": 0.04597508595265979,
+      "deltar-fixed-4096-0-1": 0.04417037079797832,
+    },
+    biannually: {
+      compression: 0.19658651679646982,
+      xdelta: 0.03688232572207262,
+      "block-based-fixed-4-512-32768": 0.08650364447346696,
+      "block-based-casync-64-512": 0.09460757161810122,
+      "block-based-casync-8-512": 0.07883317706128495,
+      "deltar-casync-16-1024-32768": 0.07091976128617866,
+      "deltar-fixed-4096-0-1": 0.0692039476257556,
+    },
+  },
 }
 
 const METHODS: Array<{
@@ -47,14 +85,14 @@ const METHODS: Array<{
   tools: string
 }> = [
   {
-    name: "Block-Based, Fixed 4KiB",
-    key: "block-based-fixed-4-512-32768",
-    tools: "RAUC",
-  },
-  {
     name: "Block-Based, Casync 64KiB",
     key: "block-based-casync-64-512",
     tools: "Rugix, Casync",
+  },
+  {
+    name: "Block-Based, Fixed 4KiB",
+    key: "block-based-fixed-4-512-32768",
+    tools: "Rugix, RAUC",
   },
   {
     name: "File-Based, Deltar 16KiB",
@@ -78,16 +116,21 @@ const UPDATES_PER_YEAR = {
 const DeltaUpdateCalculator = () => {
   const [schedule, setSchedule] = React.useState<string>("monthly")
   const [costPerGiB, setCostPerGiB] = React.useState<number>(9)
-  const [devicesPower, setDevicesPower] = React.useState<number>(3)
+  const [devicesPower, setDevicesPower] = React.useState<number>(6)
   const [imageSize, setImageSize] = React.useState<number>(1500)
 
-  const devices = Math.pow(10, devicesPower);
+  const devices =
+    devicesPower % 2 === 0
+      ? Math.pow(10, devicesPower / 2)
+      : Math.pow(10, (devicesPower + 1) / 2) / 2
   const baseCost =
     (UPDATES_PER_YEAR[schedule] *
       devices *
       imageSize *
       costPerGiB *
-      COMPRESSION_FACTORS["bookworm"][schedule]["compression"]) /
+      ((COMPRESSION_FACTORS["bookworm"][schedule]["compression"] +
+        COMPRESSION_FACTORS["bullseye"][schedule]["compression"]) /
+        2)) /
     1000
 
   return (
@@ -95,7 +138,10 @@ const DeltaUpdateCalculator = () => {
       <div className="space-y-1">
         <div className="space-x-2">
           <span>Update Schedule:</span>
-          <select value={schedule} onChange={(e) => setSchedule(e.target.value)}>
+          <select
+            value={schedule}
+            onChange={(e) => setSchedule(e.target.value)}
+          >
             <option value="monthly">Monthly</option>
             <option value="quarterly">Quarterly</option>
             <option value="biannually">Biannually</option>
@@ -107,7 +153,7 @@ const DeltaUpdateCalculator = () => {
           <input
             type="range"
             min="1"
-            max="2000"
+            max="1000"
             value={costPerGiB}
             className="w-full"
             onChange={(e) => setCostPerGiB(e.target.valueAsNumber)}
@@ -121,7 +167,7 @@ const DeltaUpdateCalculator = () => {
           <input
             type="range"
             min="1"
-            max="6"
+            max="12"
             step="1"
             value={devicesPower}
             className="w-full"
@@ -133,8 +179,9 @@ const DeltaUpdateCalculator = () => {
           <div className="flex-shrink-0">Image Size:</div>
           <input
             type="range"
-            min="1"
+            min="10"
             max="15000"
+            step="10"
             value={imageSize}
             className="w-full"
             onChange={(e) => setImageSize(parseInt(e.target.value))}
@@ -167,7 +214,9 @@ const DeltaUpdateCalculator = () => {
                 devices *
                 imageSize *
                 costPerGiB *
-                COMPRESSION_FACTORS["bookworm"][schedule][method.key]) /
+                ((COMPRESSION_FACTORS["bookworm"][schedule][method.key] +
+                  COMPRESSION_FACTORS["bullseye"][schedule][method.key]) /
+                  2)) /
               1000
             return (
               <tr key={method.key}>

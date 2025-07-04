@@ -14,6 +14,12 @@ This article aims to serve as a guide for engineers looking to implement delta u
 
 {/* truncate */}
 
+:::tip
+
+If you do not care about the technical details, feel free to skip directly to the [benchmark results](#benchmark-results).
+
+:::
+
 **Outline and Overview.** We will first have a look at the existing tools and techniques for OTA updates in the embedded Linux ecosystem and their tradeoffs. We will then present and discuss our benchmarking methodology, tooling, and results. Finally, we will conclude with a summary of our findings.
 
 ## Tools and Techniques
@@ -28,7 +34,7 @@ We will now look at the three techniques which are widely used by OTA update too
 
 ### Block-Based Diffing
 
-The fundamental idea of block-based diffing is to split binary files into individual *blocks*, compute a hash for each block, and then use a list of block hashes (called a *block index*) of the new version to reconstruct the new version from locally available blocks and remotely fetched blocks. Block-based diffing can be used with filesystem images, but it can also operate on arbitrary other files. While block-based diffing can be used to implement static delta updates, it is typically used for dynamic delta updates.
+The fundamental idea of block-based diffing is to split a binary file, e.g., a filesystem image, into individual *blocks*, compute a hash for each block, and then use a list of block hashes (called a *block index*) of the new version to reconstruct the new version from locally available blocks and remotely fetched blocks. Block-based diffing can operate on arbitrary files. While block-based diffing can be used to implement static delta updates, it is typically used for dynamic delta updates.
 
 Block-based diffing is implemented by RAUC as the `block-hash-index` *adaptive update* method.[^rauc-adaptive] It is also the fundamental principle behind the standalone tools [Casync](https://github.com/systemd/casync) and [Zchunk](https://github.com/zchunk/zchunk), which can both be used as part of an update workflow. Casync can be used with RAUC[^rauc-casync] and SWUpdate supports integrating with Casync as well as Zchunk.[^swupdate-delta] Neither Mender nor OSTree support block-based diffing.
 
@@ -62,9 +68,11 @@ None of the other update tools besides OSTree supports file-based diffing, altho
 
 [^ostree-repository]: [OSTree: Anatomy of an OSTree Repository](https://ostreedev.github.io/ostree/repo/)
 
+Note that updates via a package manager are, in essence, also file-based updates. If you install updates via a package manager, like APT, the package manager will always download entire packages, containing all the files to install. Notably, this may also includes files that have not actually changed. In contrast, with file-based diffing, updates can be more efficient than package-based updates, as the file-based delta update mechanism only needs to download the files that have actually changed.
+
 ### Summary
 
-To summarize, Rugix and the other popular OTA update tools are build around three core techniques for delta updates: *block-based diffing*, *delta compression*, and *file-based diffing*. Block-based diffing is most widely used as it is also relatively simple to implement. For delta compression, all tools rely on Xdelta, and OSTree is the only popular tool that supports file-based diffing.
+To summarize, Rugix and the other popular OTA update tools are build around three core techniques for delta updates: *block-based diffing*, *delta compression*, and *file-based diffing*. Block-based diffing is most widely used as it is also relatively simple to implement. For delta compression, all tools rely on Xdelta, and OSTree is the only popular tool that supports file-based diffing. By looking at file-based diffing, we can also compare the efficiency of delta updates against package-based incremental updates.
 
 Having a high-level understanding of the techniques, we will no turn to concrete benchmarks to compare the efficiency of the different techniques on real-world update scenarios.
 
@@ -91,15 +99,25 @@ We will also test going from Bookworm to Bullseye using the previous month of Bu
 
 We do this for all update techniques and varying parameters. We will first look at the techniques individually and then compare them.
 
-## Savings Calculator
+#### Rolling Updates
+
+#### Major Upgrades
+
+From time to time, major system upgrades may be required, e.g., when moving from Debian Bullseye to Debian Bookworm or from Yocto Kirkstone to Yocto Scarthgap.
+
+
+### Benchmark Setup
+
+### Benchmark Results
+
+
+### Savings Calculator
 
 Based on the results of our benchmarks, we developed a calculator that allows you to estimate the cost savings that you may achieve by using different delta update techniques.
 
 <DeltaUpdateCalculator />
 
-We use 0.09 USD as a default cost per GiB as this is the standard egress fee for AWS S3.
+We use 0.09 USD as a default cost per GiB as this is the standard egress fee for AWS S3. The calculations are based on averages over all update scenarios for a each schedule, respectively. The baseline against which savings are calculated assumes that the entire image is LZMA compressed. **Note that these are estimates only and the actual savings may vary depending on your specific scenario.**
 
 
 ## Conclusion
-
-
