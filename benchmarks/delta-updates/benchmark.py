@@ -57,7 +57,7 @@ SNAPSHOTS = [
 
 SUITES = [
     "bookworm",
-    "bullseye",
+    # "bullseye",
 ]
 
 LAYER_CONFIG_TEMPLATE = """
@@ -350,6 +350,90 @@ def block_diffing():
     COMPUTE_POOL.map(try_job, jobs)
 
 
+@d.dataclass(frozen=True)
+class DeltarStrategy:
+    chunker: str
+    group_overhead: int
+    group_size_limit: int
+
+    @property
+    def name(self) -> str:
+        return f"{self.chunker}-{self.group_overhead}-{self.group_size_limit}"
+
+
+DELTAR_STRATEGIES = [
+    DeltarStrategy("casync-16", 1024, 32 * 1024),
+    # We use 4GiB blocks, i.e., files are never split and a group limit of 1, i.e.,
+    # each file gets its own download group.
+    DeltarStrategy("fixed-4096", 0, 1),
+    DeltarStrategy("fixed-4096", 0, 16 * 1024),
+]
+
+
+@compute.command()
+def deltar():
+    """
+    Compute update sizes with the deltar approach.
+    """
+
+    def compute(job: t.Tuple[DeltarStrategy, t.Tuple[str, str], Schedule, str]):
+        strategy, (src, dst), schedule, suite = job
+        results_file = (
+            RESULTS_DIR
+            / "deltar"
+            / strategy.name
+            / suite
+            / schedule.name
+            / f"{dst}.json"
+        )
+        if results_file.exists():
+            print(
+                f"Skipping pair ({src}, {dst}) for suite {suite} as it already exists."
+            )
+            return
+        src_build_dir = BUILD_DIR / suite / src
+        if not src_build_dir.exists():
+            print(f"Skipping snapshot {src} for suite {suite} as it does not exist.")
+            return
+        dst_build_dir = BUILD_DIR / suite / dst
+        if not dst_build_dir.exists():
+            print(f"Skipping snapshot {dst} for suite {suite} as it does not exist.")
+            return
+        src_tar_path = src_build_dir / "filesystems" / "partition-4.tar"
+        dst_tar_path = dst_build_dir / "filesystems" / "partition-4.tar"
+        cmd = [
+            RUGIX_DELTA,
+            "deltar",
+            "benchmark",
+            "--chunker",
+            strategy.chunker,
+            "--group-overhead",
+            str(strategy.group_overhead),
+            "--group-size-limit",
+            str(strategy.group_size_limit),
+            src_tar_path,
+            dst_tar_path,
+        ]
+        output = subprocess.check_output(cmd)
+        results_file.parent.mkdir(parents=True, exist_ok=True)
+        results_file.write_bytes(output)
+
+    def try_job(job):
+        try:
+            compute(job)
+        except Exception as error:
+            print(error)
+
+    jobs = [
+        (strategy, pair, schedule, suite)
+        for strategy in DELTAR_STRATEGIES
+        for suite in SUITES
+        for schedule in SCHEDULES
+        for pair in schedule.pairs
+    ]
+    COMPUTE_POOL.map(try_job, jobs)
+
+
 @main.group()
 def analyze():
     """
@@ -390,9 +474,21 @@ def base_stats():
                         / schedule.name
                         / f"{new}.json"
                     )
-                    results[suite][schedule.name][-1][strategy.name] = json.loads(
-                        results_file.read_text()
-                    )["total_compressed"]
+                    results[suite][schedule.name][-1][
+                        f"block-based-{strategy.name}"
+                    ] = json.loads(results_file.read_text())["total_compressed"]
+                for strategy in DELTAR_STRATEGIES:
+                    results_file = (
+                        RESULTS_DIR
+                        / "deltar"
+                        / strategy.name
+                        / suite
+                        / schedule.name
+                        / f"{new}.json"
+                    )
+                    results[suite][schedule.name][-1][f"deltar-{strategy.name}"] = (
+                        json.loads(results_file.read_text())
+                    )
 
     for suite, suite_results in results.items():
         for schedule_name, schedule_results in suite_results.items():
@@ -400,11 +496,31 @@ def base_stats():
             total_compressed = sum(r["compressed"] for r in schedule_results)
             total_xdelta = sum(r["xdelta"] for r in schedule_results)
             total_block_diffing = {
-                strategy.name: sum(r[strategy.name] for r in schedule_results)
+                strategy.name: sum(
+                    r[f"block-based-{strategy.name}"] for r in schedule_results
+                )
                 / 1024
                 / 1024
                 / 1024
                 for strategy in BLOCK_DIFFING_STRATEGIES
+            }
+            total_deltar_plan = {
+                strategy.name: sum(
+                    r[f"deltar-{strategy.name}"]["plan"] for r in schedule_results
+                )
+                / 1024
+                / 1024
+                / 1024
+                for strategy in DELTAR_STRATEGIES
+            }
+            total_deltar_data = {
+                strategy.name: sum(
+                    r[f"deltar-{strategy.name}"]["data"] for r in schedule_results
+                )
+                / 1024
+                / 1024
+                / 1024
+                for strategy in DELTAR_STRATEGIES
             }
             print(f"Suite: {suite} | Schedule: {schedule_name}")
             total_uncompressed_gib = total_uncompressed / 1024 / 1024 / 1024
@@ -419,6 +535,13 @@ def base_stats():
             for strategy in BLOCK_DIFFING_STRATEGIES:
                 print(
                     f"  Total {strategy.name}: {total_block_diffing[strategy.name] / 2:.2f} GiB/year"
+                )
+            for strategy in DELTAR_STRATEGIES:
+                plan = total_deltar_plan[strategy.name] / 2
+                data = total_deltar_data[strategy.name] / 2
+                total = plan + data
+                print(
+                    f"  Total Deltar ({strategy.name}): {total:.2f} GiB/year ({plan:.2f} + {data:.2f})"
                 )
             print("  Cost AWS S3 Egress (0.09 USD/GiB):")
             for devices in DEVICES:
