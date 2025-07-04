@@ -44,27 +44,27 @@ const COMPRESSION_FACTORS = {
 const METHODS: Array<{
   name: string
   key: keyof (typeof COMPRESSION_FACTORS)["bookworm"]["annually"]
-  tools: Array<string>
+  tools: string
 }> = [
   {
     name: "Block-Based, Fixed 4KiB",
     key: "block-based-fixed-4-512-32768",
-    tools: ["RAUC"],
+    tools: "RAUC",
   },
   {
     name: "Block-Based, Casync 64KiB",
     key: "block-based-casync-64-512",
-    tools: ["Rugix", "Casync"],
+    tools: "Rugix, Casync",
   },
   {
     name: "File-Based, Deltar 16KiB",
     key: "deltar-casync-16-1024-32768",
-    tools: ["(OSTree)"],
+    tools: "(OSTree, APT)",
   },
   {
     name: "Delta Compression (Xdelta)",
     key: "xdelta",
-    tools: ["Rugix", "Mender", "Xdelta"],
+    tools: "Rugix, Mender, Xdelta",
   },
 ]
 
@@ -178,7 +178,7 @@ const DeltaUpdateCalculator = () => {
                 <td className="text-right font-mono font-bold text-green-500">
                   {((baseCost - updateCost) / 100).toFixed(0)}
                 </td>
-                <td>{method.tools.join(", ")}</td>
+                <td>{method.tools}</td>
               </tr>
             )
           })}
