@@ -6,11 +6,13 @@ draft: true
 tags: [rugix,delta updates]
 ---
 
+import DeltaUpdateCalculator from "../src/components/DeltaUpdateCalculator";
+
 Most modern OTA update solutions for embedded Linux support a form of *delta updates*. Delta updates can reduce the amount of data transferred and the time required to install a new version by reusing parts of the old version of a system. This is particularly useful for devices on metered or bandwidth-constrained connections. In this article, **we will survey the different delta update techniques used by popular tools, examine their tradeoffs, and present benchmarks that compare their efficiency**.
 
 This article aims to serve as a guide for engineers looking to implement delta updates in their embedded Linux projects. Together with this article, **we release a new tool of the Rugix tool suite for benchmarking delta update techniques and exploring the effects of their parameters** on real-world update scenarios. With `rugix-delta`, we enable engineers to evaluate the efficiency of different delta update techniques and make informed decisions about which approach to use based on their specific requirements. While we aim to present general representative benchmarks in this article, we would like to encourage you to run your own benchmarks and [share your own experiences and findings with us](#). 
 
-<!-- truncate -->
+{/* truncate */}
 
 **Outline and Overview.** We will first have a look at the existing tools and techniques for OTA updates in the embedded Linux ecosystem and their tradeoffs. We will then present and discuss our benchmarking methodology, tooling, and results. Finally, we will conclude with a summary of our findings.
 
@@ -89,6 +91,13 @@ We will also test going from Bookworm to Bullseye using the previous month of Bu
 
 We do this for all update techniques and varying parameters. We will first look at the techniques individually and then compare them.
 
+## Savings Calculator
+
+Based on the results of our benchmarks, we developed a calculator that allows you to estimate the cost savings that you may achieve by using different delta update techniques.
+
+<DeltaUpdateCalculator />
+
+We use 0.09 USD as a default cost per GiB as this is the standard egress fee for AWS S3.
 
 
 ## Conclusion
