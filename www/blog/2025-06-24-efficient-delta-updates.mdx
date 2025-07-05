@@ -6,35 +6,31 @@ draft: true
 tags: [rugix,delta updates]
 ---
 
-import DeltaUpdateCalculator from "../src/components/DeltaUpdateCalculator";
+import DeltaUpdateCalculator from "../src/components/delta-updates/DeltaUpdateCalculator";
+import PlotRollingUpdates from "../src/components/delta-updates/PlotRollingUpdates";
+import { PlotMajorUpdates} from "../src/components/delta-updates/PlotRollingUpdates";
 
-Most modern OTA update solutions for embedded Linux support a form of *delta updates*. Delta updates can reduce the amount of data transferred and the time required to install a new version by reusing parts of the old version of a system. This is particularly useful for devices on metered or bandwidth-constrained connections. In this article, **we will survey the different delta update techniques used by popular tools, examine their tradeoffs, and present benchmarks that compare their efficiency**.
+Most modern OTA update solutions for embedded Linux support a form of *delta updates*. Delta updates can reduce the amount of data transferred and the time required to install a new version by reusing locally available parts of the old version of a system. This is especially useful for devices on metered or bandwidth-constrained connections. In this article, **we will survey the different delta update techniques implemented within popular OTA update tools, examine their tradeoffs, and present benchmarks that compare their efficiency on the basis of real-world update scenarios**.
 
-This article aims to serve as a guide for engineers looking to implement delta updates in their embedded Linux projects. Together with this article, **we release a new tool of the Rugix tool suite for benchmarking delta update techniques and exploring the effects of their parameters** on real-world update scenarios. With `rugix-delta`, we enable engineers to evaluate the efficiency of different delta update techniques and make informed decisions about which approach to use based on their specific requirements. While we aim to present general representative benchmarks in this article, we would like to encourage you to run your own benchmarks and [share your own experiences and findings with us](#). 
+This article aims to serve as a guide for engineers looking to implement delta updates in their embedded Linux projects. Together with this article, we release Rugix version 0.8.12 which introduces support for static delta updates and functionality for benchmarking delta update techniques. With the benchmarking functionality included in Rugix Bundler, **we enable engineers to evaluate the efficiency of different delta update techniques and make informed decisions about which approach to use based on their specific update scenarios**. While we aim to present general benchmarks in this article, we would like to encourage you to run your own benchmarks and [share your own findings with us](#). 
 
 {/* truncate */}
 
-:::tip
-
-If you do not care about the technical details, feel free to skip directly to the [benchmark results](#benchmark-results).
-
-:::
-
-**Outline and Overview.** We will first have a look at the existing tools and techniques for OTA updates in the embedded Linux ecosystem and their tradeoffs. We will then present and discuss our benchmarking methodology, tooling, and results. Finally, we will conclude with a summary of our findings.
+**Outline and Overview.** We will first have a look at the existing tools and techniques for OTA updates in the embedded Linux ecosystem. We will then present and discuss our benchmarking methodology, tooling, and results. Finally, we will conclude with a summary of our findings. If you do not care about the technical details, feel free to skip directly to the [benchmark results](#benchmark-results).
 
 ## Tools and Techniques
 
 Let's first have a look at the existing tools for OTA updates in the embedded Linux ecosystem and the techniques they implement for delta updates. In addition to Rugix, we will consider the following popular tools: [RAUC](https://rauc.io/), [SWUpdate](https://sbabic.github.io/swupdate/swupdate.html), [Mender](https://mender.io/), and [OSTree](https://ostreedev.github.io/ostree/). While there are other tools, these are the major players in the OTA update space and are the ones we will focus on in this article.
 
-Before diving in, it's helpful to distinguish between tools and techniques. A *tool* refers to a complete OTA update solution—like RAUC or Mender—while a *technique* refers to the underlying method it uses for delta updates, such as block-based diffing or delta compression. Note that a tool may implement multiple techniques, and a given technique may be implemented by multiple tools.
+Before diving in, it's helpful to clearly introduce the terms “*tool*” and “*technique*” and distinguish between them. The term “*tool*” refers to a complete OTA update solution—like RAUC, Mender, or Rugix Ctrl—while the term “*technique*” refers to an underlying abstract method for delta updates, such as block-based diffing or delta compression. Note that a tool may implement multiple techniques, and a given technique may be implemented by multiple tools.
 
 **Dynamic vs. Static Delta Updates.** All delta update techniques have in common that they are based on the computation of some sort of *delta* between the old and the new version. This delta describes the difference between both versions. We generally distinguish between *dynamic delta updates* and *static delta updates*. With dynamic delta updates, the update tool running on a device computes the delta based on what is currently available on the device. Dynamic delta updates are easy to implement and do not require the pre-computation of the delta between versions. In contrast, with static delta updates, the delta is pre-computed and stored in a separate *patch* file which then allows to update from one specific version to another specific version. As our benchmarks will show, static delta updates are generally more efficient than dynamic delta updates, however, they are more complex to implement, both because they require the pre-computation of deltas between all relevant versions and because they require a read-only root filesystem to ensure that the base version is unmodified.
 
-We will now look at the three techniques which are widely used by OTA update tools in the embedded Linux ecosystem: *block-based diffing*, *delta compression*, and *file-based diffing*.
+We will now look at the three delta update techniques which are widely used by OTA update tools in the embedded Linux ecosystem: *block-based diffing*, *delta compression*, and *file-based diffing*.
 
 ### Block-Based Diffing
 
-The fundamental idea of block-based diffing is to split a binary file, e.g., a filesystem image, into individual *blocks*, compute a hash for each block, and then use a list of block hashes (called a *block index*) of the new version to reconstruct the new version from locally available blocks and remotely fetched blocks. Block-based diffing can operate on arbitrary files. While block-based diffing can be used to implement static delta updates, it is typically used for dynamic delta updates.
+The core idea of block-based diffing is to split a binary file, e.g., a filesystem image, into individual *blocks*, compute a hash for each block, and then use a list of block hashes (called a *block index*) of the new version to reconstruct the new version from locally available blocks of the old version and remotely fetched blocks. Block-based diffing can operate on arbitrary files. While block-based diffing can be used to implement static delta updates, it is typically used for dynamic delta updates.
 
 Block-based diffing is implemented by RAUC as the `block-hash-index` *adaptive update* method.[^rauc-adaptive] It is also the fundamental principle behind the standalone tools [Casync](https://github.com/systemd/casync) and [Zchunk](https://github.com/zchunk/zchunk), which can both be used as part of an update workflow. Casync can be used with RAUC[^rauc-casync] and SWUpdate supports integrating with Casync as well as Zchunk.[^swupdate-delta] Neither Mender nor OSTree support block-based diffing.
 
@@ -42,11 +38,11 @@ Block-based diffing is implemented by RAUC as the `block-hash-index` *adaptive u
 [^rauc-casync]: [RAUC: Casync Support](https://rauc.readthedocs.io/en/v1.14/advanced.html#rauc-casync-support)
 [^swupdate-delta]: [SWUpdate: Delta Updates](https://sbabic.github.io/swupdate/delta-update.html)
 
-Block-based diffing has the advantage that it is relatively simple to implement and can use any block device or other file as the source of blocks. Depending on the implementation, it can also tolerate mutable block sources, such as mounted filesystems. Changes to blocks can be detected based on their hash and, if a block changed, it can simply be fetched from the network.
+Block-based diffing has the advantage that it is relatively simple to implement and can use any block device or other file as the source of blocks. Of course, in principle, it is also possible to use multiple block sources for an update. Depending on the implementation, block-based diffing can also tolerate mutable block sources, such as mounted filesystems. Changes to blocks can be detected based on their hash and, if a block changed, it can simply be fetched from the network.
 
-Different block-based diffing variants vary in the way they split binary files (e.g., filesystem images) into blocks. While RAUC's `block-hash-index` adaptive update method uses a fixed block size of 4 KiB, Casync and Zchunk implement content-defined chunking, i.e., they determine block boundaries based on a file's content, which leads to variable-sized blocks. Content-defined chunking has the advantage that it can tolerate insertions into blocks. If you insert a single byte into a file, everything afterwards will be shifted by one byte likely leading to entirely different blocks when using fixed-size blocks. In contrast, with content-defined chunking, the block boundaries are determined by the actual content around the boundary, likely shifting the boundary when insertions occur.
+Different block-based diffing variants vary in the way they split binary files (e.g., filesystem images) into blocks. While RAUC's `block-hash-index` adaptive update method uses a fixed block size of 4 KiB, Casync and Zchunk implement *content-defined chunking*, i.e., they determine block boundaries based on a file's content, which leads to variable-sized blocks. Content-defined chunking has the advantage that it can tolerate insertions into blocks. If you insert a single byte into a file, everything afterwards will be shifted by one byte likely leading to entirely different blocks when using fixed-size blocks. In contrast, with content-defined chunking, the block boundaries are determined by the actual content around the boundary, likely shifting the boundary when insertions occur.
 
-Typically, it is advantageous to compress blocks individually to reduce their size in the event that they need to be fetched. Both Casync and Zchunk support  block-wise compression. In contrast, RAUC's `block-hash-index` method does not compress blocks individually but implicitly compresses ranges of blocks by compressing the entire update bundle using SquashFS.[^rauc-compression]
+All tools implementing block-based diffing also implement some sort of compression to reduce the download size while being able to decompress blocks individually or in groups. Both Casync and Zchunk directly compress the blocks they identified. In contrast, RAUC's `block-hash-index` adaptive update method does not compress blocks individually but implicitly compresses groups of blocks by compressing the entire update bundle using SquashFS.[^rauc-compression] While larger blocks generally lead to a better block-wise compression ratios, they also lead to coarser delta updates.
 
 [^rauc-compression]: [RAUC: Update Bundles](https://rauc.readthedocs.io/en/v1.14/basic.html#update-bundles)
 
@@ -58,13 +54,13 @@ Delta compression re-uses concepts and ideas from compression algorithms to comp
 
 Explaining the underlying algorithms of delta compression is beyond the scope of this article. If you like a broad overview, check out the explanation in the [source code of Xdelta](https://github.com/jmacd/xdelta/blob/7508fd2a823443b1f0173ca361620f21d62a7d37/xdelta3/xdelta3.c). While being relatively old, Xdelta is still the de-facto standard for delta compression (at least as far as open-source tools go).
 
-Mender uses Xdelta for their delta update mechanism which is, however, part of Mender's *Professional* and *Enterprise* plans, i.e., if you are using Mender's open-source standalone version, you do not get delta updates. SWUpdate can integrate with Xdelta, however, you need to build this integration yourself. Rugix can also use Xdelta and provides a ready-made integration for it. It is the only open-source OTA update solution that natively supports delta compression out of the box.
+Mender uses Xdelta for their delta update mechanism which is, however, part of Mender's *Professional* and *Enterprise* plans, i.e., if you are using Mender's open-source standalone version, you do not get delta updates. SWUpdate can integrate with Xdelta, however, you need to build this integration yourself. Rugix provides a ready-made integration with Xdelta.
 
 ### File-Based Diffing
 
 While the aforementioned techniques work on opaque binary files, it is also possible to implement delta updates directly on a file and directory level. This approach is pursued by OSTree. OSTrees implements a form of object store for directories and files, allowing to synchronize individual files and directories while reusing what is already locally available.[^ostree-repository] File-based diffing has the advantage that it can avoid any noise that is introduced when treating the filesystem as a binary blob. Like block-based diffing, file-based diffing can be used for dynamic delta updates as well as static delta updates.
 
-None of the other update tools besides OSTree supports file-based diffing, although, we did implement a file-based method as part of `rugix-delta` for benchmarking purposes (details below). We may later integrate this implementation into Rugix Ctrl itself to also support file-based diffing.
+None of the other update tools besides OSTree supports file-based diffing, although, we did implement an experimental file-based method within Rugix for benchmarking purposes. We may later integrate this implementation into Rugix Ctrl itself to also support file-based diffing.
 
 [^ostree-repository]: [OSTree: Anatomy of an OSTree Repository](https://ostreedev.github.io/ostree/repo/)
 
@@ -72,48 +68,85 @@ Note that updates via a package manager are, in essence, also file-based updates
 
 ### Summary
 
-To summarize, Rugix and the other popular OTA update tools are build around three core techniques for delta updates: *block-based diffing*, *delta compression*, and *file-based diffing*. Block-based diffing is most widely used as it is also relatively simple to implement. For delta compression, all tools rely on Xdelta, and OSTree is the only popular tool that supports file-based diffing. By looking at file-based diffing, we can also compare the efficiency of delta updates against package-based incremental updates.
+To summarize, Rugix and the other popular OTA update tools are build around three core techniques for delta updates: *block-based diffing*, *delta compression*, and *file-based diffing*. Block-based diffing is most widely used and supported by RAUC, SWUpdate, and Rugix. For delta compression, SWUpdate, Mender, and Rugix rely on Xdelta, while RAUC and OSTree do not support delta compression. OSTree is the only popular tool that supports file-based diffing. By looking at file-based diffing, we can also compare the efficiency of delta updates against package-based incremental updates.
 
-Having a high-level understanding of the techniques, we will no turn to concrete benchmarks to compare the efficiency of the different techniques on real-world update scenarios.
-
-## Benchmarks
-
-First of all, note that our primary interest lies in the delta update techniques themselves rather than their specific implementations within each tool. We are interested in understanding delta update techniques on a fundamental level, assuming that they are implemented optimally. That being said, we will, of course, also discuss how our results transfer to the specific implementations of the tools.
-
-The approach we chose to conduct the benchmarks is to implement the different techniques within a dedicated benchmarking tool. This allows us to conduct benchmarks repeatably and without actually having to conduct updates and deploy a system. This enables quick iteration and experimentation with different parameters of the techniques and underlying assumptions.
-
-### Update Scenarios
-
-Our aim is to benchmark the techniques on real-world update scenarios. To obtain such scenarios, we use Rugix Bakery to build bit-by-bit reproducible root filesystems and filesystem images based on Debian snapshots. By using Debian snapshots, we ensure that the scenarios are reproducible and based on realistic systems that we would have build when we could go back in time.
-
-We go back two years in time and use the snapshot `20230611T103552Z` as a starting point. This snapshots coincides with the release of Debian Bookworm, the most recent version of Debian at the time of writing. We will build a system for each month (using the first snapshot of the 11th of the respective) until `20250611T033537Z`, which will give us 25 snapshots. For each snapshot, we build a system based on Debian Bookworm and on Debian Bullseye, which is the release prior to Bookworm. For each such snapshot, we build a reproducible Ext4 filesystem containing everything required to boot a minimal system with Rugix and A/B update support. In addition, we build a `.tar` file with the system's root filesystem.
-
-We will then test the following update schedules within each release (Bookworm and Bullseye):
-
-- Update every month.
-- Update every quarter (3 months).
-- Update every six month.
-- Update every year.
-
-We will also test going from Bookworm to Bullseye using the previous month of Bullseye.
-
-We do this for all update techniques and varying parameters. We will first look at the techniques individually and then compare them.
-
-#### Rolling Updates
-
-#### Major Upgrades
-
-From time to time, major system upgrades may be required, e.g., when moving from Debian Bullseye to Debian Bookworm or from Yocto Kirkstone to Yocto Scarthgap.
+Having a high-level understanding of the techniques, we will no turn to concrete benchmarks to compare the efficiency of the different techniques on realistic update scenarios.
 
 
-### Benchmark Setup
+## Empirical Evaluation
 
-### Benchmark Results
+As we have seen, there are many different tools and techniques available for OTA updates, however, it is not immediately clear how effective they are on realistic update scenarios. While the general wisdom is that delta updates are effective, implementing delta updates, in particular static delta updates, can also consume a lot of engineering resources. So, the question is:
+
+**How effective are delta updates in practice and are they worth the effort?**
+
+To answer that question, we consider two update scenarios: ongoing *rolling updates* and *major upgrades*. Rolling updates represent frequent minor updates, e.g., including security updates, bug fixes, and possibly new features in business applications. In contrast, major upgrades represent significant system changes, like moving from Debian Bullseye to Bookworm or from Yocto Kirkstone to Scarthgap.
+
+We also look at different *update cadences*: monthly, quarterly, biannual, and annual. The update cadence is the frequency with which updates are applied to the system. For example, a monthly update cadence means that updates are applied every month, while a biannual update cadence means that updates are applied every six months. More frequent updates mean less changes per update, however, more updates overall. We will benchmark how effective delta updates are for each cadence, respectively.
+
+**Prior Work.** The efficiency of delta updates implemented by popular tools has already been investigated by Drew Moseley who shared his findings in a [talk at EOSS 2024](https://www.youtube.com/watch?v=enejawJmb5k) and a [blog post on the Torizon blog](https://www.torizon.io/de/blog/ota-best-linux-os-image-update-model). Our findings are generally in-line with his findings, however, we (a) pursue a different approach, focusing on the fundamental techniques instead of tools, (b) we use a more comprehensive data set based on two years of real-world updates according to different cadences, and (c) we also show where delta updates become harmful. We view our findings as complementary to Moseley's work.
+
+### System Images
+
+To benchmark anything, we first need a realistic dataset. For our benchmarks, we used Rugix Bakery to build bit-by-bit reproducible root filesystems and filesystem images based on Debian snapshots. By using Debian snapshots, we ensure that the scenarios are reproducible and based on realistic systems that we would have build when we could go back in time.
+
+Concretely, we start with the snapshot `20230611T103552Z` and build a system for each month up to the snapshot `20250611T033537Z` for both, Debian Bookworm and Bullseye. As a result, we obtain 50 system images. The images are minimal Debian images with Rugix and A/B update support. To add some additional applications, we installed the packages `python3` and `build-essential`.
+
+While Yocto images can generally be much smaller than Debian images, we still believe that the Debian images we built are representative for typical update scenarios.
+
+With those images, we can now go through through different update cadences for rolling updates and also study major upgrades, going from Debian Bullseye to Debian Bookworm.
+
+### Methodology
+
+Given the size of our dataset, carrying out all the updates and measuring the download sizes manually is not feasible. Thus, instead of conducting the benchmarks manually, we decided to develop a dedicated benchmarking tool that would allow us to simulate updates and compute the download sizes for different techniques under different assumptions, e.g., for block-fetching overhead. By using simulation, we can quickly conduct benchmarks for different parameters, eliminate noise, experiment with assumptions, and better understand the inherent limits of the fundamental techniques.
+
+Of course, when relying on simulation there always is a chance for a simulation-reality gap, i.e, the simulation may not reflect reality. We will discuss various aspects in which our simulation may not be faithful to reality in the next section when presenting our results. Although, we will not claim that our simulation is perfect, we believe that it provides a realistic picture of the effectiveness of delta update techniques. This claim is corroborated by the fact that our findings are in-line with Moseley's, who did not use simulation but benchmarked the actual tools, although on a much smaller dataset.
+
+The benchmarking tool implements block-based and file-based diffing. For delta compression, we simply used Xdelta as is. The implementation of block-based diffing reuses the core functionality provided by Rugix and used for actual updates with Rugix. It supports fixed-size blocks and content-defined chunking implementing the same algorithm as Casync, i.e., it will produce exactly the same blocks as Casync would. The simulation allows accounting for the overhead of fetching individual blocks and can use block-wise compression as well as compress blocks in groups (as RAUC does it). Using different parameters for the simulation, this allows us to obtain results indicative for the block-based diffing implemented in RAUC, Casync, and Rugix. The file-based diffing implementation uses a novel approach we call *Deltar*. The idea is to construct a tar-like archive where the file contents is not inlined into the file but stored separately and potentially split into blocks for deduplication using content-defined chunking. So, a Deltar update essentially consists of a *file index*, listing the files and directories, followed by a list of file blocks that can be fetched individually. The benchmarking tool allows separately computing the size of the file index and the size of the actual file data that needed to be fetched. Again, by using different parameters, we can use that to obtain results indicative for OSTree and package-based updates.
+
+:::info
+
+The benchmarking tool is available as part of Rugix Bundler. **You can use it to quickly conduct benchmarks of the different techniques for your own update scenarios.**
+
+:::
+
+With all that out of the way, let's now turn to the benchmark results.
+
+### Rolling Updates
+
+We first look at rolling updates. The metric we are interested in is the ratio between a simple compression of the entire update (we use LZMA for the benchmarks) and delta compression.
+
+Here are the results for different techniques for rolling updates of different cadences:
+
+<PlotRollingUpdates />
+
+These values are obtained by taking the average over all rolling updates for Debian Bookworm and Debian Bullseye, e.g., in case of monthly updates, they represent an average over 48 updates and in case of annual updates they represent an average over 4 updates. The red bar is always at 1.0, indicating the base line of a simple compression of the entire filesystem image. Compared to this baseline, delta updates can reduce the size by between 30% and 90%, depending on the cadence and technique.
+
+As one might have guessed, the higher the update cadence, the more effective  delta updates become. This makes sense as each update contains less changes over the previous version, allowing for a larger portion of the update to be reused from the previous version.
+
+For these benchmarks, we assumed an overhead of 768 bytes to fetch a block or a block group for the block-diffing based methods. The purple bars (*Block-Based, Fixed 4KiB/32KiB* and *Block-Based, Fixed 4KiB/64KiB*) represent a typical RAUC update using a fixed block size of 4 KiB and combining blocks to 32 KiB and 64 KiB groups for compression, respectively. The blue bars  (*Block-Based, Casync 64KiB* and *Block-Based, Casync 16KiB*) represent typical Casync updates using an average block size of 64 KiB and 16 KiB, respectively. Those bars also represent a typical Rugix update, as Rugix implements the exact same algorithms as Casync under the hood. While Rugix and Casync use the same block hashes for delta updates and integrity checks, RAUC uses [dm-verity](https://docs.kernel.org/admin-guide/device-mapper/verity.html) over the update bundle, which does add a small overhead not accounted for in the simulation. Generally smaller block sizes, as in the case of RAUC, also increase the size of the block indices. Overall, Casync and Rugix seem slightly more efficient than the fixed-size block-based diffing approach implemented by RAUC. Furthermore, it is noteworthy that 4 KiB fixed-size blocks only work well for filesystem images, where these blocks align with the blocks of the filesystem. In contrast, Rugix's and Casync's content-defined chunking approach also works well for other file types. So, we conclude that for rolling updates, among the block-based diffing techniques, Rugix and Casync are slightly more efficient than RAUC while also being more versatile. SWUpdate should be able to achieve results comparable to Casync by using Zchunk under the hood.
+
+As discussed earlier, file-based diffing techniques can avoid noise introduced by treating the filesystem as a binary blob. The green bar (*File-Based, Deltar 16KiB*) represents a file-based update based on our prototypical Deltar approach. The plot shows the index and data portion separately. As one can see, the index portion only makes up a small part of the update. Here, we assume that we are downloading the entire file index. In contrast, OSTree can avoid downloading the entire file index by just syncing in the new files and directories an a file and directory level, respectively. While this may avoid downloading some data, it also introduces overhead. What we see here is that this overhead is likely not worthwhile, as the file index only makes up a negligible small part of the entire update. The much larger part is the actual data that changed. Note that the values shown here assume that the data is split into 16 KiB blocks (on average) using content-defined chunking and downloading these blocks individually (with an overhead of again 768 bytes). By default, OSTree does not do such splitting. Instead, it will download entire files which might again introduce a bit more overhead. Hence, with regards to OSTree our simulation is probably a bit optimistic, nevertheless our findings are in-line with Moseley's.[^moseley-delta] In general, we conclude that file-based diffing is typically more efficient than block-based diffing. However, it is not as versatile as block-based diffing, which can work for arbitrary update payloads, not just filesystems.
+
+[^moseley-delta]: [Torizon Blog: Over-The-Air Updates | Choose the best Linux OS Image Update Model](https://www.torizon.io/de/blog/ota-best-linux-os-image-update-model)
+
+Looking at the data, the difference between block-based and file-based diffing is not very large. However, if we look at delta compression (*Xdelta*) in comparison, we find that delta compression can be more than twice as efficient as block-based and file-based diffing. Recall that individual package updates, are essentially file-based updates. Hence, delta compression can be even more efficient than updating individual packages. This efficiency gain is also not just a result of the fact that it is a static delta update approach. Given the negligible sizes of block and file indices, static variants of block-based and file-based diffing would not be much more efficient than their dynamic counterparts. While delta compression is the most efficient approach, it requires pre-computing updates and it is also the most complex to implement and operate. If you need to reduce the size of updates to an absolute minimum, delta compression is probably the right choice for rolling updates. The results presented here are typical for Rugix's and Mender's static delta updates, as they both use Xdelta internally.
+
+### Major Upgrades
+
+Let's now turn to major upgrades. Major upgrades are not as frequent and typically contain a lot of significant changes. As for rolling updates, we also conducted benchmarks for the different update cadences, but instead of updating within a Debian version in each step, we update from Debian Bullseye to Bookworm in each step and then average the results. This represents a major update being done with the specific cadence but at different points in time. Here are the results:
+
+<PlotMajorUpdates />
+
+First of all, note that there is not much difference between the different cadences. This is because there are significant changes between both versions in any case.
+
+In fact, the changes are so significant that delta updates stop being effective and become actually harmful compared to a compression of the entire filesystem image as a whole. Within our data, this shows up as ratios that are above 1 across the board. If you think about it, it also makes sense. Delta updates come with a certain overhead such as indices or less-effective compression due to splitting data into blocks. In contrast, a simple compression of the entire filesystem image does not suffer from such overhead. This overhead only pays off when there are not too many changes, which is not the case for major upgrades. So, we conclude that for major upgrades, delta updates should not be used.
+
+As a side note, Moseley's findings show that static OSTree-based updates are most efficient when doing a major upgrade (of Torizon OS).[^moseley-delta] We suspect that this may be the case as those updates degenerate to a simple compression of the entire update, not actually reusing much of the system. Unfortunately, Moseley's analysis lacks a comparison to a simple compression of the entire filesystem.
 
 
-### Savings Calculator
+## Savings Calculator
 
-Based on the results of our benchmarks, we developed a calculator that allows you to estimate the cost savings that you may achieve by using different delta update techniques.
+Based on the results of our benchmarks, we developed a calculator that allows you to estimate the cost savings that you may achieve by using different delta update techniques for rolling updates.
 
 <DeltaUpdateCalculator />
 
@@ -121,3 +154,13 @@ We use 0.09 USD as a default cost per GiB as this is the standard egress fee for
 
 
 ## Conclusion
+
+There are different ways to approach OTA updates and delta updates in particular. While we have shown that delta updates can significantly reduce the size of updates, in particular, if updates are frequent, our results also show that delta updates can be harmful in certain scenarios. The ideal approach depends on the specific update scenario and the tradeoffs that you want to make.
+
+As part of Rugix Bundler, we provide a tool that allows you to benchmark different delta update techniques and compare their efficiency for your particular update scenarios. When it comes to delta updates, Rugix is also the only open-source OTA update solution that implements block-based diffing and delta compression out of the box, supporting dynamic and static delta updates. We will use the insights gained from our benchmarks to improve Rugix and make it even more efficient.
+
+We would love to hear your feedback and share your own findings and experiences with use. Feel free to use the [GitHub discussion for this article](#) or start a new one.
+
+---
+
+At [Silitics](https://silitics.com), we help companies develop robust and secure embedded products faster. If you need help implementing OTA updates, delta updates, or with any other embedded Linux related topic, we'd love [to hear from you](mailto:hello@silitics.com). Let's solve your challenges together!

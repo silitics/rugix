@@ -1,83 +1,6 @@
 import React from "react"
 
-const COMPRESSION_FACTORS = {
-  bookworm: {
-    annually: {
-      compression: 0.177588749791722,
-      xdelta: 0.05759843534519772,
-      "block-based-fixed-4-512-32768": 0.13464109434036994,
-      "block-based-casync-64-512": 0.13078671377618925,
-      "block-based-casync-8-512": 0.13780739196091338,
-      "deltar-casync-16-1024-32768": 0.12287954705426632,
-      "deltar-fixed-4096-0-1": 0.1134245771615329,
-    },
-    monthly: {
-      compression: 0.17755644920078015,
-      xdelta: 0.02505955081548573,
-      "block-based-fixed-4-512-32768": 0.053336596160729235,
-      "block-based-casync-64-512": 0.04876413177051478,
-      "block-based-casync-8-512": 0.0497717878316955,
-      "deltar-casync-16-1024-32768": 0.04650260369061429,
-      "deltar-fixed-4096-0-1": 0.04501082227218963,
-    },
-    quarterly: {
-      compression: 0.1775700547076022,
-      xdelta: 0.04042226455276389,
-      "block-based-fixed-4-512-32768": 0.09421960465281733,
-      "block-based-casync-64-512": 0.09022043653108476,
-      "block-based-casync-8-512": 0.09072419800435477,
-      "deltar-casync-16-1024-32768": 0.08482071466243937,
-      "deltar-fixed-4096-0-1": 0.08193599483792527,
-    },
-    biannually: {
-      compression: 0.17756723152867576,
-      xdelta: 0.050177143845317615,
-      "block-based-fixed-4-512-32768": 0.11675431167200062,
-      "block-based-casync-64-512": 0.11265902203653574,
-      "block-based-casync-8-512": 0.11568107459293851,
-      "deltar-casync-16-1024-32768": 0.10613234577874603,
-      "deltar-fixed-4096-0-1": 0.10076456805642212,
-    },
-  },
-  bullseye: {
-    annually: {
-      compression: 0.19741822894169053,
-      xdelta: 0.045349538182381494,
-      "block-based-fixed-4-512-32768": 0.1081803835687683,
-      "block-based-casync-64-512": 0.11445637086148198,
-      "block-based-casync-8-512": 0.1018785551894886,
-      "deltar-casync-16-1024-32768": 0.0926871000071811,
-      "deltar-fixed-4096-0-1": 0.08925375634194667,
-    },
-    monthly: {
-      compression: 0.1969738541008065,
-      xdelta: 0.01955606838714521,
-      "block-based-fixed-4-512-32768": 0.04007564651811199,
-      "block-based-casync-64-512": 0.04292892854966435,
-      "block-based-casync-8-512": 0.03481094970156947,
-      "deltar-casync-16-1024-32768": 0.02935040199544383,
-      "deltar-fixed-4096-0-1": 0.02793363031826973,
-    },
-    quarterly: {
-      compression: 0.196552353809911,
-      xdelta: 0.02750123536038977,
-      "block-based-fixed-4-512-32768": 0.05784816521025224,
-      "block-based-casync-64-512": 0.06184640715200246,
-      "block-based-casync-8-512": 0.05208612041639993,
-      "deltar-casync-16-1024-32768": 0.04597508595265979,
-      "deltar-fixed-4096-0-1": 0.04417037079797832,
-    },
-    biannually: {
-      compression: 0.19658651679646982,
-      xdelta: 0.03688232572207262,
-      "block-based-fixed-4-512-32768": 0.08650364447346696,
-      "block-based-casync-64-512": 0.09460757161810122,
-      "block-based-casync-8-512": 0.07883317706128495,
-      "deltar-casync-16-1024-32768": 0.07091976128617866,
-      "deltar-fixed-4096-0-1": 0.0692039476257556,
-    },
-  },
-}
+import COMPRESSION_FACTORS from "./data";
 
 const METHODS: Array<{
   name: string
@@ -85,19 +8,24 @@ const METHODS: Array<{
   tools: string
 }> = [
   {
-    name: "Block-Based, Casync 64KiB",
-    key: "block-based-casync-64-512",
+    name: "Block-Based, Fixed 4KiB/32KiB",
+    key: "block-based-fixed-4-768-32768",
+    tools: "≈RAUC",
+  },
+  // {
+  //   name: "Block-Based, Casync 64KiB",
+  //   key: "block-based-casync-64-768",
+  //   tools: "Rugix, Casync",
+  // },
+  {
+    name: "Block-Based, Casync 16KiB",
+    key: "block-based-casync-16-768",
     tools: "Rugix, Casync",
   },
   {
-    name: "Block-Based, Fixed 4KiB",
-    key: "block-based-fixed-4-512-32768",
-    tools: "Rugix, RAUC",
-  },
-  {
     name: "File-Based, Deltar 16KiB",
-    key: "deltar-casync-16-1024-32768",
-    tools: "(OSTree, APT)",
+    key: "deltar-casync-16-768-32768",
+    tools: "(≈OSTree, ≈APT)",
   },
   {
     name: "Delta Compression (Xdelta)",
@@ -137,7 +65,7 @@ const DeltaUpdateCalculator = () => {
     <div className="space-y-2 mb-7">
       <div className="space-y-1">
         <div className="space-x-2">
-          <span>Update Schedule:</span>
+          <span>Update Cadence:</span>
           <select
             value={schedule}
             onChange={(e) => setSchedule(e.target.value)}
