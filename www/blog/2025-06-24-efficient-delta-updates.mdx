@@ -70,7 +70,7 @@ Note that updates via a package manager are, in essence, also file-based updates
 
 To summarize, Rugix and the other popular OTA update tools are build around three core techniques for delta updates: *block-based diffing*, *delta compression*, and *file-based diffing*. Block-based diffing is most widely used and supported by RAUC, SWUpdate, and Rugix. For delta compression, SWUpdate, Mender, and Rugix rely on Xdelta, while RAUC and OSTree do not support delta compression. OSTree is the only popular tool that supports file-based diffing. By looking at file-based diffing, we can also compare the efficiency of delta updates against package-based incremental updates.
 
-Having a high-level understanding of the techniques, we will no turn to concrete benchmarks to compare the efficiency of the different techniques on realistic update scenarios.
+Having a high-level understanding of the techniques, we will now turn to concrete benchmarks to compare the efficiency of the different techniques on realistic update scenarios.
 
 
 ## Empirical Evaluation
