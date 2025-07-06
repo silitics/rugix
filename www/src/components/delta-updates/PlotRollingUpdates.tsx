@@ -170,7 +170,7 @@ export const PlotMajorUpdates = () => {
   }
   return (
     <div className="mb-4">
-      <Bar options={plotOptions("Major Upgrades")} data={data} />
+      <Bar options={plotOptions("Major Upgrades: Efficiency Ratios")} data={data} />
     </div>
   )
 }
