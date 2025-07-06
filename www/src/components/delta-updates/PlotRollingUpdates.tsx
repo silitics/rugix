@@ -9,7 +9,7 @@ import {
   Legend,
 } from "chart.js"
 import { Bar } from "react-chartjs-2"
-import COMPRESSION_FACTORS from "./data"
+import COMPRESSION_FACTORS, { TOTAL_SIZES } from "./data"
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
@@ -94,6 +94,8 @@ const METHODS: Array<{
   { label: "Xdelta", key: "xdelta", color: "#10b981" },
 ]
 
+const numUpdates = {"monthly": 12, "quarterly": 4, "biannually": 2, "annually": 1}
+
 const PlotRollingUpdates = () => {
   const data = {
     labels,
@@ -119,7 +121,31 @@ const PlotRollingUpdates = () => {
   }
   return (
     <div className="mb-4">
-      <Bar options={plotOptions("Rolling Updates")} data={data} />
+      <Bar options={plotOptions("Minor Updates: Efficiency Ratios")} data={data} />
+    </div>
+  )
+}
+
+export const PlotTotalSizes = () => {
+  const data = {
+    labels: ["Monthly (12 Updates)", "Quarterly (4 Updates)", "Biannual (2 Updates)", "Annual (1 Update)"],
+    datasets: METHODS.map((method) => {
+      return {
+        label: method.label,
+        data: labels.map(
+          (label) =>
+            (TOTAL_SIZES["bookworm"][label.toLowerCase()][method.key] +
+              TOTAL_SIZES["bullseye"][label.toLowerCase()][method.key]) /
+            2 / 2 / 1024 / 1024 / 1024,
+        ),
+        backgroundColor: method.color ?? "rgb(255, 99, 132)",
+        stack: method.stack ?? method.key,
+      }
+    }),
+  }
+  return (
+    <div className="mb-4">
+      <Bar options={plotOptions("Minor Updates: Accumulated GiB/Year")} data={data} />
     </div>
   )
 }
