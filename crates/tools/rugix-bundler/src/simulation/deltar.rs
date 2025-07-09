@@ -13,7 +13,7 @@ use si_crypto_hashes::{HashAlgorithm, HashDigest};
 use rugix_chunker::{Chunker, ChunkerAlgorithm};
 use rugix_compression::ByteProcessor;
 
-use crate::utils::compress_bytes;
+use super::utils::compress_bytes;
 
 /// Deltar instruction.
 #[derive(Debug, Clone)]

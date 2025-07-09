@@ -2381,15 +2381,20 @@ dependencies = [
 name = "rugix-bundler"
 version = "0.1.0"
 dependencies = [
+ "bytes",
  "clap",
  "hex",
  "reportify",
  "rugix-bundle",
+ "rugix-chunker",
  "rugix-cli",
+ "rugix-compression",
  "rugix-version",
+ "serde",
  "serde_json",
  "si-crypto-hashes",
  "si-observability",
+ "tar",
  "tempfile",
  "toml 0.8.22",
  "tracing",
@@ -2488,25 +2493,6 @@ dependencies = [
  "ureq",
  "uuid",
  "xscript 0.4.0",
-]
-
-[[package]]
-name = "rugix-delta"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "clap",
- "rugix-bundle",
- "rugix-chunker",
- "rugix-compression",
- "rugix-version",
- "serde",
- "serde_json",
- "si-crypto-hashes",
- "si-observability",
- "tar",
- "tracing",
- "walkdir",
 ]
 
 [[package]]

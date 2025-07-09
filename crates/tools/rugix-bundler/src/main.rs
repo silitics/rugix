@@ -17,6 +17,8 @@ use rugix_bundle::BundleResult;
 use si_crypto_hashes::HashDigest;
 use tracing::{info, Level};
 
+mod simulation;
+
 #[derive(Debug, Parser)]
 #[clap(version = rugix_version::RUGIX_GIT_VERSION)]
 pub struct Args {
@@ -40,6 +42,9 @@ pub enum Cmd {
     Delta(DeltaCmd),
     /// Inspect an update bundle.
     Inspect(InspectCmd),
+    /// Simulate an update.
+    #[clap(subcommand)]
+    Simulate(simulation::Cmd),
     /// Print the low-level structure of a bundle.
     #[clap(hide(true))]
     PrintStructure(PrintCmd),
@@ -251,6 +256,9 @@ fn main() -> BundleResult<()> {
             )
             .unwrap();
             rugix_bundle::builder::pack(new_dir.path(), &cmd.out)?;
+        }
+        Cmd::Simulate(cmd) => {
+            simulation::simulate(&cmd);
         }
     }
     Ok(())

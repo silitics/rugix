@@ -1,36 +1,26 @@
-#![allow(unused)]
+//! Simulation of various delta update techniques and implementations.
 
-use std::collections::{HashMap, HashSet};
-use std::ffi::OsString;
+use std::collections::HashSet;
 use std::io::Read;
-use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use clap::{Parser, Subcommand};
-use rugix_bundle::block_encoding::block_index::{BlockIndexConfig, compute_block_index};
-use rugix_bundle::block_encoding::block_table::BlockTable;
+use clap::Subcommand;
+use rugix_bundle::block_encoding::block_index::BlockIndexConfig;
 use rugix_chunker::{Chunker, ChunkerAlgorithm};
-use rugix_compression::ByteProcessor;
 use serde::Serialize;
-use si_crypto_hashes::{HashAlgorithm, HashDigest, Hasher};
+use si_crypto_hashes::{HashAlgorithm, HashDigest};
 use tracing::info;
-use walkdir::WalkDir;
 
-use crate::deltar::Instruction;
-use crate::utils::compress_bytes;
+use crate::simulation::deltar::Instruction;
+use crate::simulation::utils::compress_bytes;
+
+mod utils;
 
 pub mod deltar;
-pub mod utils;
 
-fn main() {
-    let args = Args::parse();
-
-    let _guard = si_observability::Initializer::new("DELTAR")
-        .apply(&args.logging_args)
-        .init();
-
-    match &args.cmd {
+pub fn simulate(cmd: &Cmd) {
+    match &cmd {
         Cmd::BlockBased(cmd) => match cmd {
             BlockBasedCmd::Benchmark {
                 chunker,
@@ -285,15 +275,6 @@ pub fn compute_hash_set(
         }
     }
     table
-}
-
-#[derive(Debug, Parser)]
-#[clap(version = rugix_version::RUGIX_GIT_VERSION)]
-pub struct Args {
-    #[clap(flatten)]
-    logging_args: si_observability::clap4::LoggingArgs,
-    #[clap(subcommand)]
-    cmd: Cmd,
 }
 
 #[derive(Debug, Subcommand)]

@@ -20,6 +20,11 @@ tracing.workspace = true
 serde_json.workspace = true
 si-observability.workspace = true
 tempfile = "3.20.0"
+bytes.workspace = true
+tar = "0.4.44"
+rugix-chunker.workspace = true
+rugix-compression.workspace = true
+serde.workspace = true
 
 [lints]
 workspace = true
