@@ -11,7 +11,6 @@ use tar::EntryType;
 use si_crypto_hashes::{HashAlgorithm, HashDigest};
 
 use rugix_chunker::{Chunker, ChunkerAlgorithm};
-use rugix_compression::ByteProcessor;
 
 use super::utils::compress_bytes;
 
@@ -88,6 +87,7 @@ pub struct ChunkCollector {
 #[derive(Debug)]
 pub struct ChunkGroup {
     /// Raw, uncompressed data.
+    #[expect(unused)]
     pub data: Vec<u8>,
     /// Compressed data.
     pub compressed: Vec<u8>,
@@ -213,7 +213,6 @@ pub fn compute_plan<R: Read>(
             }
             EntryType::Symlink => {
                 let target = entry.link_name().unwrap().unwrap();
-                let filename = path.file_name().unwrap().to_owned();
                 plan.push(Instruction::Link {
                     target: target.into(),
                 })

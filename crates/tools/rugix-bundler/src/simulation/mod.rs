@@ -2,11 +2,10 @@
 
 use std::collections::HashSet;
 use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use clap::Subcommand;
-use rugix_bundle::block_encoding::block_index::BlockIndexConfig;
 use rugix_chunker::{Chunker, ChunkerAlgorithm};
 use serde::Serialize;
 use si_crypto_hashes::{HashAlgorithm, HashDigest};
@@ -251,32 +250,6 @@ pub fn simulate(cmd: &Cmd) {
     }
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct DeltaStats {
-    entries_downloaded: usize,
-    data_downloaded: u64,
-}
-
-pub fn compute_hash_set(
-    config: &BlockIndexConfig,
-    block: &[FsEntryBlock],
-) -> HashSet<si_crypto_hashes::HashDigest> {
-    let mut table = HashSet::new();
-    for block in block {
-        for entry in &block.entries {
-            let FsEntryKind::File { data, .. } = &entry.kind else {
-                continue;
-            };
-            let chunker = config.chunker.chunker().unwrap();
-            for chunk in chunker.chunks(&data) {
-                let hash = config.hash_algorithm.hash(chunk);
-                table.insert(hash);
-            }
-        }
-    }
-    table
-}
-
 #[derive(Debug, Subcommand)]
 pub enum Cmd {
     #[clap(subcommand)]
@@ -328,71 +301,4 @@ pub enum BlockBasedCmd {
         #[clap(long)]
         download_block_size: Option<u64>,
     },
-}
-
-#[derive(Debug)]
-pub struct FsEntryBlock {
-    pub first: PathBuf,
-    pub last: PathBuf,
-    pub hash: HashDigest,
-    pub entries: Vec<FsEntry>,
-}
-
-#[derive(Debug)]
-pub struct FsEntry {
-    pub position: PathBuf,
-    pub kind: FsEntryKind,
-}
-
-impl FsEntry {
-    pub fn from_path(path: &Path, position: PathBuf) -> Option<Self> {
-        let metadata = match std::fs::symlink_metadata(&path) {
-            Ok(metadata) => metadata,
-            Err(error) => {
-                panic!("unable to read metadata of {path:?}: {error}");
-            }
-        };
-        let file_type = metadata.file_type();
-        let entry_kind = if file_type.is_file() {
-            let data = std::fs::read(path).unwrap();
-            let hash = HashAlgorithm::Sha256.hash(&data);
-            FsEntryKind::File { hash, data }
-        } else if file_type.is_dir() {
-            FsEntryKind::Directory
-        } else if file_type.is_symlink() {
-            FsEntryKind::Symlink {
-                target: std::fs::read_link(path).unwrap(),
-            }
-        } else {
-            return None;
-        };
-        Some(FsEntry {
-            position,
-            kind: entry_kind,
-        })
-    }
-
-    pub fn stable_hash(&self) -> HashDigest {
-        let mut hasher = HashAlgorithm::Sha256.hasher();
-        hasher.update(self.position.as_os_str().as_encoded_bytes());
-        match &self.kind {
-            FsEntryKind::Directory => hasher.update(b"directory"),
-            FsEntryKind::File { hash, .. } => {
-                hasher.update(b"file");
-                hasher.update(hash.as_ref());
-            }
-            FsEntryKind::Symlink { target } => {
-                hasher.update(b"symlink");
-                hasher.update(target.as_os_str().as_encoded_bytes());
-            }
-        }
-        hasher.finalize()
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum FsEntryKind {
-    Directory,
-    File { hash: HashDigest, data: Vec<u8> },
-    Symlink { target: PathBuf },
 }
