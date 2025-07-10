@@ -82,6 +82,8 @@ Rugix Bundler as well as the installation of static delta updates with Rugix Ctr
 
 You can either track versions yourself (outside Rugix) to target updates for specific versions, or you can query Rugix's slot database through `rugix-ctrl system info` to get information about what is installed to determine which update to use.
 
+Static delta updates currently only work after the first update has been installed, as this is when the slot database is populated. There is currently no build-in way to initialize the slot database prior to the first update.
+
 
 ## Update Simulator
 
