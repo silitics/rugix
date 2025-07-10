@@ -13,7 +13,7 @@ import ConfigSchema from "@site/schemas/rugix-bundle-manifest.schema.json";
 Updates are delivered to devices in the form of _update bundles_.
 
 Rugix update bundles are based on a format specifically engineered for **efficient and secure** over-the-air updates.
-The format provides **built-in support for cryptographic integrity checks, compression, and adaptive delta updates**.
+The format provides **built-in support for cryptographic integrity checks, compression, and best-in-class delta updates**.
 
 
 ## Introduction
@@ -161,12 +161,12 @@ The `execute` delivery mechanism is extremely flexible and can be used to delive
 
 ## Delta Updates
 
-Rugix Ctrl supports adaptive delta updates out-of-the-box and can also be configured towards static delta updates.
+Rugix Ctrl supports dynamic delta updates out-of-the-box and can also be configured towards static delta updates.
 
 ### Adaptive Delta Updates
 
 Adaptive delta updates work with any HTTP server supporting range queries, making them particularly easy to implement.
-For adaptive delta updates, the payload file is split into multiple blocks (see [Block Encoding](#block-encoding)).
+For dynamic delta updates, the payload file is split into multiple blocks (see [Block Encoding](#block-encoding)).
 The bundle then contains an index of the blocks of the payload file that can be used to fetch only the blocks that do not already exist locally on a device.
 
 Adaptive delta updates have the following advantages:
@@ -179,10 +179,10 @@ Adaptive delta updates require matching block indices in the bundle and on the d
 
 ### Static Delta Updates
 
-In addition to adaptive delta updates, you can also implement static delta updates, where you create a bundle to specifically go from one version to another.
+In addition to dynamic delta updates, you can also implement static delta updates, where you create a bundle to specifically go from one version to another.
 This allows the use of efficient delta compression algorithms typically leading to very small update sizes.
 Static delta updates are realized as part of the preprocessing and installation step using off-the-shelf tools like [Xdelta](https://en.wikipedia.org/wiki/Xdelta).
-Compared to adaptive delta updates, static delta updates typically require much less data to be transferred.
+Compared to dynamic delta updates, static delta updates typically require much less data to be transferred.
 Therefore, they are ideal when the bandwidth to a device is severely limited or traffic is at a premium.
 You can realize static delta updates right now with custom update slots.
 If you need help, Silitics, [the company behind Rugix](/commercial-support) has you covered.
@@ -266,7 +266,7 @@ Blocks may have a variable or fixed size.
 In case of variable block sizes, e.g., when using a rolling hash to divide the payload file (as done by [Casync](https://github.com/systemd/casync)), the update bundle also contains a _size index_.
 
 **Block Compression.**
-To reduce the size of the update bundle while still enabling adaptive delta updates and block-wise cryptographic verification of updates, blocks can be compressed individually.
+To reduce the size of the update bundle while still enabling dynamic delta updates and block-wise cryptographic verification of updates, blocks can be compressed individually.
 In that case, we always need a size index, as fixed size blocks may compress to different sizes.
 If block compression is enabled, then the size index stores the sizes of compressed blocks while the hash index contains the hashes of the uncompressed block.
 This allows skipping blocks that we already have.

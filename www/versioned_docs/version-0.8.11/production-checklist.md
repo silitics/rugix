@@ -30,3 +30,8 @@ Make sure to have proper [pre-commit hooks](./ctrl/hooks.md) installed to preven
 If you are creating users or groups with recipes, make sure to use fixed user and group IDs.
 If you don't assign fixed IDs, the IDs might change over time as you add further users or groups or change the order in which such users or groups are created.
 If you then deploy an update where the user and group IDs have changed over the old version, you are prone to permission errors for persisted state.
+
+## Root Persistence
+
+While the recipe `core/persist-root-home` is convenient for development, you should not use it in production, in particular, if you plan to update SSH keys in `authorized_keys`.
+When persisting `/root`, any changes to files in `/root` deployed via an update will not become effective.

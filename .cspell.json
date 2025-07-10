@@ -39,6 +39,7 @@
     "canonicalize",
     "Casync",
     "Chunker",
+    "chunkers",
     "cmdline",
     "composability",
     "cpus",

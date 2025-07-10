@@ -48,7 +48,7 @@ You can still deploy updates through Mender's fleet management solution as you n
 If you want to know the differences between Mender's own solution and Rugix Ctrl, check out the [Comparison to Other Solutions](../index.md#comparison-to-other-solutions).
 
 :::note
-Unfortunately, Mender's fleet management solution is at the moment incompatible with adaptive delta updates.
+Unfortunately, Mender's fleet management solution is at the moment incompatible with dynamic delta updates.
 This is also unlikely to change in the future as delta updates are a key feature of Mender's enterprise offering.
 :::
 

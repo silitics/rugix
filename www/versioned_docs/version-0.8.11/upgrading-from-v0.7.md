@@ -25,6 +25,8 @@ To upgrade an existing system using Rugpi v0.7:
 2. Build an image.
 3. Deploy the image as an update as usual.
 
+If you are using U-Boot on Raspberry Pi, make sure to add the `rpi-uboot-setup`.
+
 #### Rugix Bakery
 
 You first need to update to the latest version of the `run-bakery` script:

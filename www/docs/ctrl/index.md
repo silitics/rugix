@@ -123,8 +123,8 @@ Now, here is the promised feature-wise comparison of the different solutions.[^c
 | - | :-: | :-: | :-: | :-: | - |
 | Streaming: Arbitrary Sources | ❌ | ❌ | ✅ | ✅ | Streaming updates from arbitrary sources. |
 | Streaming: HTTP | ✅ | ✅ | ✅ | ✅ | Streaming updates from an HTTP server. |
-| Delta Updates: Adaptive | ❌ | ✅ | ✔️[^build-yourself] | ✅ | Fetch only changed blocks via HTTP. |
-| Delta Updates: Static | ✔️[^mender-delta] | ❌ | ✔️[^build-yourself] | ✔️[^build-yourself] | Offline delta compression. |
+| Delta Updates: Dynamic | ❌ | ✅ | ✔️[^build-yourself] | ✅ | Fetch only changed blocks via HTTP. |
+| Delta Updates: Static | ✔️[^mender-delta] | ❌ | ✔️[^build-yourself] | ✅ | Offline delta compression. |
 | Non-A/B Update Schemes | ❌[^mender-update-modules] | ✅ | ✅ | ✅ | Support for non-A/B rootfs updates.
 | Update Scripts | ✅ | ✅ | ✅ | ✅ | Ship and run scripts as part of an update. |
 | Arbitrary Update Payloads | ✅ | ✅ | ✅ | ✅ | Support for arbitrary update payloads.

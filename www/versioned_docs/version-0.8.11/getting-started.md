@@ -14,6 +14,9 @@ You will also install an update to your system running in a VM or on a Raspberry
 End-to-end this guide should take less than 30 minutes to complete, even if you have no prior experience with embedded Linux.
 So, let's get started and unlock the potential of Rugix for your embedded projects!
 
+If you want to get started with Rugix Ctrl and Yocto instead of Rugix Bakery, check out [Rugix's Yocto layers](https://github.com/silitics/meta-rugix/tree/main).
+
+
 
 ## Setup and Installation
 

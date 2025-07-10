@@ -227,7 +227,7 @@ export default function Home(): JSX.Element {
             </li>
             <li>
               ✅ <strong>Streaming updates</strong> as well as{" "}
-              <strong>adaptive delta updates</strong> out of the box.
+              <strong>best-in-class delta updates</strong> out of the box.
             </li>
             <li>
               ✅ Builtin <strong>cryptographic integrity checks</strong>{" "}

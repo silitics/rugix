@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use clap::Subcommand;
+use rugix_bundle::xdelta::xdelta_compress;
 use rugix_chunker::{Chunker, ChunkerAlgorithm};
 use serde::Serialize;
 use si_crypto_hashes::{HashAlgorithm, HashDigest};
@@ -18,15 +19,16 @@ mod utils;
 
 pub mod deltar;
 
-pub fn simulate(cmd: &Cmd) {
+/// Run a simulation command.
+pub fn run(cmd: &SimulationCmd) {
     match &cmd {
-        Cmd::BlockBased(cmd) => match cmd {
-            BlockBasedCmd::Benchmark {
+        SimulationCmd::BlockBased(cmd) => match cmd {
+            BlockBasedCmd::Simulate {
                 chunker,
                 old,
                 new,
-                block_overhead,
-                download_block_size,
+                group_overhead: block_overhead,
+                group_size: download_block_size,
             } => {
                 let old = std::fs::read(old).unwrap();
                 let mut table = HashSet::new();
@@ -133,10 +135,10 @@ pub fn simulate(cmd: &Cmd) {
                 .unwrap();
             }
         },
-        Cmd::Deltar(cmd) => match cmd {
+        SimulationCmd::Deltar(cmd) => match cmd {
             DeltarCmd::Plan {
                 path,
-                group_size_limit,
+                group_size: group_size_limit,
                 chunker,
             } => {
                 let archive =
@@ -174,10 +176,10 @@ pub fn simulate(cmd: &Cmd) {
                     }
                 }
             }
-            DeltarCmd::Benchmark {
+            DeltarCmd::Simulate {
                 old,
                 new,
-                group_size_limit,
+                group_size: group_size_limit,
                 group_overhead,
                 chunker,
             } => {
@@ -247,58 +249,95 @@ pub fn simulate(cmd: &Cmd) {
                 .unwrap();
             }
         },
+        SimulationCmd::Xdelta(cmd) => match cmd {
+            XdeltaCmd::Simulate { old, new } => {
+                let tempdir = tempfile::tempdir().unwrap();
+                let patch = tempdir.path().join("patch.xdelta");
+                xdelta_compress(old, new, &patch).unwrap();
+                let size = patch.metadata().unwrap().len();
+                println!("Xdelta Size: {size}");
+            }
+        },
     }
 }
 
+/// Simulation command.
 #[derive(Debug, Subcommand)]
-pub enum Cmd {
+pub enum SimulationCmd {
+    /// Simulation for block-based updates.
     #[clap(subcommand)]
     BlockBased(BlockBasedCmd),
-    /// Delta updates with the experimental deltar format.
+    /// Simulation for delta updates with the experimental Deltar format.
     #[clap(subcommand)]
     Deltar(DeltarCmd),
+    /// Computation for static delta updates through Xdelta.
+    #[clap(subcommand)]
+    Xdelta(XdeltaCmd),
 }
 
+/// Simulation for delta updates using the experimental Deltar format.
 #[derive(Debug, Subcommand)]
 pub enum DeltarCmd {
     /// Compute and print a plan from the given input tar archive.
     Plan {
-        /// Path to the tar archive.
+        /// Tar archive.
         path: PathBuf,
-        /// Maximum size of a chunk group.
-        #[clap(long, default_value = "32768")]
-        group_size_limit: usize,
-        /// Chunker algorithm.
+        /// Chunker algorithm to use for chunking files into blocks.
         #[clap(long, default_value = "casync-16")]
         chunker: ChunkerAlgorithm,
+        /// Size to group blocks into for compression.
+        #[clap(long, default_value = "32768")]
+        group_size: usize,
     },
-    /// Benchmark a delta update.
-    Benchmark {
-        /// Old version.
+    /// Simulate delta updates using the experimental Deltar format.
+    Simulate {
+        /// Old rootfs tar archive.
         old: PathBuf,
-        /// New version.
+        /// New rootfs tar archive.
         new: PathBuf,
-        /// Maximum size of a chunk group.
-        #[clap(long, default_value = "32768")]
-        group_size_limit: usize,
-        /// Overhead for downloading a group.
-        #[clap(long, default_value = "512")]
-        group_overhead: u64,
-        /// Chunker algorithm.
+        /// Chunker algorithm to use for chunking files into blocks.
         #[clap(long, default_value = "casync-16")]
         chunker: ChunkerAlgorithm,
+        /// Size to group blocks into for compression.
+        #[clap(long, default_value = "32768")]
+        group_size: usize,
+        /// Overhead for downloading a group of blocks.
+        #[clap(long, default_value = "768")]
+        group_overhead: u64,
     },
 }
 
+/// Simulation for delta updates using block-based diffing.
 #[derive(Debug, Subcommand)]
 pub enum BlockBasedCmd {
-    Benchmark {
-        chunker: ChunkerAlgorithm,
+    /// Simulate delta updates using block-based diffing.
+    Simulate {
+        /// Old filesystem image (do NOT provide an update bundle).
         old: PathBuf,
+        /// New filesystem image (do NOT provide an update bundle).
         new: PathBuf,
-        #[clap(long, default_value = "100")]
-        block_overhead: u64,
+        /// Chunking algorithm to use for determining block boundaries.
+        #[clap(long, default_value = "casync-64")]
+        chunker: ChunkerAlgorithm,
+        /// Overhead for downloading a block or group of blocks.
+        #[clap(long, default_value = "768")]
+        group_overhead: u64,
+        /// Optional size to group blocks into for compression.
+        ///
+        /// Only works for `fixed` chunkers at the moment.
         #[clap(long)]
-        download_block_size: Option<u64>,
+        group_size: Option<u64>,
+    },
+}
+
+/// Simulation for delta updates using Xdelta.
+#[derive(Debug, Subcommand)]
+pub enum XdeltaCmd {
+    /// Simulate a delta update using Xdelta.
+    Simulate {
+        /// Old filesystem image (do NOT provide an update bundle).
+        old: PathBuf,
+        /// New filesystem image (do NOT provide an update bundle).
+        new: PathBuf,
     },
 }

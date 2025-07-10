@@ -44,7 +44,7 @@ pub enum Cmd {
     Inspect(InspectCmd),
     /// Simulate an update.
     #[clap(subcommand)]
-    Simulate(simulation::Cmd),
+    Simulator(simulation::SimulationCmd),
     /// Print the low-level structure of a bundle.
     #[clap(hide(true))]
     PrintStructure(PrintCmd),
@@ -257,8 +257,8 @@ fn main() -> BundleResult<()> {
             .unwrap();
             rugix_bundle::builder::pack(new_dir.path(), &cmd.out)?;
         }
-        Cmd::Simulate(cmd) => {
-            simulation::simulate(&cmd);
+        Cmd::Simulator(cmd) => {
+            simulation::run(&cmd);
         }
     }
     Ok(())
