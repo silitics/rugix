@@ -164,7 +164,7 @@ Either they build everything from source or they rely on binary distributions, l
 If you don't think building everything from source yourself is a good idea for your use case, then [just skip ahead](#customizing-binary-distributions).
 :::
 
-<!-- spell:words Xdist, Compulab, Lüschner -->
+<!-- spell:words Xdist, Compulab, Lüscher -->
 
 Traditionally, build systems for embedded Linux systems build everything from source.
 Popular open-source solutions in that category are [Yocto](https://www.yoctoproject.org/), [Buildroot](https://buildroot.org/), and [PTXdist](https://www.ptxdist.org/).
@@ -176,13 +176,13 @@ They do that for a very good reason: Building upon a well-established, proven bi
 Rugix Bakery has been developed to serve those use cases where it is not necessary to build everything from source.
 While you can also run one of these established solutions within Rugix Bakery, essentially using it as a meta build system, **Rugix Bakery cannot and does not aim to replace or compete with these solutions** in any way.
 
-[^industrial-debian]: This list is based on an [excellent blog post](https://www.get-edi.io/Debian-for-Embedded-Systems/) by [Matthias Lüschner](https://github.com/lueschem).
+[^industrial-debian]: This list is based on an [excellent blog post](https://www.get-edi.io/Debian-for-Embedded-Systems/) by [Matthias Lüscher](https://github.com/lueschem).
 
 Even in cases where it is not strictly necessary to build everything from source because there is support for binary distributions, doing so anyway can have significant advantages that may justify the complexity that comes with it.
 By building everything from source for a specific device, you gain fine-grained control over compilation options, you can easily apply custom patches, and, most importantly, **you get binaries and a system that can be specifically optimized for the device, including exactly and only the functionality that you require**.
 If this is what you need, you know who you are and there is no point in convincing you to stop using any of these existing solutions, they are simply the right tool for the job.
 That being said, there are also quite a few myths out there when it comes to the advantages of building everything from source which we would like to debunk in the following.
-At this point, shout out to [Matthias Lüschner](https://github.com/lueschem) and his [excellent blog post _Debian for Embedded Systems – Seriously?_](https://www.get-edi.io/Debian-for-Embedded-Systems/) from which we took inspiration.
+At this point, shout out to [Matthias Lüscher](https://github.com/lueschem) and his [excellent blog post _Debian for Embedded Systems – Seriously?_](https://www.get-edi.io/Debian-for-Embedded-Systems/) from which we took inspiration.
 
 Often, reproducibility and license compliance are cited as reasons for using Yocto over Debian, however, (1) not only can [most Debian packages be built 100% reproducibly](https://tests.reproducible-builds.org/debian/reproducible.html) but [Debian snapshots](https://snapshot.debian.org/) dating back to 2005 also provide a way to build Debian-based systems fully reproducibly, and (2) all Debian packages come with sources and license information that can be used to generate an SBOM and ensure compliance.
 Rugix Bakery has built-in support for building systems based on Debian snapshots and we are working towards a 100% reproducible pipeline for building images and other artifacts.[^rugix-reproducibility]

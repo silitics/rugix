@@ -234,6 +234,19 @@
       "properties": {
         "active": {
           "type": "boolean"
+        },
+        "hashes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "size": {
+          "type": "integer",
+          "format": "uint64"
+        },
+        "updatedAt": {
+          "type": "string"
         }
       },
       "required": [],

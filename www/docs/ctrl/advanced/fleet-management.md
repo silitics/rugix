@@ -8,20 +8,16 @@ Rugix Ctrl provides a reliable foundation for OTA updates and state management.
 To manage a fleet of devices remotely and deliver updates to devices, Rugix Ctrl integrates well with existing off-the-shelf fleet management solutions.
 
 :::tip
+
 As Rugix Ctrl is independent from a fleet management solution, it avoids vendor lock-in.
 When using Rugix Ctrl, **you can switch between different fleet management solutions at anytime** and continue updating your existing fleet.
 It also allows you to choose a fleet management provider based on the needs and requirements of your application.
-If you don't know which solution to choose, Silitics, [the company behind Rugix](/commercial-support) offers consulting _free of charge_, assuming that any purchase of a fleet management solution will go through us such that we can earn a commission on the sale.
-This offer provides you with free, independent consulting on which solution to choose while also supporting the development of Rugix through the commission.
-Typically, the commission will come out of the margin of the fleet management solution, so it will not be to your disadvantage.
+If you don't know which solution to choose, Silitics, [the company behind Rugix](/commercial-support) offers tailored consulting services.
+
 :::
 
-Currently, there are ready-made integrations with [thin-edge.io](https://thin-edge.io/) and [Mender](https://mender.io/).
+Currently, there are ready-made integrations with [thin-edge.io](https://thin-edge.io/), [Memfault](https://memfault.com/), and [Mender](https://mender.io/).
 For other fleet management solutions, you can develop your own integration or [contract Silitics](/commercial-support), the company behind Rugix, to develop an integration for you.
-
-:::warning
-**We just released version 0.8 and the integrations may not have been migrated.**
-:::
 
 ## thin-edge.io
 

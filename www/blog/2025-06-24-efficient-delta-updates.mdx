@@ -13,7 +13,7 @@ import { PlotTotalSizes } from "../src/components/delta-updates/PlotRollingUpdat
 
 Most modern OTA update solutions for embedded Linux support a form of *delta updates*. Delta updates can reduce the amount of data transferred and the time required to install a new version by reusing locally available parts of the old version of a system. This is especially useful for devices on metered or bandwidth-constrained connections. In this article, **we will survey the different delta update techniques implemented within popular OTA update tools, examine their tradeoffs, and present benchmarks that compare their efficiency on the basis of real-world update scenarios**.
 
-This article aims to serve as a guide for engineers looking to implement delta updates in their embedded Linux projects. Together with this article, we release Rugix version 0.8.12 which introduces support for static delta updates and functionality for benchmarking delta update techniques. With the benchmarking functionality included in Rugix Bundler, **we enable engineers to evaluate the efficiency of different delta update techniques and make informed decisions about which approach to use based on their specific update scenarios**. While we aim to present general benchmarks in this article, we would like to encourage you to run your own benchmarks and [share your own findings with us](#). 
+This article aims to serve as a guide for engineers looking to implement delta updates in their embedded Linux projects. Together with this article, we release Rugix version 0.8.12 which introduces support for static delta updates and functionality for benchmarking delta update techniques. With the benchmarking functionality included in Rugix Bundler, **we enable engineers to evaluate the efficiency of different delta update techniques and make informed decisions about which approach to use based on their specific update scenarios**. While we aim to present general benchmarks in this article, we would like to encourage you to run your own benchmarks and [share your own findings with us](#todo-github-discussion). 
 
 {/* truncate */}
 
@@ -41,15 +41,15 @@ Block-based diffing is implemented by RAUC as the `block-hash-index` *adaptive u
 [^rauc-casync]: [RAUC: Casync Support](https://rauc.readthedocs.io/en/v1.14/advanced.html#rauc-casync-support)
 [^swupdate-delta]: [SWUpdate: Delta Updates](https://sbabic.github.io/swupdate/delta-update.html)
 
-Block-based diffing has the advantage that it is relatively simple to implement and can use any block device or other file as the source of blocks. Of course, it is also possible to use multiple block sources for an update and Rugix does support that. Depending on the implementation, block-based diffing can also tolerate mutable block sources, such as mounted filesystems. Changes to blocks can be detected based on their hash and, if a block changed, it can simply be fetched from the network.
+Block-based diffing has the advantage that it is relatively simple to implement and can use any block device or other file as the source of blocks. Of course, it is also possible to use multiple block sources for an update and Rugix supports that. Depending on the implementation, block-based diffing can also tolerate mutable block sources, such as mounted filesystems. Changes to blocks can be detected based on their hash and, if a block changed, it can simply be fetched from the network.
 
 Different block-based diffing variants vary in the way they split binary files (e.g., filesystem images) into blocks. While RAUC's `block-hash-index` adaptive update method uses a fixed block size of 4 KiB, Casync and Zchunk implement *content-defined chunking*, i.e., they determine block boundaries based on a file's content, which leads to variable-sized blocks. Content-defined chunking has the advantage that it can tolerate insertions into blocks. If you insert a single byte into a file, everything afterwards will be shifted by one byte likely leading to entirely different blocks when using fixed-size blocks. In contrast, with content-defined chunking, the block boundaries are determined by the actual content around the boundary, likely shifting the boundary when insertions occur. Technically, content-defined chunking is implemented by moving a rolling hash over the file.
 
-All tools implementing block-based diffing also implement some sort of compression to reduce the download size while being able to decompress blocks individually or in groups. Both Casync and Zchunk directly compress the blocks they identified. In contrast, RAUC's `block-hash-index` adaptive update method does not compress blocks individually but implicitly compresses groups of blocks by compressing the entire update bundle using SquashFS.[^rauc-compression] While larger blocks or group-wise compression generally lead to a better compression ratios, they also lead to coarser delta updates.
+All tools implementing block-based diffing also implement some sort of compression to reduce the download size while being able to decompress blocks individually or in groups. Both Casync and Zchunk directly compress the blocks they identified. In contrast, RAUC's `block-hash-index` adaptive update method does not compress blocks individually but implicitly compresses groups of blocks by compressing the entire update bundle using SquashFS.[^rauc-compression] While larger blocks or group-wise compression generally lead to better compression ratios, they also lead to coarser delta updates.
 
 [^rauc-compression]: [RAUC: Update Bundles](https://rauc.readthedocs.io/en/v1.14/basic.html#update-bundles)
 
-Rugix implements supports both fixed-size blocks as well as content-defined chunking using the same algorithm as Casync. It also supports block-wise compression. Note that Rugix is the only OTA update solution that natively implements content-defined chunking. Both, RAUC and SWUpdate support content-defined chunking through an integration with Casync or Zchunk only.
+Rugix implements both fixed-size blocks as well as content-defined chunking using the same algorithm as Casync. It also supports block-wise compression. Note that Rugix is the only OTA update solution that natively implements content-defined chunking. Both, RAUC and SWUpdate support content-defined chunking through an integration with Casync or Zchunk only.
 
 ### Delta Compression
 
@@ -106,7 +106,7 @@ While Yocto images can generally be much smaller than Debian images, we still be
 
 :::
 
-With those images, we can now go through through different update cadences for minor updates and also study major upgrades, going from Debian Bullseye to Debian Bookworm.
+With those images, we can now go through different update cadences for minor updates and also study major upgrades, going from Debian Bullseye to Debian Bookworm.
 
 ### Methodology
 
@@ -120,7 +120,7 @@ The benchmarking tool implements block-based and file-based diffing. For delta c
 
 The benchmarking tool is available as part of Rugix Bundler. **You can use it to quickly conduct benchmarks of the different techniques for your own update scenarios.**
 
-[Check out the documentation for details.](../docs/ctrl/delta-updates.mdx)
+[Check out the documentation for details.](/docs/ctrl/delta-updates)
 
 :::
 
@@ -193,7 +193,7 @@ Fortunately, with Rugix you can chose different delta update strategies based on
 
 We will use the insights gained from our benchmarks to improve Rugix and make it even more efficient. In particular, we will look into static variants of block-based and file-based diffing.
 
-We would love to hear your feedback and for you to share your own findings and experiences with us. Feel free to use the [GitHub discussion for this article](#) or start a new one.
+We would love to hear your feedback and for you to share your own findings and experiences with us. Feel free to use the [GitHub discussion for this article](#todo-github-discussion) or start a new one.
 
 ---
 
