@@ -57,7 +57,7 @@ SNAPSHOTS = [
 
 SUITES = [
     "bookworm",
-    # "bullseye",
+    "bullseye",
 ]
 
 LAYER_CONFIG_TEMPLATE = """
@@ -95,6 +95,19 @@ ANNUALLY = list(zip(SNAPSHOTS[::12], SNAPSHOTS[12::12]))
 
 
 @d.dataclass(frozen=True)
+class Version:
+    suite: str
+    snapshot: str
+
+
+@d.dataclass(frozen=True)
+class Scenario:
+    group: str
+    schedule: str
+    pairs: t.List[t.Tuple[Version, Version]]
+
+
+@d.dataclass(frozen=True)
 class Schedule:
     name: str
     pairs: t.List[t.Tuple[str, str]]
@@ -106,6 +119,29 @@ SCHEDULES = [
     Schedule("biannually", BIANNUALLY),
     Schedule("annually", ANNUALLY),
 ]
+
+SCENARIOS = [
+    Scenario(
+        suite,
+        schedule.name,
+        [(Version(suite, old), Version(suite, new)) for old, new in schedule.pairs],
+    )
+    for schedule in SCHEDULES
+    for suite in SUITES
+]
+SCENARIOS.extend(
+    Scenario(
+        "bullseye-bookworm",
+        schedule.name,
+        [
+            (Version("bullseye", old), Version("bookworm", new))
+            for old, new in schedule.pairs
+        ],
+    )
+    for schedule in SCHEDULES
+)
+
+SCENARIO_GROUPS = ["bookworm", "bullseye", "bullseye-bookworm"]
 
 
 @click.group()
@@ -229,42 +265,41 @@ def xdelta():
     Compute update sizes with Xdelta3-based static delta updates.
     """
 
-    def compute(job: t.Tuple[str, t.Tuple[str, str], Schedule, str]):
-        idx, (src, dst), schedule, suite = job
-        results_file = RESULTS_DIR / "xdelta" / suite / schedule.name / f"{dst}.json"
+    def compute(job: t.Tuple[Scenario, t.Tuple[Version, Version]]):
+        scenario, (old, new) = job
+        results_file = (
+            RESULTS_DIR
+            / "xdelta"
+            / scenario.group
+            / scenario.schedule
+            / f"{new.snapshot}.json"
+        )
         if results_file.exists():
             print(
-                f"Skipping pair ({src}, {dst}) for suite {suite} as it already exists."
+                f"Skipping pair ({old.snapshot}, {new.snapshot}) for scenario {scenario.group}."
             )
             return
-        src_build_dir = BUILD_DIR / suite / src
-        if not src_build_dir.exists():
-            print(f"Skipping snapshot {src} for suite {suite} as it does not exist.")
-            return
-        dst_build_dir = BUILD_DIR / suite / dst
-        if not dst_build_dir.exists():
-            print(f"Skipping snapshot {dst} for suite {suite} as it does not exist.")
-            return
-        src_img_path = src_build_dir / "filesystems" / "partition-4.img"
-        dst_img_path = dst_build_dir / "filesystems" / "partition-4.img"
+        old_build_dir = BUILD_DIR / old.suite / old.snapshot
+        new_build_dir = BUILD_DIR / new.suite / new.snapshot
+        old_img_path = old_build_dir / "filesystems" / "partition-4.img"
+        new_img_path = new_build_dir / "filesystems" / "partition-4.img"
         with tempfile.TemporaryDirectory() as temp_dir:
             patch_path = pathlib.Path(temp_dir) / "delta.vcdiff"
             subprocess.check_call(
-                ["xdelta3", "-e", "-s", src_img_path, dst_img_path, patch_path]
+                ["xdelta3", "-e", "-s", old_img_path, new_img_path, patch_path]
             )
             patch_size = patch_path.stat().st_size
         results_file.parent.mkdir(parents=True, exist_ok=True)
-        results_file.write_text(
-            json.dumps({"src": src, "dst": dst, "patch": patch_size})
-        )
+        results_file.write_text(json.dumps({"patch": patch_size}))
 
-    jobs = [
-        (idx, pair, schedule, suite)
-        for suite in SUITES
-        for schedule in SCHEDULES
-        for idx, pair in enumerate(schedule.pairs)
-    ]
-    COMPUTE_POOL.map(compute, jobs)
+    def try_job(job):
+        try:
+            compute(job)
+        except Exception as error:
+            print(error)
+
+    jobs = [(scenario, pair) for scenario in SCENARIOS for pair in scenario.pairs]
+    COMPUTE_POOL.map(try_job, jobs)
 
 
 @d.dataclass(frozen=True)
@@ -281,13 +316,15 @@ class BlockBasedStrategy:
             return f"{self.chunker}-{self.block_overhead}-{self.download_block_size}"
 
 
-RAUC = BlockBasedStrategy("fixed-4", 512, 32 * 1024)
+RAUC = BlockBasedStrategy("fixed-4", 768, 32 * 1024)
+RAUC2 = BlockBasedStrategy("fixed-4", 768, 64 * 1024)
 
-CASYNC_64 = BlockBasedStrategy("casync-64", 512)
-CASYNC_8 = BlockBasedStrategy("casync-8", 512)
+CASYNC_64 = BlockBasedStrategy("casync-64", 768)
+CASYNC_16 = BlockBasedStrategy("casync-16", 768)
+CASYNC_8 = BlockBasedStrategy("casync-8", 768)
 
 
-BLOCK_DIFFING_STRATEGIES = [RAUC, CASYNC_64, CASYNC_8]
+BLOCK_DIFFING_STRATEGIES = [RAUC, RAUC2, CASYNC_64, CASYNC_16, CASYNC_8]
 
 
 @compute.command()
@@ -296,40 +333,37 @@ def block_diffing():
     Compute update sizes with block diffing.
     """
 
-    def compute(job: t.Tuple[BlockBasedStrategy, t.Tuple[str, str], Schedule, str]):
-        strategy, (src, dst), schedule, suite = job
+    def compute(job: t.Tuple[BlockBasedStrategy, Scenario, t.Tuple[Version, Version]]):
+        strategy, scenario, (old, new) = job
         results_file = (
             RESULTS_DIR
             / "block-diffing"
             / strategy.name
-            / suite
-            / schedule.name
-            / f"{dst}.json"
+            / scenario.group
+            / scenario.schedule
+            / f"{new.snapshot}.json"
         )
         if results_file.exists():
             print(
-                f"Skipping pair ({src}, {dst}) for suite {suite} as it already exists."
+                f"Skipping pair ({old.snapshot}, {new.snapshot}) for scenario {scenario.group}."
             )
             return
-        src_build_dir = BUILD_DIR / suite / src
-        if not src_build_dir.exists():
-            print(f"Skipping snapshot {src} for suite {suite} as it does not exist.")
-            return
-        dst_build_dir = BUILD_DIR / suite / dst
-        if not dst_build_dir.exists():
-            print(f"Skipping snapshot {dst} for suite {suite} as it does not exist.")
-            return
-        src_img_path = src_build_dir / "filesystems" / "partition-4.img"
-        dst_img_path = dst_build_dir / "filesystems" / "partition-4.img"
+        old_build_dir = BUILD_DIR / old.suite / old.snapshot
+        new_build_dir = BUILD_DIR / new.suite / new.snapshot
+        old_img_path = old_build_dir / "filesystems" / "partition-4.img"
+        new_img_path = new_build_dir / "filesystems" / "partition-4.img"
         cmd = [RUGIX_DELTA, "block-based", "benchmark"]
         if strategy.download_block_size is not None:
-            cmd.append("--download-block-size")
-            cmd.append(str(strategy.download_block_size))
-        cmd.append("--block-overhead")
-        cmd.append(str(strategy.block_overhead))
-        cmd.append(strategy.chunker)
-        cmd.append(src_img_path)
-        cmd.append(dst_img_path)
+            cmd.extend(["--download-block-size", str(strategy.download_block_size)])
+        cmd.extend(
+            [
+                "--block-overhead",
+                str(strategy.block_overhead),
+                strategy.chunker,
+                old_img_path,
+                new_img_path,
+            ]
+        )
         output = subprocess.check_output(cmd)
         results_file.parent.mkdir(parents=True, exist_ok=True)
         results_file.write_bytes(output)
@@ -341,11 +375,10 @@ def block_diffing():
             print(error)
 
     jobs = [
-        (strategy, pair, schedule, suite)
+        (strategy, scenario, pair)
         for strategy in BLOCK_DIFFING_STRATEGIES
-        for suite in SUITES
-        for schedule in SCHEDULES
-        for pair in schedule.pairs
+        for scenario in SCENARIOS
+        for pair in scenario.pairs
     ]
     COMPUTE_POOL.map(try_job, jobs)
 
@@ -362,11 +395,11 @@ class DeltarStrategy:
 
 
 DELTAR_STRATEGIES = [
-    DeltarStrategy("casync-16", 1024, 32 * 1024),
+    DeltarStrategy("casync-16", 768, 32 * 1024),
     # We use 4GiB blocks, i.e., files are never split and a group limit of 1, i.e.,
     # each file gets its own download group.
     DeltarStrategy("fixed-4096", 0, 1),
-    DeltarStrategy("fixed-4096", 0, 16 * 1024),
+    DeltarStrategy("fixed-4096", 48, 16 * 1024),
 ]
 
 
@@ -376,31 +409,25 @@ def deltar():
     Compute update sizes with the deltar approach.
     """
 
-    def compute(job: t.Tuple[DeltarStrategy, t.Tuple[str, str], Schedule, str]):
-        strategy, (src, dst), schedule, suite = job
+    def compute(job: t.Tuple[DeltarStrategy, Scenario, t.Tuple[Version, Version]]):
+        strategy, scenario, (old, new) = job
         results_file = (
             RESULTS_DIR
             / "deltar"
             / strategy.name
-            / suite
-            / schedule.name
-            / f"{dst}.json"
+            / scenario.group
+            / scenario.schedule
+            / f"{new.snapshot}.json"
         )
         if results_file.exists():
             print(
-                f"Skipping pair ({src}, {dst}) for suite {suite} as it already exists."
+                f"Skipping pair ({old.snapshot}, {new.snapshot}) for scenario {scenario.group}."
             )
             return
-        src_build_dir = BUILD_DIR / suite / src
-        if not src_build_dir.exists():
-            print(f"Skipping snapshot {src} for suite {suite} as it does not exist.")
-            return
-        dst_build_dir = BUILD_DIR / suite / dst
-        if not dst_build_dir.exists():
-            print(f"Skipping snapshot {dst} for suite {suite} as it does not exist.")
-            return
-        src_tar_path = src_build_dir / "filesystems" / "partition-4.tar"
-        dst_tar_path = dst_build_dir / "filesystems" / "partition-4.tar"
+        old_build_dir = BUILD_DIR / old.suite / old.snapshot
+        new_build_dir = BUILD_DIR / new.suite / new.snapshot
+        old_tar_path = old_build_dir / "filesystems" / "partition-4.tar"
+        new_tar_path = new_build_dir / "filesystems" / "partition-4.tar"
         cmd = [
             RUGIX_DELTA,
             "deltar",
@@ -411,8 +438,8 @@ def deltar():
             str(strategy.group_overhead),
             "--group-size-limit",
             str(strategy.group_size_limit),
-            src_tar_path,
-            dst_tar_path,
+            old_tar_path,
+            new_tar_path,
         ]
         output = subprocess.check_output(cmd)
         results_file.parent.mkdir(parents=True, exist_ok=True)
@@ -425,11 +452,10 @@ def deltar():
             print(error)
 
     jobs = [
-        (strategy, pair, schedule, suite)
+        (strategy, scenario, pair)
         for strategy in DELTAR_STRATEGIES
-        for suite in SUITES
-        for schedule in SCHEDULES
-        for pair in schedule.pairs
+        for scenario in SCENARIOS
+        for pair in scenario.pairs
     ]
     COMPUTE_POOL.map(try_job, jobs)
 
@@ -449,130 +475,149 @@ DEVICES_800K = 800_000
 DEVICES = [DEVICES_1K, DEVICES_10K, DEVICES_100K, DEVICES_800K]
 
 
+def as_gib(bytes: int) -> float:
+    return bytes / 1024 / 1024 / 1024
+
+
 @analyze.command()
 def base_stats():
-    results = {suite: {schedule.name: [] for schedule in SCHEDULES} for suite in SUITES}
-    for schedule in SCHEDULES:
-        for suite in SUITES:
-            for _, new in schedule.pairs:
-                results_file = RESULTS_DIR / "base-sizes" / suite / f"{new}.json"
-                results[suite][schedule.name].append(
-                    json.loads(results_file.read_text())
-                )
-                results_file = (
-                    RESULTS_DIR / "xdelta" / suite / schedule.name / f"{new}.json"
-                )
-                results[suite][schedule.name][-1]["xdelta"] = json.loads(
-                    results_file.read_text()
-                )["patch"]
-                for strategy in BLOCK_DIFFING_STRATEGIES:
-                    results_file = (
-                        RESULTS_DIR
-                        / "block-diffing"
-                        / strategy.name
-                        / suite
-                        / schedule.name
-                        / f"{new}.json"
-                    )
-                    results[suite][schedule.name][-1][
-                        f"block-based-{strategy.name}"
-                    ] = json.loads(results_file.read_text())["total_compressed"]
-                for strategy in DELTAR_STRATEGIES:
-                    results_file = (
-                        RESULTS_DIR
-                        / "deltar"
-                        / strategy.name
-                        / suite
-                        / schedule.name
-                        / f"{new}.json"
-                    )
-                    results[suite][schedule.name][-1][f"deltar-{strategy.name}"] = (
-                        json.loads(results_file.read_text())
-                    )
-
-    for suite, suite_results in results.items():
-        for schedule_name, schedule_results in suite_results.items():
-            total_uncompressed = sum(r["uncompressed"] for r in schedule_results)
-            total_compressed = sum(r["compressed"] for r in schedule_results)
-            total_xdelta = sum(r["xdelta"] for r in schedule_results)
-            total_block_diffing = {
-                strategy.name: sum(
-                    r[f"block-based-{strategy.name}"] for r in schedule_results
-                )
-                / 1024
-                / 1024
-                / 1024
-                for strategy in BLOCK_DIFFING_STRATEGIES
-            }
-            total_deltar_plan = {
-                strategy.name: sum(
-                    r[f"deltar-{strategy.name}"]["plan"] for r in schedule_results
-                )
-                / 1024
-                / 1024
-                / 1024
-                for strategy in DELTAR_STRATEGIES
-            }
-            total_deltar_data = {
-                strategy.name: sum(
-                    r[f"deltar-{strategy.name}"]["data"] for r in schedule_results
-                )
-                / 1024
-                / 1024
-                / 1024
-                for strategy in DELTAR_STRATEGIES
-            }
-            print(f"Suite: {suite} | Schedule: {schedule_name}")
-            total_uncompressed_gib = total_uncompressed / 1024 / 1024 / 1024
-            total_compressed_gib = total_compressed / 1024 / 1024 / 1024
-            total_xdelta_gib = total_xdelta / 1024 / 1024 / 1024
-            print(f"  Total Uncompressed: {total_uncompressed_gib / 2:.2f} GiB/year")
-            print(f"  Total Compressed: {total_compressed_gib / 2:.2f} GiB/year")
-            print(
-                f"  Compression Reduction: {(1 - total_compressed / total_uncompressed) * 100:.2f} %"
+    base_sizes = {}
+    for suite in SUITES:
+        base_sizes[suite] = {}
+        for snapshot in SNAPSHOTS:
+            results_file = RESULTS_DIR / "base-sizes" / suite / f"{snapshot}.json"
+            base_sizes[suite][snapshot] = json.loads(results_file.read_text())
+    results = {group: {} for group in SCENARIO_GROUPS}
+    for scenario in SCENARIOS:
+        scenario_results = results[scenario.group][scenario.schedule] = []
+        for _, new in scenario.pairs:
+            pair_results = {}
+            scenario_results.append(pair_results)
+            results_file = (
+                RESULTS_DIR
+                / "xdelta"
+                / scenario.group
+                / scenario.schedule
+                / f"{new.snapshot}.json"
             )
-            print(f"  Total Xdelta: {total_xdelta_gib / 2:.2f} GiB/year")
+            pair_results["xdelta"] = json.loads(results_file.read_text())["patch"]
             for strategy in BLOCK_DIFFING_STRATEGIES:
-                print(
-                    f"  Total {strategy.name}: {total_block_diffing[strategy.name] / 2:.2f} GiB/year"
+                results_file = (
+                    RESULTS_DIR
+                    / "block-diffing"
+                    / strategy.name
+                    / scenario.group
+                    / scenario.schedule
+                    / f"{new.snapshot}.json"
                 )
+                pair_results[f"block-based-{strategy.name}"] = json.loads(
+                    results_file.read_text()
+                )["total_compressed"]
             for strategy in DELTAR_STRATEGIES:
-                plan = total_deltar_plan[strategy.name] / 2
-                data = total_deltar_data[strategy.name] / 2
-                total = plan + data
-                print(
-                    f"  Total Deltar ({strategy.name}): {total:.2f} GiB/year ({plan:.2f} + {data:.2f})"
+                results_file = (
+                    RESULTS_DIR
+                    / "deltar"
+                    / strategy.name
+                    / scenario.group
+                    / scenario.schedule
+                    / f"{new.snapshot}.json"
                 )
-            print("  Cost AWS S3 Egress (0.09 USD/GiB):")
-            for devices in DEVICES:
-                print(
-                    f"    Uncompressed ({devices // 1000}K): {total_uncompressed_gib * AWS_S3_EGRESS_COST * devices / 100 / 2:.2f} USD/year"
+                pair_results[f"deltar-{strategy.name}"] = json.loads(
+                    results_file.read_text()
                 )
-                print(
-                    f"    Compressed ({devices // 1000}K): {total_compressed_gib * AWS_S3_EGRESS_COST * devices / 100 / 2:.2f} USD/year"
-                )
-                print(
-                    f"    Xdelta ({devices // 1000}K): {total_xdelta_gib * AWS_S3_EGRESS_COST * devices / 100 / 2:.2f} USD/year"
-                )
-                for strategy in BLOCK_DIFFING_STRATEGIES:
-                    print(
-                        f"    {strategy.name} ({devices // 1000}K): {total_block_diffing[strategy.name] * AWS_S3_EGRESS_COST * devices / 100 / 2:.2f} USD/year"
-                    )
-            print("  Cellular Data Cost (10.00 USD/GiB):")
-            for devices in DEVICES:
-                print(
-                    f"    Uncompressed ({devices // 1000}K): {total_uncompressed_gib * CELLULAR_DATA_COST * devices / 100 / 2:.2f} USD/year"
-                )
-                print(
-                    f"    Compressed ({devices // 1000}K): {total_compressed_gib * CELLULAR_DATA_COST * devices / 100 / 2:.2f} USD/year"
-                )
-                print(
-                    f"    Xdelta ({devices // 1000}K): {total_xdelta_gib * CELLULAR_DATA_COST * devices / 100 / 2:.2f} USD/year"
-                )
-                for strategy in BLOCK_DIFFING_STRATEGIES:
-                    print(
-                        f"    {strategy.name} ({devices // 1000}K): {total_block_diffing[strategy.name] * CELLULAR_DATA_COST * devices / 100 / 2:.2f} USD/year"
-                    )
+
+    compression_factors = {group: {} for group in SCENARIO_GROUPS}
+    total_sizes = {group: {} for group in SCENARIO_GROUPS}
+
+    for scenario in SCENARIOS:
+        scenario_results = results[scenario.group][scenario.schedule]
+        total_uncompressed = sum(
+            base_sizes[new.suite][new.snapshot]["uncompressed"]
+            for _, new in scenario.pairs
+        )
+        total_compressed = sum(
+            base_sizes[new.suite][new.snapshot]["compressed"]
+            for _, new in scenario.pairs
+        )
+        total_xdelta = sum(r["xdelta"] for r in scenario_results)
+        total_sizes[scenario.group][scenario.schedule] = {}
+        total_sizes[scenario.group][scenario.schedule]["uncompressed"] = (
+            total_uncompressed
+        )
+        total_sizes[scenario.group][scenario.schedule]["compression"] = total_compressed
+        total_sizes[scenario.group][scenario.schedule]["xdelta"] = total_xdelta
+        compression_factors[scenario.group][scenario.schedule] = {}
+        compression_factors[scenario.group][scenario.schedule]["compression"] = (
+            total_compressed / total_uncompressed
+        )
+        compression_factors[scenario.group][scenario.schedule]["xdelta"] = (
+            total_xdelta / total_uncompressed
+        )
+        total_block_diffing = {
+            strategy.name: sum(
+                r[f"block-based-{strategy.name}"] for r in scenario_results
+            )
+            for strategy in BLOCK_DIFFING_STRATEGIES
+        }
+        for strategy in BLOCK_DIFFING_STRATEGIES:
+            compression_factors[scenario.group][scenario.schedule][
+                f"block-based-{strategy.name}"
+            ] = total_block_diffing[strategy.name] / total_uncompressed
+            total_sizes[scenario.group][scenario.schedule][
+                f"block-based-{strategy.name}"
+            ] = total_block_diffing[strategy.name]
+        total_deltar_plan = {
+            strategy.name: sum(
+                r[f"deltar-{strategy.name}"]["plan"] for r in scenario_results
+            )
+            for strategy in DELTAR_STRATEGIES
+        }
+        total_deltar_data = {
+            strategy.name: sum(
+                r[f"deltar-{strategy.name}"]["data"] for r in scenario_results
+            )
+            for strategy in DELTAR_STRATEGIES
+        }
+        for strategy in DELTAR_STRATEGIES:
+            compression_factors[scenario.group][scenario.schedule][
+                f"deltar-{strategy.name}"
+            ] = (
+                total_deltar_plan[strategy.name] + total_deltar_data[strategy.name]
+            ) / total_uncompressed
+            compression_factors[scenario.group][scenario.schedule][
+                f"deltar-{strategy.name}-plan"
+            ] = total_deltar_plan[strategy.name] / total_uncompressed
+            compression_factors[scenario.group][scenario.schedule][
+                f"deltar-{strategy.name}-data"
+            ] = total_deltar_data[strategy.name] / total_uncompressed
+            total_sizes[scenario.group][scenario.schedule][
+                f"deltar-{strategy.name}"
+            ] = total_deltar_plan[strategy.name] + total_deltar_data[strategy.name]
+            total_sizes[scenario.group][scenario.schedule][
+                f"deltar-{strategy.name}-plan"
+            ] = total_deltar_plan[strategy.name]
+            total_sizes[scenario.group][scenario.schedule][
+                f"deltar-{strategy.name}-data"
+            ] = total_deltar_data[strategy.name]
+        print(f"Group: {scenario.group} | Schedule: {scenario.schedule}")
+        print(f"  Uncompressed: {as_gib(total_uncompressed) / 2:.2f} GiB/year")
+        print(f"  Compressed: {as_gib(total_compressed) / 2:.2f} GiB/year")
+        print(f"  Xdelta: {as_gib(total_xdelta) / 2:.2f} GiB/year")
+        for strategy in BLOCK_DIFFING_STRATEGIES:
+            print(
+                f"  Block Diffing ({strategy.name}): {as_gib(total_block_diffing[strategy.name]) / 2:.2f} GiB/year"
+            )
+        for strategy in DELTAR_STRATEGIES:
+            plan = total_deltar_plan[strategy.name] / 2
+            data = total_deltar_data[strategy.name] / 2
+            total = plan + data
+            print(
+                f"  Deltar ({strategy.name}): {as_gib(total):.2f} GiB/year ({as_gib(plan):.2f} GiB + {as_gib(data):.2f} GiB)"
+            )
+    print("Compression Factors:")
+    print(json.dumps(compression_factors))
+    print("Total Sizes:")
+    print(json.dumps(total_sizes))
 
 
 if __name__ == "__main__":
