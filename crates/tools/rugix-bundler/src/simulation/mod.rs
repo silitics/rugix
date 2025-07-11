@@ -27,8 +27,8 @@ pub fn run(cmd: &SimulationCmd) {
                 chunker,
                 old,
                 new,
-                group_overhead: block_overhead,
-                group_size: download_block_size,
+                group_overhead,
+                group_size,
             } => {
                 let old = std::fs::read(old).unwrap();
                 let mut table = HashSet::new();
@@ -51,7 +51,7 @@ pub fn run(cmd: &SimulationCmd) {
                     let hash = HashAlgorithm::Sha256.hash(chunk);
                     index_data.extend_from_slice(hash.as_ref());
                     if table.insert(hash) {
-                        if let Some(download_block_size) = *download_block_size {
+                        if let Some(download_block_size) = *group_size {
                             let number = number as u64;
                             let chunk_block_size = match chunker {
                                 ChunkerAlgorithm::Casync { .. } => panic!("unsupported option"),
@@ -95,7 +95,7 @@ pub fn run(cmd: &SimulationCmd) {
                 } else {
                     sizes_data.len()
                 };
-                let block_overhead = downloaded_blocks * block_overhead;
+                let block_overhead = downloaded_blocks * group_overhead;
                 eprintln!("Old Blocks: {}", old_blocks);
                 eprintln!("New Blocks: {}", new_blocks);
                 eprintln!("Downloaded Blocks: {}", downloaded_blocks);
@@ -121,15 +121,15 @@ pub fn run(cmd: &SimulationCmd) {
 
                 #[derive(Serialize)]
                 struct Output {
-                    total_uncompressed: usize,
-                    total_compressed: usize,
+                    uncompressed: usize,
+                    compressed: usize,
                 }
 
                 serde_json::to_writer_pretty(
                     &std::io::stdout(),
                     &Output {
-                        total_compressed,
-                        total_uncompressed,
+                        compressed: total_compressed,
+                        uncompressed: total_uncompressed,
                     },
                 )
                 .unwrap();
@@ -179,13 +179,13 @@ pub fn run(cmd: &SimulationCmd) {
             DeltarCmd::Simulate {
                 old,
                 new,
-                group_size: group_size_limit,
+                group_size,
                 group_overhead,
                 chunker,
             } => {
                 let archive_new =
                     tar::Archive::new(std::io::BufReader::new(std::fs::File::open(new).unwrap()));
-                let (plan, groups) = deltar::compute_plan(*group_size_limit, chunker, archive_new);
+                let (plan, groups) = deltar::compute_plan(*group_size, chunker, archive_new);
                 let serialized_plan = deltar::serialize_plan(&plan);
                 let compressed_plan = utils::compress_bytes(&serialized_plan);
                 let mut local_blocks = HashSet::new();
@@ -256,6 +256,13 @@ pub fn run(cmd: &SimulationCmd) {
                 xdelta_compress(old, new, &patch).unwrap();
                 let size = patch.metadata().unwrap().len();
                 println!("Xdelta Size: {size}");
+
+                #[derive(Serialize)]
+                struct Output {
+                    patch: u64,
+                }
+
+                serde_json::to_writer_pretty(&std::io::stdout(), &Output { patch: size }).unwrap();
             }
         },
     }

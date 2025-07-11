@@ -22,7 +22,7 @@ BUILD_DIR = BENCHMARK_DIR / "build"
 RESULTS_DIR = BENCHMARK_DIR / "results"
 ROOT_DIR = BENCHMARK_DIR.parent.parent
 
-RUGIX_DELTA = ROOT_DIR / "target" / "release" / "rugix-delta"
+RUGIX_BUNDLER = ROOT_DIR / "target" / "release" / "rugix-bundler"
 
 SNAPSHOTS = [
     # 2023
@@ -95,19 +95,6 @@ ANNUALLY = list(zip(SNAPSHOTS[::12], SNAPSHOTS[12::12]))
 
 
 @d.dataclass(frozen=True)
-class Version:
-    suite: str
-    snapshot: str
-
-
-@d.dataclass(frozen=True)
-class Scenario:
-    group: str
-    schedule: str
-    pairs: t.List[t.Tuple[Version, Version]]
-
-
-@d.dataclass(frozen=True)
 class Schedule:
     name: str
     pairs: t.List[t.Tuple[str, str]]
@@ -120,6 +107,23 @@ SCHEDULES = [
     Schedule("annually", ANNUALLY),
 ]
 
+
+@d.dataclass(frozen=True)
+class Version:
+    suite: str
+    snapshot: str
+
+
+@d.dataclass(frozen=True)
+class Scenario:
+    group: str
+    schedule: str
+    pairs: t.List[t.Tuple[Version, Version]]
+
+
+SCENARIO_GROUPS = ["bookworm", "bullseye", "bullseye-bookworm"]
+
+# Minor update scenarios.
 SCENARIOS = [
     Scenario(
         suite,
@@ -129,6 +133,7 @@ SCENARIOS = [
     for schedule in SCHEDULES
     for suite in SUITES
 ]
+# Major upgrade scenarios.
 SCENARIOS.extend(
     Scenario(
         "bullseye-bookworm",
@@ -140,8 +145,6 @@ SCENARIOS.extend(
     )
     for schedule in SCHEDULES
 )
-
-SCENARIO_GROUPS = ["bookworm", "bullseye", "bullseye-bookworm"]
 
 
 @click.group()
@@ -255,8 +258,14 @@ def base_sizes():
             )
         )
 
+    def try_job(job):
+        try:
+            compute(job)
+        except Exception as error:
+            print(error)
+
     jobs = list(itertools.product(SNAPSHOTS, SUITES))
-    COMPUTE_POOL.map(compute, jobs)
+    COMPUTE_POOL.map(try_job, jobs)
 
 
 @compute.command()
@@ -305,15 +314,15 @@ def xdelta():
 @d.dataclass(frozen=True)
 class BlockBasedStrategy:
     chunker: str
-    block_overhead: int
-    download_block_size: t.Optional[int] = None
+    group_overhead: int
+    group_size: t.Optional[int] = None
 
     @property
     def name(self) -> str:
-        if self.download_block_size is None:
-            return f"{self.chunker}-{self.block_overhead}"
+        if self.group_size is None:
+            return f"{self.chunker}-{self.group_overhead}"
         else:
-            return f"{self.chunker}-{self.block_overhead}-{self.download_block_size}"
+            return f"{self.chunker}-{self.group_overhead}-{self.group_size}"
 
 
 RAUC = BlockBasedStrategy("fixed-4", 768, 32 * 1024)
@@ -352,13 +361,13 @@ def block_diffing():
         new_build_dir = BUILD_DIR / new.suite / new.snapshot
         old_img_path = old_build_dir / "filesystems" / "partition-4.img"
         new_img_path = new_build_dir / "filesystems" / "partition-4.img"
-        cmd = [RUGIX_DELTA, "block-based", "benchmark"]
-        if strategy.download_block_size is not None:
-            cmd.extend(["--download-block-size", str(strategy.download_block_size)])
+        cmd = [RUGIX_BUNDLER, "simulator", "block-based", "simulate"]
+        if strategy.group_size is not None:
+            cmd.extend(["--group-size", str(strategy.group_size)])
         cmd.extend(
             [
-                "--block-overhead",
-                str(strategy.block_overhead),
+                "--group-overhead",
+                str(strategy.group_overhead),
                 strategy.chunker,
                 old_img_path,
                 new_img_path,
@@ -387,17 +396,17 @@ def block_diffing():
 class DeltarStrategy:
     chunker: str
     group_overhead: int
-    group_size_limit: int
+    group_size: int
 
     @property
     def name(self) -> str:
-        return f"{self.chunker}-{self.group_overhead}-{self.group_size_limit}"
+        return f"{self.chunker}-{self.group_overhead}-{self.group_size}"
 
 
 DELTAR_STRATEGIES = [
     DeltarStrategy("casync-16", 768, 32 * 1024),
-    # We use 4GiB blocks, i.e., files are never split and a group limit of 1, i.e.,
-    # each file gets its own download group.
+    # We use 4GiB blocks, i.e., files are never split and a group limit
+    # of 1, i.e., each file gets its own download group.
     DeltarStrategy("fixed-4096", 0, 1),
     DeltarStrategy("fixed-4096", 48, 16 * 1024),
 ]
@@ -429,15 +438,16 @@ def deltar():
         old_tar_path = old_build_dir / "filesystems" / "partition-4.tar"
         new_tar_path = new_build_dir / "filesystems" / "partition-4.tar"
         cmd = [
-            RUGIX_DELTA,
+            RUGIX_BUNDLER,
+            "simulator",
             "deltar",
-            "benchmark",
+            "simulate",
             "--chunker",
             strategy.chunker,
             "--group-overhead",
             str(strategy.group_overhead),
-            "--group-size-limit",
-            str(strategy.group_size_limit),
+            "--group-size",
+            str(strategy.group_size),
             old_tar_path,
             new_tar_path,
         ]
@@ -460,33 +470,19 @@ def deltar():
     COMPUTE_POOL.map(try_job, jobs)
 
 
-@main.group()
+@main.command()
 def analyze():
     """
     Analyze the computed results.
     """
 
-
-DEVICES_1K = 1_000
-DEVICES_10K = 10_000
-DEVICES_100K = 100_000
-DEVICES_800K = 800_000
-
-DEVICES = [DEVICES_1K, DEVICES_10K, DEVICES_100K, DEVICES_800K]
-
-
-def as_gib(bytes: int) -> float:
-    return bytes / 1024 / 1024 / 1024
-
-
-@analyze.command()
-def base_stats():
     base_sizes = {}
     for suite in SUITES:
         base_sizes[suite] = {}
         for snapshot in SNAPSHOTS:
             results_file = RESULTS_DIR / "base-sizes" / suite / f"{snapshot}.json"
             base_sizes[suite][snapshot] = json.loads(results_file.read_text())
+
     results = {group: {} for group in SCENARIO_GROUPS}
     for scenario in SCENARIOS:
         scenario_results = results[scenario.group][scenario.schedule] = []
@@ -512,7 +508,7 @@ def base_stats():
                 )
                 pair_results[f"block-based-{strategy.name}"] = json.loads(
                     results_file.read_text()
-                )["total_compressed"]
+                )["compressed"]
             for strategy in DELTAR_STRATEGIES:
                 results_file = (
                     RESULTS_DIR
@@ -599,21 +595,7 @@ def base_stats():
             total_sizes[scenario.group][scenario.schedule][
                 f"deltar-{strategy.name}-data"
             ] = total_deltar_data[strategy.name]
-        print(f"Group: {scenario.group} | Schedule: {scenario.schedule}")
-        print(f"  Uncompressed: {as_gib(total_uncompressed) / 2:.2f} GiB/year")
-        print(f"  Compressed: {as_gib(total_compressed) / 2:.2f} GiB/year")
-        print(f"  Xdelta: {as_gib(total_xdelta) / 2:.2f} GiB/year")
-        for strategy in BLOCK_DIFFING_STRATEGIES:
-            print(
-                f"  Block Diffing ({strategy.name}): {as_gib(total_block_diffing[strategy.name]) / 2:.2f} GiB/year"
-            )
-        for strategy in DELTAR_STRATEGIES:
-            plan = total_deltar_plan[strategy.name] / 2
-            data = total_deltar_data[strategy.name] / 2
-            total = plan + data
-            print(
-                f"  Deltar ({strategy.name}): {as_gib(total):.2f} GiB/year ({as_gib(plan):.2f} GiB + {as_gib(data):.2f} GiB)"
-            )
+
     print("Compression Factors:")
     print(json.dumps(compression_factors))
     print("Total Sizes:")
