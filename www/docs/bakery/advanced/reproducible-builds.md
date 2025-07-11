@@ -10,8 +10,13 @@ At Rugix, we are huge proponents of [*reproducible builds*](https://reproducible
 
 We aim to enable reproducible builds of Rugix itself as well as of system images built with Rugix.
 
-**Note that this is a work-in-progress effort and we are not there yet.**
+**Note that this is a work-in-progress effort and we are not fully there yet.**
 
+## Source Date
+
+Rugix Bakery supports a `--source-date` option which allows you to pin the source date of the build to a specific date and time (formatted according to RFC 3339). If you do not specify this option, Rugix Bakery will use the current date and time.
+In any case, Rugix Bakery will clamp the modification time of all files to the source date.
+The source date is also used to set the [`SOURCE_DATE_EPOCH` environment variable](https://reproducible-builds.org/docs/source-date-epoch/) in the build environment.
 
 ## Reproducibility of Rugix
 

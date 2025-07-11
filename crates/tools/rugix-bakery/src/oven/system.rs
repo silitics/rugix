@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use reportify::{bail, whatever, ResultExt};
-use xscript::{cmd, cmd_os, run, ParentEnv, Run};
+use xscript::{cmd, cmd_os, run, vars, ParentEnv, Run};
 
 use rugix_common::disk::gpt::gpt_types;
 use rugix_common::disk::mbr::mbr_types;
@@ -95,7 +95,10 @@ pub fn make_system(
     fs::create_dir_all(system_info_path.parent().unwrap())
         .whatever("unable to create `/etc/rugix`")?;
 
-    let time_version = jiff::Timestamp::now().strftime("%Y%m%d%H%M%S").to_string();
+    let time_version = jiff::Timestamp::from_second(source_date_epoch as i64)
+        .unwrap()
+        .strftime("%Y%m%d%H%M%S")
+        .to_string();
     let release_version = release_info
         .system_version
         .as_deref()
@@ -267,17 +270,7 @@ pub fn make_system(
                             "."
                         ])
                         .whatever("unable to create root filesystem tar")?;
-                        let mut cmd = cmd_os!(
-                            "mkfs.ext4",
-                            "-F",
-                            "-E",
-                            "hash_seed=035cb65d-0a86-404a-bad7-19c88d05e400",
-                            "-U",
-                            "12341234-a4ec-4304-a70f-c549ea829da9",
-                            "-d",
-                            &tar_archive,
-                            &fs_image
-                        );
+                        let mut cmd = cmd_os!("mkfs.ext4", "-F", "-d", &tar_archive, &fs_image);
                         if let Some(additional_options) = &options.additional_options {
                             cmd.extend_args(additional_options);
                         }
@@ -346,6 +339,9 @@ pub fn make_system(
                         cmd.add_arg("-noF");
                         cmd.add_arg("-noX");
                     }
+                    cmd = cmd.with_vars(vars! {
+                        SOURCE_DATE_EPOCH = source_date_epoch.to_string(),
+                    });
                     ParentEnv.run(cmd).whatever("error creating filesystem")?;
                     let mut src =
                         File::open(&fs_image).whatever("unable to open filesystem image file")?;
