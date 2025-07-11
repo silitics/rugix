@@ -37,7 +37,7 @@ rugix-fs.workspace = true
 si-crypto-hashes.workspace = true
 rugix-hooks.workspace = true
 hashbrown.workspace = true
-ureq = "3.0.3"
+ureq = { version = "3.0.3", default-features = false, features = ["rustls"] }
 rugix-version.workspace = true
 jiff = { version = "0.2.14", default-features = false, features = ["std", "serde"] }
 
