@@ -162,7 +162,14 @@ impl Decode for Bytes {
 
 impl Encode for HashAlgorithm {
     fn encode(&self, writer: &mut dyn Write, tag: Tag) -> io::Result<()> {
-        write_value(writer, tag, self.name().as_bytes())
+        write_value(
+            writer,
+            tag,
+            match self {
+                HashAlgorithm::Sha512_256 => "sha512-256".as_bytes(),
+                _ => self.name().as_bytes(),
+            },
+        )
     }
 }
 
