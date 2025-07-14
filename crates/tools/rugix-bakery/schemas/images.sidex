@@ -4,6 +4,11 @@ import foreign::NumBytes
 import systems::Architecture
 import systems::Target
 
+/// Timestamp.
+#[rust(type = "::jiff::Timestamp")]
+#[json(type = "string")]
+opaque Timestamp
+
 /// Image configuration.
 record ImageConfig {
     /// Layer the image is based on.
@@ -64,6 +69,7 @@ variant Filesystem {
 #[json(rename_all = "kebab-case")]
 record Ext4Options {
     additional_options?: [string],
+    clamp_mtime?: Timestamp,
 }
 
 #[json(rename_all = "kebab-case")]

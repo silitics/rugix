@@ -257,12 +257,16 @@ pub fn make_system(
                         let tar_archive =
                             filesystems_dir.join(format!("partition-{}.tar", partition + 1));
                         std::fs::remove_file(&tar_archive).ok();
+                        let clamp_mtime = options
+                            .clamp_mtime
+                            .map(|t| t.as_second())
+                            .unwrap_or(source_date_epoch as i64);
                         run!([
                             "tar",
                             "--sort=name",
                             "--pax-option=exthdr.name=%d/PaxHeaders/%f,delete=atime,delete=ctime",
                             "--clamp-mtime",
-                            format!("--mtime=@{source_date_epoch}"),
+                            format!("--mtime=@{clamp_mtime}"),
                             "-cf",
                             &tar_archive,
                             "-C",
