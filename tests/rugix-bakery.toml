@@ -49,6 +49,12 @@ architecture = "arm64"
 target = "generic-grub-efi"
 options = { use-squashfs = { no-compression = true } }
 
+[systems.customized-arm64-delta-squashfs]
+layer = "customized-efi-delta"
+architecture = "arm64"
+target = "generic-grub-efi"
+options = { use-squashfs = { no-compression = true } }
+
 [systems.customized-amd64-squashfs]
 layer = "customized-efi"
 architecture = "amd64"
