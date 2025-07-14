@@ -69,7 +69,7 @@ rugix-bundler delta <old> <new> <patch>
 
 If you are using Rugix Bakery, you can use `./run-bakery bundler delta` instead.
 
-By default, Rugix Bundler will compute a patch for the `system` slot only. If you want to compute patches for other slots, you can use the `--slot` option, to provide a list of slots. Note that slots must be immutable for static delta updates to work.
+By default, Rugix Bundler will compute a patch for the `system` and `boot` slots, respectively. As the boot partition is usually modified by Rugix, the delta for the `boot` slot is computed against the `system` slot of the old version. If you want to compute patches for other slots, you can use the `--slot` option, to provide a list of slots. You can use the syntax `new:old` to compute a patch for the `new` slot of the new version against the `old` slot of the old version. Note that slots must be immutable for static delta updates to work.
 
 Rugix Bundler will include a hash of the old slot data in the patch bundle. This hash is used by Rugix Ctrl when installing the update to determine whether the required source for applying the patch is actually installed. In addition, it also includes a hash of the new slot data which is used to check the integrity of the new version after installing it.
 
