@@ -7,13 +7,14 @@ use clap::Parser;
 use reportify::{bail, ResultExt};
 use rugix_bundle::format::tags::TagNameResolver;
 use rugix_bundle::manifest::{
-    BundleManifest, DeliveryConfig, DeltaEncoding, DeltaEncodingFormat, DeltaEncodingInput,
-    HashAlgorithm,
+    BlockEncoding, BundleManifest, Compression, DeliveryConfig, DeltaEncoding, DeltaEncodingFormat,
+    DeltaEncodingInput, HashAlgorithm, XzCompression,
 };
 use rugix_bundle::reader::BundleReader;
 use rugix_bundle::source::FileSource;
 use rugix_bundle::xdelta::xdelta_compress;
 use rugix_bundle::BundleResult;
+use rugix_chunker::ChunkerAlgorithm;
 use si_crypto_hashes::HashDigest;
 use tracing::{info, Level};
 
@@ -88,6 +89,9 @@ pub struct DeltaCmd {
     new: PathBuf,
     /// Path to the output patch bundle.
     out: PathBuf,
+    /// Disable compression of individual patch blocks.
+    #[clap(long)]
+    without_compression: bool,
 }
 
 #[derive(Debug, Parser)]
@@ -198,34 +202,37 @@ fn main() -> BundleResult<()> {
             )
             .unwrap();
             let slots = if cmd.slots.is_empty() {
-                &["system".to_owned()]
+                &["system".to_owned(), "boot:system".to_owned()]
             } else {
                 cmd.slots.as_slice()
             };
             for slot in slots {
+                let (new_slot, old_slot) = slot
+                    .split_once(':')
+                    .unwrap_or((slot.as_str(), slot.as_str()));
                 let Some(new_payload_idx) =
                     new_manifest
                         .payloads
                         .iter()
                         .position(|p| match &p.delivery {
-                            DeliveryConfig::Slot(config) => &config.slot == slot,
+                            DeliveryConfig::Slot(config) => &config.slot == new_slot,
                             _ => false,
                         })
                 else {
-                    panic!("unable to find slot {slot} in new bundle");
+                    panic!("unable to find slot {new_slot} in new bundle");
                 };
                 let Some(old_payload_idx) =
                     new_manifest
                         .payloads
                         .iter()
                         .position(|p| match &p.delivery {
-                            DeliveryConfig::Slot(config) => &config.slot == slot,
+                            DeliveryConfig::Slot(config) => &config.slot == old_slot,
                             _ => false,
                         })
                 else {
-                    panic!("unable to find slot {slot} in old bundle");
+                    panic!("unable to find slot {old_slot} in old bundle");
                 };
-                info!(%slot, "computing delta");
+                info!(%old_slot, %new_slot, "computing delta");
                 let old_filename = &old_manifest.payloads[old_payload_idx].filename;
                 let new_filename = &old_manifest.payloads[new_payload_idx].filename;
                 let new_filename_patched = format!("{new_filename}.xdelta");
@@ -242,6 +249,16 @@ fn main() -> BundleResult<()> {
                 assert!(patch_path.exists());
                 let new_payload = &mut new_manifest.payloads[new_payload_idx];
                 new_payload.filename = new_filename_patched;
+                new_payload.block_encoding = Some(
+                    BlockEncoding::new(ChunkerAlgorithm::Fixed {
+                        block_size_kib: 256,
+                    })
+                    .with_compression(if cmd.without_compression {
+                        None
+                    } else {
+                        Some(Compression::Xz(XzCompression::new()))
+                    }),
+                );
                 new_payload.delta_encoding = Some(DeltaEncoding::new(
                     vec![DeltaEncodingInput {
                         hashes: vec![old_hash],
