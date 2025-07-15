@@ -33,7 +33,7 @@ const config: Config = {
         docs: {
           sidebarPath: require.resolve("./sidebars.js"),
           // lastVersion: "current",
-          lastVersion: "0.8.11",
+          lastVersion: "0.8.12",
           editUrl: "https://github.com/silitics/rugix/tree/main/www/",
         },
         blog: {

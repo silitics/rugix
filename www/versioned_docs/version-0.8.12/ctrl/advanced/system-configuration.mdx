@@ -120,7 +120,7 @@ As with `block` slots, `file` slots also have an `immutable` option.
 
 If you want to update a directory, use a custom slot with a Tar archive as a payload that you can then extract.[^no-directory-slots]
 
-[^no-directory-slots]: There are two reasons why there are no native directory slots: First, we want to keep things simple within Rugix Ctrl and directory slots can trivially be implemented with custom handlers. Second, in contrast to directories, files are more directly usable for adaptive delta updates by computing an index over them. That's why we support them natively.
+[^no-directory-slots]: There are two reasons why there are no native directory slots: First, we want to keep things simple within Rugix Ctrl and directory slots can trivially be implemented with custom handlers. Second, in contrast to directories, files are more directly usable for dynamic delta updates by computing an index over them. That's why we support them natively.
 
 ### Custom Slots
 
