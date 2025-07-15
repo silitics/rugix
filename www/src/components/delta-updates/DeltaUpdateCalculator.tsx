@@ -41,6 +41,10 @@ const UPDATES_PER_YEAR = {
   annually: 1,
 }
 
+function formatCurrency(value: number) {
+  return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+}
+
 const DeltaUpdateCalculator = () => {
   const [schedule, setSchedule] = React.useState<string>("monthly")
   const [costPerGiB, setCostPerGiB] = React.useState<number>(9)
@@ -150,10 +154,10 @@ const DeltaUpdateCalculator = () => {
               <tr key={method.key}>
                 <td>{method.name}</td>
                 <td className="text-right font-mono">
-                  {(updateCost / 100).toFixed(0)}{" "}
+                  {formatCurrency(Math.floor(updateCost / 100))}
                 </td>
                 <td className="text-right font-mono font-bold text-green-500">
-                  {((baseCost - updateCost) / 100).toFixed(0)}
+                  {formatCurrency(Math.floor((baseCost - updateCost) / 100))}
                 </td>
                 <td>{method.tools}</td>
               </tr>

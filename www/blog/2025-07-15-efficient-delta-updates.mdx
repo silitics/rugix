@@ -2,7 +2,6 @@
 slug: efficient-delta-updates
 title: Efficient Delta Updates
 authors: koehlma
-draft: true
 tags: [rugix,delta updates]
 ---
 
@@ -13,11 +12,23 @@ import { PlotTotalSizes } from "../src/components/delta-updates/PlotRollingUpdat
 
 Most modern OTA update solutions for embedded Linux support a form of *delta updates*. Delta updates can reduce the amount of data transferred and the time required to install a new version by reusing locally available parts of the old version of a system. This is especially useful for devices on metered or bandwidth-constrained connections. In this article, **we will survey the different delta update techniques implemented within popular OTA update tools, examine their tradeoffs, and present benchmarks that compare their efficiency on the basis of real-world update scenarios**.
 
-This article aims to serve as a guide for engineers looking to implement delta updates in their embedded Linux projects. Together with this article, we release Rugix version 0.8.12 which introduces support for static delta updates and functionality for benchmarking delta update techniques. With the benchmarking functionality included in Rugix Bundler, **we enable engineers to evaluate the efficiency of different delta update techniques and make informed decisions about which approach to use based on their specific update scenarios**. While we aim to present general benchmarks in this article, we would like to encourage you to run your own benchmarks and [share your own findings with us](#todo-github-discussion). 
+This article aims to serve as a guide for engineers looking to implement delta updates in their embedded Linux projects. Together with this article, we release Rugix version 0.8.12 which introduces support for static delta updates and functionality for benchmarking delta update techniques. With the benchmarking functionality included in Rugix Bundler, **we enable engineers to evaluate the efficiency of different delta update techniques and make informed decisions about which approach to use based on their specific update scenarios**. While we aim to present general benchmarks in this article, we would like to encourage you to run your own benchmarks and [share your own findings with us](https://github.com/silitics/rugix/discussions/74). 
 
 {/* truncate */}
 
+For reproducibility we provide the [benchmarking code on GitHub](https://github.com/silitics/rugix/tree/main/benchmarks/delta-updates).
+
 **Outline and Overview.** We will first have a look at the existing tools and techniques for OTA updates in the embedded Linux ecosystem. We will then present and discuss our benchmarking methodology, tooling, and results. Finally, we will conclude with a summary of our findings. If you do not care about the technical details, feel free to skip directly to the [benchmark results](#benchmark-results).
+
+<details>
+    <summary><strong>TL;DR</strong></summary>
+
+    There are two approaches for delta updates: *static* and *dynamic*.
+    Static delta updates require the pre-computation of deltas whereas dynamic delta updates do not require pre-computation of deltas.
+    Due to the pre-computation of deltas, static delta updates are more efficient than dynamic delta updates, however, they are also more complex to implement and manage. **Rugix is implements best-in-class support for both static and dynamic delta updates, allowing you to choose the approach that best fits your specific requirements and update scenarios.**
+
+    **Use our [savings calculator](#savings-calculator) to estimate the cost you may save by implementing delta updates.**
+</details>
 
 ## Tools and Techniques
 
@@ -35,17 +46,17 @@ We will now look at the three delta update techniques which are widely used by O
 
 The core idea of block-based diffing is to split a binary file, e.g., a filesystem image, into individual *blocks*, compute a hash for each block, and then use a list of block hashes (called a *block index*) of the new version to reconstruct the new version from locally available blocks of the old version and remotely fetched blocks. Block-based diffing can operate on arbitrary files. While block-based diffing can be used to implement static delta updates, it is typically used for dynamic delta updates.
 
-Block-based diffing is implemented by RAUC as the `block-hash-index` *adaptive update* method.[^rauc-adaptive] It is also the fundamental principle behind the standalone tools [Casync](https://github.com/systemd/casync) and [Zchunk](https://github.com/zchunk/zchunk), which can both be used as part of an update workflow. Casync can be used with RAUC[^rauc-casync] and SWUpdate supports integrating with Casync as well as Zchunk.[^swupdate-delta] Neither Mender nor OSTree support block-based diffing. Rugix has its own implementation of block-based diffing which is comparable to Casync.
+Block-based diffing is implemented by RAUC as the `block-hash-index` *adaptive update* method.[^rauc-adaptive] It is also the fundamental principle behind the standalone tools [Casync](https://github.com/systemd/casync) and [Zchunk](https://github.com/zchunk/zchunk), which can both be used as part of an update workflow. Casync can be used with RAUC[^rauc-casync] and SWUpdate supports an integration with Casync as well as Zchunk.[^swupdate-delta] Neither Mender nor OSTree support block-based diffing. Rugix has its own implementation of block-based diffing which is comparable to Casync.
 
 [^rauc-adaptive]: [RAUC: Adaptive Updates](https://rauc.readthedocs.io/en/v1.14/advanced.html#adaptive-updates)
 [^rauc-casync]: [RAUC: Casync Support](https://rauc.readthedocs.io/en/v1.14/advanced.html#rauc-casync-support)
 [^swupdate-delta]: [SWUpdate: Delta Updates](https://sbabic.github.io/swupdate/delta-update.html)
 
-Block-based diffing has the advantage that it is relatively simple to implement and can use any block device or other file as the source of blocks. Of course, it is also possible to use multiple block sources for an update and Rugix supports that. Depending on the implementation, block-based diffing can also tolerate mutable block sources, such as mounted filesystems. Changes to blocks can be detected based on their hash and, if a block changed, it can simply be fetched from the network.
+Block-based diffing has the advantage that it is relatively simple to implement and can use any block device (e.g., a partition) or other file as the source of blocks. Of course, it is also possible to use multiple sources for an update and Rugix supports that. Depending on the implementation, block-based diffing can also tolerate mutable block sources, such as mounted filesystems. Changes to blocks can be detected based on their hash and, if a block changed, it can simply be fetched from the network.
 
-Different block-based diffing variants vary in the way they split binary files (e.g., filesystem images) into blocks. While RAUC's `block-hash-index` adaptive update method uses a fixed block size of 4 KiB, Casync and Zchunk implement *content-defined chunking*, i.e., they determine block boundaries based on a file's content, which leads to variable-sized blocks. Content-defined chunking has the advantage that it can tolerate insertions into blocks. If you insert a single byte into a file, everything afterwards will be shifted by one byte likely leading to entirely different blocks when using fixed-size blocks. In contrast, with content-defined chunking, the block boundaries are determined by the actual content around the boundary, likely shifting the boundary when insertions occur. Technically, content-defined chunking is implemented by moving a rolling hash over the file.
+Different block-based diffing variants vary in the way they split binary files (e.g., filesystem images) into blocks. While RAUC's `block-hash-index` adaptive update method uses a fixed block size of 4 KiB, Casync and Zchunk implement *content-defined chunking*, i.e., they determine block boundaries based on a file's content, which leads to variable-sized blocks. Content-defined chunking has the advantage that it can tolerate insertions into blocks. If you insert a single byte into a file, everything afterwards will be shifted by one byte likely leading to entirely different blocks when using fixed-size blocks. In contrast, with content-defined chunking, the block boundaries are determined by the actual content around the boundary, likely shifting the boundary when insertions occur. Technically, content-defined chunking is typically implemented by moving a rolling hash over the file.
 
-All tools implementing block-based diffing also implement some sort of compression to reduce the download size while being able to decompress blocks individually or in groups. Both Casync and Zchunk directly compress the blocks they identified. In contrast, RAUC's `block-hash-index` adaptive update method does not compress blocks individually but implicitly compresses groups of blocks by compressing the entire update bundle using SquashFS.[^rauc-compression] While larger blocks or group-wise compression generally lead to better compression ratios, they also lead to coarser delta updates.
+All tools implementing block-based diffing also implement some sort of compression to reduce the download size while being able to decompress blocks individually or in groups. Both Casync and Zchunk directly compress the blocks they identified. In contrast, RAUC's `block-hash-index` adaptive update method does not compress blocks individually but implicitly compresses groups of blocks by compressing the entire update bundle using SquashFS.[^rauc-compression] While larger blocks or group-wise compression generally lead to better compression ratios, they also lead to coarser delta updates, i.e., due to the grouping or larger blocks, adjacent data may need to be fetched although this data did not change.
 
 [^rauc-compression]: [RAUC: Update Bundles](https://rauc.readthedocs.io/en/v1.14/basic.html#update-bundles)
 
@@ -53,11 +64,11 @@ Rugix implements both fixed-size blocks as well as content-defined chunking usin
 
 ### Delta Compression
 
-Delta compression re-uses concepts and ideas from compression algorithms to compute a delta between two binary files. This delta takes the form on an explicit patch to go from one file to the other. As such, delta compression can only be used for static delta updates.
+Delta compression re-uses concepts and ideas from compression algorithms to compute a delta between two binary files. This delta takes the form of an explicit patch to go from one file to the other. As such, delta compression can only be used for static delta updates.
 
 Explaining the underlying algorithms of delta compression is beyond the scope of this article. If you like a broad overview, check out the explanation in the [source code of Xdelta](https://github.com/jmacd/xdelta/blob/7508fd2a823443b1f0173ca361620f21d62a7d37/xdelta3/xdelta3.c). While being relatively old, Xdelta is still the de-facto standard for delta compression (at least as far as open-source tools go).
 
-Mender uses Xdelta for their delta update mechanism which is, however, only available commercially as part of Mender's *Professional* and *Enterprise* plans, i.e., if you are using Mender's open-source standalone version, you do not get delta updates. SWUpdate can integrate with Xdelta, however, you need to build this integration yourself. Rugix provides a ready-made integration with Xdelta.
+Mender uses Xdelta for their delta update mechanism which is, however, only available commercially as part of Mender's *Professional* and *Enterprise* plans, i.e., if you are using Mender's open-source standalone version, you do not get delta updates. SWUpdate can integrate with Xdelta, however, you need to build this integration yourself. Rugix provides a ready-made integration with Xdelta for free.
 
 ### File-Based Diffing
 
@@ -67,7 +78,7 @@ None of the other update tools besides OSTree supports file-based diffing, altho
 
 [^ostree-repository]: [OSTree: Anatomy of an OSTree Repository](https://ostreedev.github.io/ostree/repo/)
 
-Note that updates via a package manager are, in essence, also file-based updates. If you install updates via a package manager, like APT, the package manager will always download entire packages, containing all the files to install. Notably, this may also includes files that have not actually changed. In contrast, with file-based diffing, updates are typically more efficient than package-based updates, as the file-based delta update mechanism only needs to download the files that have actually changed.
+Note that updates via a package manager are, in essence, also file-based updates. If you install updates via a package manager, like APT, the package manager will always download entire packages, containing all the files to install. Notably, this may also include files that have not actually changed. In contrast, with file-based diffing, updates are typically more efficient than package-based updates, as the file-based delta update mechanism only needs to download the files that have actually changed.
 
 :::note
 
@@ -96,7 +107,7 @@ We also look at different *update cadences*: monthly, quarterly, biannual, and a
 
 ### System Images
 
-To benchmark anything, we first need a realistic dataset. For our benchmarks, we used Rugix Bakery to build bit-by-bit reproducible root filesystems and filesystem images based on Debian snapshots. By using Debian snapshots, we ensure that the scenarios are reproducible and based on realistic systems that we would have build when we could go back in time.
+To benchmark anything, we first need a realistic dataset. For our benchmarks, we used Rugix Bakery to build bit-by-bit reproducible root filesystems and filesystem images based on Debian snapshots. By using Debian snapshots, we ensure that the scenarios are reproducible and based on realistic systems that we would have built when we could go back in time.
 
 Concretely, we start with the snapshot `20230611T103552Z` and build a system for each month up to the snapshot `20250611T033537Z` for both, Debian Bookworm and Bullseye. As a result, we obtain 50 system images. The images are minimal Debian images with Rugix and A/B update support. To add some additional applications, we installed the packages `python3` and `build-essential`.
 
@@ -151,7 +162,7 @@ Let's now have a look at the different techniques in more detail.
 **Block-Based Diffing.**
 For our benchmarks, we assumed an overhead of 768 bytes to fetch a block or a block group. The purple bars (*Block-Based, Fixed 4KiB/32KiB* and *Block-Based, Fixed 4KiB/64KiB*) represent a typical RAUC update using a fixed block size of 4 KiB and combining blocks to 32 KiB and 64 KiB groups for compression, respectively (RAUC's documentation recommends 64KiB[^rauc-adaptive]). The blue bars  (*Block-Based, Casync 64KiB* and *Block-Based, Casync 16KiB*) represent typical Casync updates using an average block size of 64 KiB and 16 KiB, respectively. Those bars also represent a typical Rugix update, as Rugix implements the exact same algorithms as Casync under the hood. While Rugix and Casync use the same block hashes for delta updates and integrity checks, RAUC uses [dm-verity](https://docs.kernel.org/admin-guide/device-mapper/verity.html) over the update bundle, which does add a small overhead not accounted for in the simulation. Generally smaller block sizes, as in the case of RAUC, also increase the size of the block indices. Overall, Casync and Rugix are slightly more efficient than the fixed-size block-based diffing approach implemented by RAUC. Furthermore, it is noteworthy that 4 KiB fixed-size blocks only work well for filesystem images, where these blocks align with the blocks of the filesystem. In contrast, Rugix's and Casync's content-defined chunking approach also works well for other file types. So, we conclude that for minor updates, among the block-based diffing techniques, Rugix and Casync are slightly more efficient than RAUC while also being more versatile. SWUpdate should be able to achieve results comparable to the other block-based diffing techniques by using Zchunk under the hood. Although, Moseley's work shows that SWUpdate with Zchunk is less efficient than RAUC and Casync (and thus Rugix).
 
-**File-Based Diffing.** As discussed earlier, file-based diffing techniques can avoid noise introduced by treating the filesystem as a binary blob. The green bar (*File-Based, Deltar 16KiB*) represents a file-based update based on our prototypical Deltar approach. The plot shows the index and data portion separately. As one can see, the index portion only makes up a small part of the update. Here, we assume that we are downloading the entire file index. In contrast, OSTree can avoid downloading the entire file index by just syncing in the new files and directories an a file and directory level, respectively. While this may avoid downloading some data, it also introduces overhead. This overhead is likely not worthwhile, as the file index only makes up a negligible small part of the entire update. The much larger part is the actual data that changed. Note that the values shown here assume that the data is split into 16 KiB blocks (on average) using content-defined chunking and downloading these blocks individually (with an overhead of again 768 bytes). By default, OSTree does not do such splitting. Instead, it will download entire files which might again introduce a bit more overhead. Hence, with regards to OSTree our simulation is probably a bit optimistic, nevertheless our findings are in-line with Moseley's.[^moseley-delta] We did not implement a static variant of file-based diffing. A static variant, e.g., as implemented by OSTree static deltas, could compress all new file blocks together, likely leading to a higher compression ratio of the data and thereby improving the efficiency ratio further. In general, we conclude that file-based diffing is typically more efficient than block-based diffing. However, it is not as versatile as block-based diffing, as block-based diffing does work for arbitrary binary files, not just filesystems (files and directories).
+**File-Based Diffing.** As discussed earlier, file-based diffing techniques can avoid noise introduced by treating the filesystem as a binary blob. The green bar (*File-Based, Deltar 16KiB*) represents a file-based update based on our prototypical Deltar approach. The plot shows the index and data portion separately. As one can see, the index portion only makes up a small part of the update. Here, we assume that we are downloading the entire file index. In contrast, OSTree can avoid downloading the entire file index by just syncing in the new files and directories on a file and directory level, respectively. While this may avoid downloading some data, it also introduces overhead. This overhead is likely not worthwhile, as the file index only makes up a negligible small part of the entire update. The much larger part is the actual data that changed. Note that the values shown here assume that the data is split into 16 KiB blocks (on average) using content-defined chunking and downloading these blocks individually (with an overhead of again 768 bytes). By default, OSTree does not do such splitting. Instead, it will download entire files which might again introduce a bit more overhead. Hence, with regards to OSTree our simulation is probably a bit optimistic, nevertheless our findings are in-line with Moseley's.[^moseley-delta] We did not implement a static variant of file-based diffing. A static variant, e.g., as implemented by OSTree static deltas, could compress all new file blocks together, likely leading to a higher compression ratio of the data and thereby improving the efficiency ratio further. In general, we conclude that file-based diffing is typically more efficient than block-based diffing. However, it is not as versatile as block-based diffing, as block-based diffing does work for arbitrary binary files, not just filesystems (files and directories).
 
 [^moseley-delta]: [Torizon Blog: Over-The-Air Updates | Choose the best Linux OS Image Update Model](https://www.torizon.io/de/blog/ota-best-linux-os-image-update-model)
 
@@ -178,7 +189,7 @@ So, using delta updates can actually be harmful for infrequent major updates wit
 
 ## Savings Calculator
 
-Based on the results of our benchmarks, we developed a calculator that allows you to estimate the cost savings that you may achieve by using different delta update techniques for minor updates.
+Based on the results of our benchmarks, we developed a calculator that allows you to estimate the cost savings (over your entire fleet per year) that you may achieve by using different delta update techniques for minor updates compared to not using delta updates.
 
 <DeltaUpdateCalculator />
 
@@ -193,7 +204,7 @@ Fortunately, with Rugix you can chose different delta update strategies based on
 
 We will use the insights gained from our benchmarks to improve Rugix and make it even more efficient. In particular, we will look into static variants of block-based and file-based diffing.
 
-We would love to hear your feedback and for you to share your own findings and experiences with us. Feel free to use the [GitHub discussion for this article](#todo-github-discussion) or start a new one.
+We would love to hear your feedback and for you to share your own findings and experiences with us. Feel free to use the [GitHub discussion for this article](https://github.com/silitics/rugix/discussions/74) or start a new one.
 
 ---
 
