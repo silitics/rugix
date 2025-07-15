@@ -223,7 +223,7 @@ jobs:
           export RUGIX_BAKERY_IMAGE="${{ env.IMAGE_NAME }}@sha256:$DIGEST"
           docker pull $RUGIX_BAKERY_IMAGE
           echo "RUGIX_BAKERY_IMAGE=$RUGIX_BAKERY_IMAGE"
-          ./run-update-tests.sh
+          ./run-all-tests.sh
 
   build_bakery_image:
     name: Build and Push Bakery Image
