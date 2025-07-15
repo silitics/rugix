@@ -368,6 +368,7 @@ def block_diffing():
             [
                 "--group-overhead",
                 str(strategy.group_overhead),
+                "--chunker",
                 strategy.chunker,
                 old_img_path,
                 new_img_path,
