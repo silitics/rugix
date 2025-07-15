@@ -121,15 +121,15 @@ jobs:
   
   build_bakery_images:
     name: "Build Bakery Image (${{ matrix.arch }})"
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     needs:
       - bakery_metadata
       - build_binaries_linux
     strategy:
       matrix:
-        arch:
-          - amd64
-          - arm64
+        include:
+          - { arch: amd64, runner: ubuntu-24.04 }
+          - { arch: arm64, runner: ubuntu-24.04-arm }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
