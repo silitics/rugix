@@ -93,7 +93,10 @@ RUN mkdir -p /usr/share/rugix/pi \
     && unzip rpi-firmware.zip \
     && mv firmware-stable/boot firmware \
     && rm -rf firmware-stable \
-    && rm -f firmware/kernel*.img
+    && rm -f firmware/kernel*.img \
+    && stat /usr/share/rugix/rpi-eeprom/firmware-2711/old/stable/pieeprom-2023-05-11.bin \
+    && stat /usr/share/rugix/rpi-eeprom/firmware-2711/stable/vl805-000138c0.bin \
+    && stat /usr/share/rugix/rpi-eeprom/firmware-2712/old/default/pieeprom-2023-10-30.bin
 
 # Properly set up locale, required by some tools.
 RUN locale-gen en_US.UTF-8 \
