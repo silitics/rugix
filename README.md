@@ -32,7 +32,7 @@ If you prefer [Yocto](https://www.yoctoproject.org) over Rugix Bakery, we also p
 Rugix Ctrl has all features you would expect from a state-of-the-art update solution and more:
 
 - **Atomic A/B system updates** with popular bootloaders out of the box.
-- **Streaming updates** as well as **best-in-class delta updates** out of the box.
+- **Streaming updates** as well as [**best-in-class delta updates**](https://rugix.org/blog/efficient-delta-updates) out of the box.
 - Builtin **cryptographic integrity checks** _before_ installing anything anywhere.
 - Supports **any update scenario**, including **non-A/B updates and incremental updates**.
 - Supports **any bootloader and boot process** through [custom _boot flows_](https://rugix.org/docs/ctrl/advanced/boot-flows).

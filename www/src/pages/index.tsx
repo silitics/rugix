@@ -227,7 +227,10 @@ export default function Home(): JSX.Element {
             </li>
             <li>
               ✅ <strong>Streaming updates</strong> as well as{" "}
-              <strong>best-in-class delta updates</strong> out of the box.
+              <a href="https://rugix.org/blog/efficient-delta-updates">
+                <strong>best-in-class delta updates</strong>
+              </a>{" "}
+              out of the box.
             </li>
             <li>
               ✅ Builtin <strong>cryptographic integrity checks</strong>{" "}
@@ -262,10 +265,7 @@ export default function Home(): JSX.Element {
             </li>
             <li>
               ✅ Open-source{" "}
-              <a
-                href="https://github.com/silitics/meta-rugix/"
-                target="_blank"
-              >
+              <a href="https://github.com/silitics/meta-rugix/" target="_blank">
                 Yocto layers
               </a>{" "}
               for seamless Rugix integration.
@@ -295,8 +295,9 @@ export default function Home(): JSX.Element {
           <SupportedDistributions />
           <h3 className="text-center">Feature Highlights</h3>
           <ul className="list-none mx-auto w-fit">
-          <li>
-              ✅ <strong>Built-in SBOM generation</strong> for straightforward CRA compliance.
+            <li>
+              ✅ <strong>Built-in SBOM generation</strong> for straightforward
+              CRA compliance.
             </li>
             <li>
               ✅ <strong>Over-the-air update capabilities</strong> powered by
