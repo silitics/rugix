@@ -58,6 +58,9 @@ code.builtin-type {
 code.type-name {
   color: rgb(250, 200, 99);
 }
+.token.table {
+  display: inline-block !important;
+}
 
 /* Fix the spacing between footnote text and backref link. */
 .footnote-backref {
