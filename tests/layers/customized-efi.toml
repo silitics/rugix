@@ -16,6 +16,7 @@ recipes = [
     "simple-sbom",
     "hello-world",
     "xdelta3",
+    "copy-boot",
 ]
 
 [parameters."core/rugix-ctrl"]
