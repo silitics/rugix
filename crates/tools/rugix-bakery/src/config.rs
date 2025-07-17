@@ -16,10 +16,7 @@ use crate::BakeryResult;
 use self::recipes::ParameterValue;
 use self::systems::{Architecture, SystemConfig};
 
-sidex::include_bundle! {
-    #[doc(hidden)]
-    rugix_bakery as generated
-}
+mod generated;
 // Re-export the generated data structures.
 pub use generated::*;
 

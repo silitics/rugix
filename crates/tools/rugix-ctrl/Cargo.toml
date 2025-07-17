@@ -44,5 +44,3 @@ jiff = { version = "0.2.14", default-features = false, features = ["std", "serde
 [lints]
 workspace = true
 
-[build-dependencies]
-sidex-build-rs.workspace = true

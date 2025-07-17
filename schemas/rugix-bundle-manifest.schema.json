@@ -107,6 +107,55 @@
         }
       ]
     },
+    "rugix_bundle.manifest.DeltaEncoding": {
+      "$id": "rugix_bundle.manifest.DeltaEncoding",
+      "type": "object",
+      "description": "",
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/rugix_bundle.manifest.DeltaEncodingInput"
+          }
+        },
+        "format": {
+          "$ref": "#/$defs/rugix_bundle.manifest.DeltaEncodingFormat"
+        },
+        "original-hash": {
+          "$ref": "#/$defs/rugix_bundle.manifest.HashDigest"
+        }
+      },
+      "required": [
+        "inputs",
+        "format",
+        "original-hash"
+      ],
+      "unevaluatedProperties": false
+    },
+    "rugix_bundle.manifest.DeltaEncodingFormat": {
+      "$id": "rugix_bundle.manifest.DeltaEncodingFormat",
+      "enum": [
+        "xdelta"
+      ],
+      "description": ""
+    },
+    "rugix_bundle.manifest.DeltaEncodingInput": {
+      "$id": "rugix_bundle.manifest.DeltaEncodingInput",
+      "type": "object",
+      "description": "",
+      "properties": {
+        "hashes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/rugix_bundle.manifest.HashDigest"
+          }
+        }
+      },
+      "required": [
+        "hashes"
+      ],
+      "unevaluatedProperties": false
+    },
     "rugix_bundle.manifest.ExecuteDeliveryConfig": {
       "$id": "rugix_bundle.manifest.ExecuteDeliveryConfig",
       "type": "object",
@@ -128,6 +177,10 @@
       "$id": "rugix_bundle.manifest.HashAlgorithm",
       "description": ""
     },
+    "rugix_bundle.manifest.HashDigest": {
+      "$id": "rugix_bundle.manifest.HashDigest",
+      "description": ""
+    },
     "rugix_bundle.manifest.NumBytes": {
       "$id": "rugix_bundle.manifest.NumBytes",
       "description": ""
@@ -145,6 +198,9 @@
         },
         "block-encoding": {
           "$ref": "#/$defs/rugix_bundle.manifest.BlockEncoding"
+        },
+        "delta-encoding": {
+          "$ref": "#/$defs/rugix_bundle.manifest.DeltaEncoding"
         }
       },
       "required": [

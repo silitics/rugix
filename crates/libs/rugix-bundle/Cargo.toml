@@ -26,8 +26,5 @@ rugix-chunker.workspace = true
 rugix-compression.workspace = true
 serde_json.workspace = true
 
-[build-dependencies]
-sidex-build-rs.workspace = true
-
 [lints]
 workspace = true

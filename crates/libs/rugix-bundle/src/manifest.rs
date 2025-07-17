@@ -1,6 +1,2 @@
-sidex::include_bundle! {
-    #[doc(hidden)]
-    rugix_bundle as generated
-}
-// Re-export the generated data structures.
+mod generated;
 pub use generated::manifest::*;

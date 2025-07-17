@@ -7,7 +7,10 @@
     "description": {
       "type": "string"
     },
-    "priority": {},
+    "priority": {
+      "type": "integer",
+      "format": "int64"
+    },
     "dependencies": {
       "type": "array",
       "items": {
@@ -26,7 +29,29 @@
   "$defs": {
     "rugix_bakery.foreign.NumBytes": {
       "$id": "rugix_bakery.foreign.NumBytes",
+      "type": [
+        "string",
+        "number"
+      ],
       "description": "Number of bytes."
+    },
+    "rugix_bakery.images.Ext4Options": {
+      "$id": "rugix_bakery.images.Ext4Options",
+      "type": "object",
+      "description": "",
+      "properties": {
+        "additional-options": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "clamp-mtime": {
+          "$ref": "#/$defs/rugix_bakery.images.Timestamp"
+        }
+      },
+      "required": [],
+      "unevaluatedProperties": false
     },
     "rugix_bakery.images.Filesystem": {
       "$id": "rugix_bakery.images.Filesystem",
@@ -37,6 +62,15 @@
           "properties": {
             "type": {
               "const": "ext4"
+            },
+            "additional-options": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "clamp-mtime": {
+              "$ref": "#/$defs/rugix_bakery.images.Timestamp"
             }
           },
           "required": [
@@ -146,6 +180,9 @@
     },
     "rugix_bakery.images.PartitionType": {
       "$id": "rugix_bakery.images.PartitionType",
+      "type": [
+        "string"
+      ],
       "description": "Partition type."
     },
     "rugix_bakery.images.SquashfsOptions": {
@@ -159,6 +196,13 @@
       },
       "required": [],
       "unevaluatedProperties": false
+    },
+    "rugix_bakery.images.Timestamp": {
+      "$id": "rugix_bakery.images.Timestamp",
+      "type": [
+        "string"
+      ],
+      "description": "Timestamp."
     },
     "rugix_bakery.layers.LayerConfig": {
       "$id": "rugix_bakery.layers.LayerConfig",
@@ -248,7 +292,10 @@
         {
           "type": "boolean"
         },
-        {},
+        {
+          "type": "integer",
+          "format": "int64"
+        },
         {
           "type": "number"
         }

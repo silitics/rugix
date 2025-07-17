@@ -48,6 +48,3 @@ rugix-version.workspace = true
 
 [lints]
 workspace = true
-
-[build-dependencies]
-sidex-build-rs.workspace = true
