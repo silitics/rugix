@@ -56,7 +56,7 @@ const config: Config = {
     announcementBar: {
       // id: "release",
       content: `
-          📣 <a target="_blank" href="/rugix/blog/efficient-delta-updates">Rugix now supports static delta updates. Checkout our latest blog post!</a> 📣
+          📣 <a target="_blank" href="/rugix/blog/efficient-delta-updates">Rugix now supports static delta updates. Check out our latest blog post!</a> 📣
         `,
       backgroundColor: "#6ee7b7",
       // backgroundColor: "#bdddfb",
