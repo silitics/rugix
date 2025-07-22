@@ -135,7 +135,7 @@ const DeltaUpdateCalculator = () => {
           <tr>
             <td>No Delta Updates</td>
             <td className="text-right font-mono">
-              {(baseCost / 100).toFixed(0)}
+              {formatCurrency(Math.floor(baseCost / 100))}
             </td>
             <td className="text-right font-mono">0</td>
             <td></td>
