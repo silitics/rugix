@@ -404,6 +404,28 @@
           "type": "object",
           "properties": {
             "type": {
+              "const": "mender-grub"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "mender-uboot"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
               "const": "custom"
             },
             "controller": {

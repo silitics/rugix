@@ -6332,6 +6332,10 @@ pub mod system {
         UBoot,
         #[doc = "Grub (EFI) boot flow.\n"]
         GrubEfi,
+        #[doc = "Mender Grub.\n"]
+        MenderGrub,
+        #[doc = "Mender Grub.\n"]
+        MenderUboot,
         #[doc = "Custom boot flow.\n"]
         Custom(CustomBootFlowConfig),
     }
@@ -6347,8 +6351,14 @@ pub mod system {
                 Self::Tryboot => __serializer.serialize_internal_tag("type", "tryboot", 0u32),
                 Self::UBoot => __serializer.serialize_internal_tag("type", "u-boot", 1u32),
                 Self::GrubEfi => __serializer.serialize_internal_tag("type", "grub-efi", 2u32),
+                Self::MenderGrub => {
+                    __serializer.serialize_internal_tag("type", "mender-grub", 3u32)
+                }
+                Self::MenderUboot => {
+                    __serializer.serialize_internal_tag("type", "mender-uboot", 4u32)
+                }
                 Self::Custom(__value) => {
-                    __serializer.serialize_internally_tagged("type", "custom", 3u32, __value)
+                    __serializer.serialize_internally_tagged("type", "custom", 5u32, __value)
                 }
             }
         }
@@ -6359,11 +6369,16 @@ pub mod system {
             __deserializer: __D,
         ) -> ::std::result::Result<Self, __D::Error> {
             #[doc(hidden)]
-            const __IDENTIFIERS: &'static [&'static str] =
-                &["tryboot", "u-boot", "grub-efi", "custom"];
+            const __IDENTIFIERS: &'static [&'static str] = &[
+                "tryboot",
+                "u-boot",
+                "grub-efi",
+                "mender-grub",
+                "mender-uboot",
+                "custom",
+            ];
             #[doc(hidden)]
-            const __EXPECTING_IDENTIFIERS: &'static str =
-                "an identifier in [\"tryboot\", \"u-boot\", \"grub-efi\", \"custom\"]";
+            const __EXPECTING_IDENTIFIERS : & 'static str = "an identifier in [\"tryboot\", \"u-boot\", \"grub-efi\", \"mender-grub\", \"mender-uboot\", \"custom\"]" ;
             #[derive(:: core :: clone :: Clone, :: core :: marker :: Copy)]
             #[doc(hidden)]
             enum __Identifier {
@@ -6371,6 +6386,8 @@ pub mod system {
                 __Identifier1,
                 __Identifier2,
                 __Identifier3,
+                __Identifier4,
+                __Identifier5,
             }
             #[doc(hidden)]
             struct __IdentifierVisitor;
@@ -6391,6 +6408,8 @@ pub mod system {
                         1u64 => ::core::result::Result::Ok(__Identifier::__Identifier1),
                         2u64 => ::core::result::Result::Ok(__Identifier::__Identifier2),
                         3u64 => ::core::result::Result::Ok(__Identifier::__Identifier3),
+                        4u64 => ::core::result::Result::Ok(__Identifier::__Identifier4),
+                        5u64 => ::core::result::Result::Ok(__Identifier::__Identifier5),
                         __variant => {
                             ::core::result::Result::Err(__serde::de::Error::invalid_value(
                                 __serde::de::Unexpected::Unsigned(__variant),
@@ -6407,7 +6426,9 @@ pub mod system {
                         "tryboot" => ::core::result::Result::Ok(__Identifier::__Identifier0),
                         "u-boot" => ::core::result::Result::Ok(__Identifier::__Identifier1),
                         "grub-efi" => ::core::result::Result::Ok(__Identifier::__Identifier2),
-                        "custom" => ::core::result::Result::Ok(__Identifier::__Identifier3),
+                        "mender-grub" => ::core::result::Result::Ok(__Identifier::__Identifier3),
+                        "mender-uboot" => ::core::result::Result::Ok(__Identifier::__Identifier4),
+                        "custom" => ::core::result::Result::Ok(__Identifier::__Identifier5),
                         __variant => ::core::result::Result::Err(
                             __serde::de::Error::unknown_variant(__variant, __IDENTIFIERS),
                         ),
@@ -6424,7 +6445,9 @@ pub mod system {
                         b"tryboot" => ::core::result::Result::Ok(__Identifier::__Identifier0),
                         b"u-boot" => ::core::result::Result::Ok(__Identifier::__Identifier1),
                         b"grub-efi" => ::core::result::Result::Ok(__Identifier::__Identifier2),
-                        b"custom" => ::core::result::Result::Ok(__Identifier::__Identifier3),
+                        b"mender-grub" => ::core::result::Result::Ok(__Identifier::__Identifier3),
+                        b"mender-uboot" => ::core::result::Result::Ok(__Identifier::__Identifier4),
+                        b"custom" => ::core::result::Result::Ok(__Identifier::__Identifier5),
                         __variant => {
                             ::core::result::Result::Err(__serde::de::Error::invalid_value(
                                 __serde::de::Unexpected::Bytes(__variant),
@@ -6447,8 +6470,14 @@ pub mod system {
                 }
             }
             #[doc(hidden)]
-            const __VARIANTS: &'static [&'static str] =
-                &["tryboot", "u-boot", "grub-efi", "custom"];
+            const __VARIANTS: &'static [&'static str] = &[
+                "tryboot",
+                "u-boot",
+                "grub-efi",
+                "mender-grub",
+                "mender-uboot",
+                "custom",
+            ];
             if __serde::Deserializer::is_human_readable(&__deserializer) {
                 let __tagged = __sidex_serde::de::tagged::deserialize_tagged_variant::<
                     __Identifier,
@@ -6465,6 +6494,12 @@ pub mod system {
                         ::core::result::Result::Ok(BootFlowConfig::GrubEfi)
                     }
                     __Identifier::__Identifier3 => {
+                        ::core::result::Result::Ok(BootFlowConfig::MenderGrub)
+                    }
+                    __Identifier::__Identifier4 => {
+                        ::core::result::Result::Ok(BootFlowConfig::MenderUboot)
+                    }
+                    __Identifier::__Identifier5 => {
                         ::core::result::Result::Ok(BootFlowConfig::Custom(
                             __tagged
                                 .deserialize_internally_tagged::<CustomBootFlowConfig, __D::Error>(
@@ -6505,6 +6540,12 @@ pub mod system {
                             __Identifier::__Identifier2 => {
                                 ::core::result::Result::Ok(BootFlowConfig::GrubEfi)
                             }
+                            __Identifier::__Identifier3 => {
+                                ::core::result::Result::Ok(BootFlowConfig::MenderGrub)
+                            }
+                            __Identifier::__Identifier4 => {
+                                ::core::result::Result::Ok(BootFlowConfig::MenderUboot)
+                            }
                             _ => Err(__E::invalid_value(
                                 __serde::de::Unexpected::Str(__value),
                                 &self,
@@ -6533,6 +6574,14 @@ pub mod system {
                                 ::core::result::Result::Ok(BootFlowConfig::GrubEfi)
                             }
                             (__Identifier::__Identifier3, __variant) => {
+                                __serde::de::VariantAccess::unit_variant(__variant)?;
+                                ::core::result::Result::Ok(BootFlowConfig::MenderGrub)
+                            }
+                            (__Identifier::__Identifier4, __variant) => {
+                                __serde::de::VariantAccess::unit_variant(__variant)?;
+                                ::core::result::Result::Ok(BootFlowConfig::MenderUboot)
+                            }
+                            (__Identifier::__Identifier5, __variant) => {
                                 let __value = __serde::de::VariantAccess::newtype_variant::<
                                     CustomBootFlowConfig,
                                 >(__variant)?;

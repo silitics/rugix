@@ -1,0 +1,20 @@
+#:schema https://raw.githubusercontent.com/silitics/rugix/refs/tags/v0.8.0/schemas/rugix-ctrl-system.schema.json
+
+[boot-flow]
+type = "mender-uboot"
+
+[boot-groups.a]
+slots = { system = "system-a" }
+
+[boot-groups.b]
+slots = { system = "system-b" }
+
+[slots.system-a]
+type = "block"
+partition = 2
+immutable = false
+
+[slots.system-b]
+type = "block"
+partition = 3
+immutable = false

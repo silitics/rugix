@@ -23,8 +23,8 @@
     "rugix_bakery.foreign.NumBytes": {
       "$id": "rugix_bakery.foreign.NumBytes",
       "type": [
-        "string",
-        "number"
+        "number",
+        "string"
       ],
       "description": "Number of bytes."
     },
