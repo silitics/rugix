@@ -434,6 +434,17 @@
           "type": "object",
           "properties": {
             "type": {
+              "const": "rauc-uboot"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
               "const": "mender-grub"
             }
           },

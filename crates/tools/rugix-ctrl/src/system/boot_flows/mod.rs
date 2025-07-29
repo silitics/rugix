@@ -16,6 +16,7 @@ use super::slots::SlotIdx;
 use super::{ConfigPartition, System};
 use crate::config::system::BootFlowConfig;
 use crate::system::boot_flows::mender::{MenderGrub, MenderUboot};
+use crate::system::boot_flows::rauc::RaucUboot;
 use crate::system::slots::SlotKind;
 use rugix_common::boot::grub::{load_grub_env, write_with_hash, RUGIX_BOOTPART};
 use rugix_common::boot::tryboot::{self, AutobootSection, AUTOBOOT_A, AUTOBOOT_B};
@@ -27,6 +28,7 @@ use rugix_common::{grub_patch_env, rpi_patch_boot};
 
 pub mod custom;
 pub mod mender;
+pub mod rauc;
 
 reportify::new_whatever_type! {
     BootFlowError
@@ -98,6 +100,7 @@ pub fn from_config(
             }),
             BootFlowConfig::MenderGrub => Box::new(MenderGrub::new(boot_entries)?),
             BootFlowConfig::MenderUboot => Box::new(MenderUboot::new(boot_entries)?),
+            BootFlowConfig::RaucUboot => Box::new(RaucUboot::new(boot_entries)?),
         });
     }
     let inner = rugix_boot_flow(boot_entries)?;

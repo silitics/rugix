@@ -73,10 +73,13 @@ variant BootFlowConfig {
     UBoot,
     /// Grub (EFI) boot flow.
     GrubEfi,
+    /// RAUC U-Boot.
+    #[json(name="rauc-uboot")]
+    RaucUboot,
     /// Mender Grub.
     #[json(name="mender-grub")]
     MenderGrub,
-    /// Mender Grub.
+    /// Mender U-Boot.
     #[json(name="mender-uboot")]
     MenderUboot,
     /// Custom boot flow.
