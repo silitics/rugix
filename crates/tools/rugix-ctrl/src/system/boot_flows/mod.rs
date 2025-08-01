@@ -65,6 +65,18 @@ pub trait BootFlow: Debug {
     fn post_install(&self, system: &System, group: BootGroupIdx) -> BootFlowResult<()> {
         Ok(())
     }
+
+    /// Called to mark the given boot group as *good*.
+    #[allow(unused_variables)]
+    fn mark_good(&self, system: &System, group: BootGroupIdx) -> BootFlowResult<()> {
+        Ok(())
+    }
+
+    /// Called to mark the given boot group as *bad*.
+    #[allow(unused_variables)]
+    fn mark_bad(&self, system: &System, group: BootGroupIdx) -> BootFlowResult<()> {
+        Ok(())
+    }
 }
 
 /// Boot group status.

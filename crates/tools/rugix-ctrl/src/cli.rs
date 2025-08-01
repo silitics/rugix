@@ -100,18 +100,18 @@ pub fn main() -> SystemResult<()> {
                     boot_group,
                 } => {
                     let check_hash = check_hash.as_deref()
-                        .map(|encoded_hash| -> SystemResult<ImageHash> {
-                            let (algorithm, hash) = encoded_hash
-                                .split_once(':')
-                                .ok_or_else(||
-                                    whatever!("Invalid format of hash. Format must be `sha256:<HEX-ENCODED-HASH>`.")
-                                )?;
-                            if algorithm != "sha256" {
-                                bail!("Algorithm must be SHA256.");
-                            }
-                            let decoded_hash = hex::decode(hash).whatever("unable to decode image hash")?;
-                            Ok(ImageHash::Sha256(decoded_hash))
-                    }).transpose()?;
+                            .map(|encoded_hash| -> SystemResult<ImageHash> {
+                                let (algorithm, hash) = encoded_hash
+                                    .split_once(':')
+                                    .ok_or_else(||
+                                        whatever!("Invalid format of hash. Format must be `sha256:<HEX-ENCODED-HASH>`.")
+                                    )?;
+                                if algorithm != "sha256" {
+                                    bail!("Algorithm must be SHA256.");
+                                }
+                                let decoded_hash = hex::decode(hash).whatever("unable to decode image hash")?;
+                                Ok(ImageHash::Sha256(decoded_hash))
+                        }).transpose()?;
 
                     if system.needs_commit()? {
                         bail!("System needs to be committed before installing an update.");
@@ -360,6 +360,41 @@ pub fn main() -> SystemResult<()> {
                     );
                 }
                 info!(slot_name = slot.name(), "slot verified successfully");
+            }
+        },
+        Command::Boot(cmd) => match cmd {
+            BootCommand::MarkGood { group } => {
+                let boot_group = match group {
+                    Some(entry_name) => {
+                        let Some((group, _)) = system.boot_entries().find_by_name(entry_name)
+                        else {
+                            bail!("unable to find entry {entry_name}")
+                        };
+                        group
+                    }
+                    None => system.active_boot_entry().unwrap(),
+                };
+                info!(
+                    "marking boot group {} as good",
+                    system.boot_entries()[boot_group].name()
+                );
+                system
+                    .boot_flow()
+                    .mark_good(&system, boot_group)
+                    .whatever("unable to mark boot group as good")?;
+            }
+            BootCommand::MarkBad { group } => {
+                let Some((group, _)) = system.boot_entries().find_by_name(group) else {
+                    bail!("unable to find entry {group}")
+                };
+                info!(
+                    "marking boot group {} as good",
+                    system.boot_entries()[group].name()
+                );
+                system
+                    .boot_flow()
+                    .mark_bad(&system, group)
+                    .whatever("unable to mark boot group as bad")?;
             }
         },
     }
@@ -1000,6 +1035,9 @@ pub enum Command {
     /// Manage the update slots of the system.
     #[clap(subcommand)]
     Slots(SlotsCommand),
+    /// Control the boot flow of the system.
+    #[clap(subcommand)]
+    Boot(BootCommand),
     /// Unstable experimental commands.
     #[clap(subcommand)]
     Unstable(UnstableCommand),
@@ -1089,4 +1127,12 @@ pub enum UnstableCommand {
         value: Boolean,
     },
     PrintSystemInfo,
+}
+
+#[derive(Debug, Parser)]
+pub enum BootCommand {
+    /// Mark a boot group as good.
+    MarkGood { group: Option<String> },
+    /// Mark a boot group as bad.
+    MarkBad { group: String },
 }

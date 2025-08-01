@@ -5,6 +5,36 @@ sidebar_position: 3
 # Boot Flows
 
 A *boot flow* provides the base mechanism to switch between different boot groups, e.g., to realize an A/B update scheme.
+To this end, a boot flow needs to be integrated with a bootloader.
+Rugix Ctrl provides the following *default boot flows*:
+
+- `uboot`: Boot flow for U-Boot (A/B updates without a dead men's switch).
+- `grub`: Boot flow for GRUB (A/B updates without a dead men's switch).
+
+For compatibility with other OTA update solutions, Rugix Ctrl further provides the following boot flows:
+
+- `rauc-uboot`: RAUC-compatible boot flow for U-Boot (priority-based with a dead men's switch).
+- `rauc-grub`: RAUC-compatible boot flow for GRUB (priority-based with a dead men's switch).
+- `mender-uboot`: Mender-compatible boot flow for U-Boot (A/B updates without a dead men's switch).
+- `mender-grub`: Mender-compatible boot flow for GRUB (A/B updates without a dead men's switch).
+
+:::note
+
+Those boot flows allow safe, in-the-field migrations to Rugix Ctrl from RAUC and Mender, respectively.
+This allows users to take advantage of Rugix Ctrl's advanced features, such as highly-efficient static delta updates and streaming from arbitrary sources, in brownfield projects without having to re-provision their devices.
+Furthermore, it allows existing bootloader integrations for RAUC and Mender to be re-used with Rugix Ctrl, even in new projects.
+
+:::
+
+In addition to the above generic boot flows, Rugix Ctrl also provides the following Raspberry Pi-specific boot flows:
+
+- `rpi-uboot`: Boot flow for Raspberry Pi using U-Boot.
+- `rpi-tryboot`: Boot flow for Raspberry Pi 4 and newer models using the `tryboot` mechanism of Raspberry Pi's firmware.
+
+If none of these boot flows fit your needs, you can also implement your own `custom` boot flow.
+
+
+## Boot Flow Interface
 
 Each boot flow must implement at least three operations:
 
@@ -19,9 +49,24 @@ In addition, a boot flow may support the following operations:
 
 - `pre_install(group)`: Runs before installing an update to the given group.
 - `post_install(group)`: Runs after installing an update to the given group.
+- `mark_good(group)`: Marks the given boot group as *good*.
+- `mark_bad(group)`: Marks the given boot group as *bad*.
 
+The `mark_good` and `mark_bad` are useful for implementing a dead men's switch, where the bootloader triggers a failover to another boot group, after a certain number of failed boot attempts.
+Note that Rugix Ctrl will **not** automatically mark boot groups as *good* or *bad*, instead an external mechanism is required to monitor the system and trigger the marking through `rugix-ctrl boot`.
 
-Installing an update to a boot group will trigger the following operations:
+:::info
+
+While a dead men's switch sounds like a great idea, it can also have diametral effects.
+If boot attempts fail or are considered failed due to external factors (user interactions, fluctuating power, connectivity issues), this may trigger inadvertent failovers until all boot groups are marked bad.
+A robust implementation should therefore include an always-operational recovery system that restores the system.
+As this is complex and difficult to implement correctly, Rugix Ctrl's default boot flows do not include a dead men's switch.
+Instead, a system committed to is assumed to stay good.
+As the state management functionality of Rugix Ctrl prevents accidental state from corrupting the system, this is a reasonable assumption in almost all typical cases.
+
+:::
+
+A typical update installation to a boot group will trigger the following operations:
 
 1. `pre_install(group)`
 2. Installation of the update.

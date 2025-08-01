@@ -111,4 +111,29 @@ impl BootFlow for RaucUboot {
         set_vars(&env)?;
         Ok(())
     }
+
+    fn mark_good(&self, _: &crate::system::System, group: BootGroupIdx) -> BootFlowResult<()> {
+        let mut env = HashMap::new();
+        if group == self.inner.entry_a {
+            env.insert("BOOT_A_LEFT".to_owned(), "3".to_owned());
+        } else {
+            env.insert("BOOT_A_LEFT".to_owned(), "3".to_owned());
+        };
+        set_vars(&env)?;
+        Ok(())
+    }
+
+    fn mark_bad(&self, system: &crate::system::System, group: BootGroupIdx) -> BootFlowResult<()> {
+        let mut env = HashMap::new();
+        if group == system.active_boot_entry().unwrap() {
+            bail!("cannot mark the active boot group as bad");
+        }
+        if group == self.inner.entry_a {
+            env.insert("BOOT_A_LEFT".to_owned(), "0".to_owned());
+        } else {
+            env.insert("BOOT_A_LEFT".to_owned(), "0".to_owned());
+        };
+        set_vars(&env)?;
+        Ok(())
+    }
 }
