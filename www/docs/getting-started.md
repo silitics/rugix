@@ -237,3 +237,13 @@ In particular, you should read the section on [State Management](./ctrl/state-ma
 [^state-management]: This may be surprising at first, but we consider it a feature that with Rugix the systems you build will typically be immutable and you have to be explicit about the state of the system you want to persist through updates and reboots.
 
 Happy building! 🚀
+
+:::tip
+
+**Looking for a way to securely access and update your devices in the field?** Check out [Nexigon](https://nexigon.dev/?utm_source=rugix.org&utm_campaign=rugix-quickstart-guide), the ready-made infrastructure layer for connected devices, designed to seamlessly integrate with your applications and workflows.
+As a next step, you can follow the [Nexigon quickstart guide for Rugix](https://docs.nexigon.dev/agent/build-system-integration/rugix/getting-started?utm_source=rugix.org&utm_campaign=rugix-quickstart-guide) to onboard your device and connect it to Nexigon.
+Nexigon is developed by the creators of Rugix as a complementary commercial offering to support the development and maintenance of Rugix as an open-source project.
+Neither Nexigon nor Rugix are bound to each other and you can use Nexigon without Rugix or vice versa.
+**Rugix [supports a variety of fleet management solutions](./ctrl/advanced/fleet-management.md) and gives you the freedom to choose the one that best fits your needs.**
+
+:::
