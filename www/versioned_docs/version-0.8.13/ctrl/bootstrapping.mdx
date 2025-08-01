@@ -60,7 +60,7 @@ partitions = [
     { name = "extended", type = "05" },
     { name = "system-a", size = "6GiB" },
     { name = "system-b", size = "6GiB" },
-    { name = "data", filesystem = "ext4" },
+    { name = "data", filesystem = { type = "ext4" } },
 ]
 ```
 
@@ -73,7 +73,7 @@ partitions = [
     { name = "boot-b", size = "256MiB" },
     { name = "system-a", size = "6GiB" },
     { name = "system-b", size = "6GiB" },
-    { name = "data", filesystem = "ext4" },
+    { name = "data", filesystem = { type = "ext4" } },
 ]
 ```
 

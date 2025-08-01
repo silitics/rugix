@@ -5,19 +5,27 @@ sidebar_position: 1
 # Fleet Management
 
 Rugix Ctrl provides a reliable foundation for OTA updates and state management.
-To manage a fleet of devices remotely and deliver updates to devices, Rugix Ctrl integrates well with existing off-the-shelf fleet management solutions.
+To manage a fleet of devices remotely and deliver updates to devices, Rugix Ctrl integrates well with a variety of existing off-the-shelf fleet management solutions.
 
-:::tip
+:::info
 
 As Rugix Ctrl is independent from a fleet management solution, it avoids vendor lock-in.
 When using Rugix Ctrl, **you can switch between different fleet management solutions at anytime** and continue updating your existing fleet.
 It also allows you to choose a fleet management provider based on the needs and requirements of your application.
-If you don't know which solution to choose, Silitics, [the company behind Rugix](/commercial-support) offers tailored consulting services.
 
 :::
 
-Currently, there are ready-made integrations with [thin-edge.io](https://thin-edge.io/), [Memfault](https://memfault.com/), and [Mender](https://mender.io/).
+Currently, there are ready-made integrations with [Nexigon](https://nexiogn.dev/?utm_source=rugix.org&utm_campaign=rugix-fleet-management), [thin-edge.io](https://thin-edge.io/), [Memfault](https://memfault.com/), and [Mender](https://mender.io/).
 For other fleet management solutions, you can develop your own integration or [contract Silitics](/commercial-support), the company behind Rugix, to develop an integration for you.
+
+
+## Nexigon
+
+Nexigon is a ready-made, modular infrastructure layer for connected devices, designed to seamlessly integrate with your applications and workflows.
+Nexigon is developed by the creators of Rugix as a complementary commercial offering to support the ongoing development and maintenance of Rugix as an open-source project.
+Nexigon provides a secure, reliable, and scalable foundation you can build upon.
+Follow the [Nexigon quickstart guide for Rugix](https://docs.nexigon.dev/agent/build-system-integration/rugix/getting-started?utm_source=rugix.org&utm_campaign=rugix-fleet-management) to onboard your device and connect it to Nexigon within minutes.
+
 
 ## thin-edge.io
 
@@ -28,11 +36,13 @@ That is, integrating thin-edge.io into your system is straightforward with ready
 Those recipes will also include an integration layer for Rugix Ctrl so that you can deploy updates without any further configuration.
 To learn more, check out the [thin-edge.io Rugix reference repository](https://github.com/thin-edge/tedge-rugpi-image).
 
+
 ## Memfault
 
 [Memfault](https://memfault.com/) is a fleet management solution with a focus on observability.
 We provide a [template repository showcasing how to integrate Rugix with Memfault](https://github.com/silitics/rugix-template-memfault).
 Check out the [corresponding Interrupt article for further details](https://interrupt.memfault.com/blog/robust-ota-updates-the-easy-way).
+
 
 ## Mender
 
