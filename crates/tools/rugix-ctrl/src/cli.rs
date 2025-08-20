@@ -26,7 +26,7 @@ use reportify::{bail, whatever, ErrorExt, ResultExt};
 use rugix_common::disk::stream::ImgStream;
 use rugix_common::maybe_compressed::{MaybeCompressed, PeekReader};
 use rugix_common::stream_hasher::StreamHasher;
-use xscript::{cmd_os, run, vars, ParentEnv, Run, Vars};
+use xscript::{cmd_os, vars, ParentEnv, Run, Vars};
 
 use crate::http_source::HttpSource;
 use crate::overlay::overlay_dir;
@@ -656,6 +656,12 @@ fn install_update_bundle<R: BundleSource>(
         let Some(signatures) = bundle_reader.signatures() else {
             bail!("no signatures found in bundle");
         };
+        if root_certs.is_empty() {
+            bail!("no root certificates provided for signature verification");
+        }
+        if root_certs.len() > 1 {
+            bail!("multiple root certificates are not yet supported");
+        }
         let mut found_valid_signature = false;
         info!("checking bundle signatures");
         for signature in signatures.cms_signatures.iter() {
@@ -675,6 +681,12 @@ fn install_update_bundle<R: BundleSource>(
                 "DER",
                 "-out",
                 &signed_metadata_raw,
+                // Do not load OS default certificates.
+                "-no-CAfile",
+                "-no-CApath",
+                "-no-CAstore",
+                // Non-zero exit code on verification failure.
+                "-verify_retcode",
             );
             for cert in root_certs {
                 if cert.is_dir() {

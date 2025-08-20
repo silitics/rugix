@@ -442,10 +442,17 @@ fn main() -> BundleResult<()> {
                         &signed_metadata_cms,
                         "-inform",
                         "DER",
-                        "-CAfile",
-                        &cert,
                         "-out",
                         &signed_metadata_raw,
+                        // Do not load OS default certificates.
+                        "-no-CAfile",
+                        "-no-CApath",
+                        "-no-CAstore",
+                        // Non-zero exit code on verification failure.
+                        "-verify_retcode",
+                        // Load provided certificate.
+                        "-CAfile",
+                        &cert,
                     ]) {
                         println!("{error}");
                         continue;
