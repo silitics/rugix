@@ -26,7 +26,7 @@ use reportify::{bail, whatever, ErrorExt, ResultExt};
 use rugix_common::disk::stream::ImgStream;
 use rugix_common::maybe_compressed::{MaybeCompressed, PeekReader};
 use rugix_common::stream_hasher::StreamHasher;
-use xscript::{run, vars, Run, Vars};
+use xscript::{cmd_os, run, vars, ParentEnv, Run, Vars};
 
 use crate::http_source::HttpSource;
 use crate::overlay::overlay_dir;
@@ -172,7 +172,7 @@ pub fn main() -> SystemResult<()> {
                         verify_bundle,
                         boot_group.as_ref(),
                         *verify_signature,
-                        root_cert.as_deref(),
+                        root_cert,
                     )?;
 
                     hooks
@@ -460,7 +460,7 @@ fn install_update_stream(
     verify_bundle: &Option<HashDigest>,
     boot_group: Option<&(BootGroupIdx, &BootGroup)>,
     verify_signature: bool,
-    root_cert: Option<&Path>,
+    root_cert: &[PathBuf],
 ) -> SystemResult<UpdateRebootType> {
     if image.starts_with("http") {
         if check_hash.is_some() {
@@ -646,16 +646,13 @@ fn install_update_bundle<R: BundleSource>(
     verify_bundle: &Option<HashDigest>,
     boot_group: Option<&(BootGroupIdx, &BootGroup)>,
     verify_signature: bool,
-    root_cert: Option<&Path>,
+    root_certs: &[PathBuf],
 ) -> SystemResult<UpdateRebootType> {
     let mut bundle_reader =
         rugix_bundle::reader::BundleReader::start(bundle_source, verify_bundle.clone())
             .whatever("unable to read bundle")?;
 
     if verify_signature {
-        let Some(root_cert) = root_cert else {
-            bail!("root certificate must be specified for signature verification");
-        };
         let Some(signatures) = bundle_reader.signatures() else {
             bail!("no signatures found in bundle");
         };
@@ -668,7 +665,7 @@ fn install_update_bundle<R: BundleSource>(
             let signed_metadata_cms = tempdir_path.join("signed-metadata.cms");
             std::fs::write(&signed_metadata_cms, &signature.raw)
                 .whatever("unable to write CMS signature")?;
-            if let Err(error) = run!([
+            let mut cmd = cmd_os!(
                 "openssl",
                 "cms",
                 "-verify",
@@ -676,11 +673,19 @@ fn install_update_bundle<R: BundleSource>(
                 &signed_metadata_cms,
                 "-inform",
                 "DER",
-                "-CAfile",
-                root_cert,
                 "-out",
                 &signed_metadata_raw,
-            ]) {
+            );
+            for cert in root_certs {
+                if cert.is_dir() {
+                    cmd.add_arg("-CApath");
+                    cmd.add_arg(cert);
+                } else {
+                    cmd.add_arg("-CAfile");
+                    cmd.add_arg(cert);
+                }
+            }
+            if let Err(error) = ParentEnv.run(cmd) {
                 println!("{error}");
                 continue;
             }
@@ -1159,8 +1164,8 @@ pub enum UpdateCommand {
         #[clap(long)]
         verify_signature: bool,
         /// Root certificate to use for signature verification.
-        #[clap(long)]
-        root_cert: Option<PathBuf>,
+        #[clap(long = "root-cert")]
+        root_cert: Vec<PathBuf>,
         /// Verify a bundle based on the provided hash.
         #[clap(long)]
         verify_bundle: Option<HashDigest>,
