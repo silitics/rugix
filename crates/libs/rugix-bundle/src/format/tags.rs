@@ -64,7 +64,8 @@ macro_rules! define_tags {
         // Compile time check that the tag is indeed required.
         const _: () = {
             if is_optional($name) {
-                panic!("tag is required but marked as optional");
+                panic!(stringify!($name));
+                // panic!("tag is required but marked as optional");
             }
         };
         define_tags! { @define { $($tail)* }}
@@ -73,7 +74,8 @@ macro_rules! define_tags {
         // Compile time check that the tag is indeed optional.
         const _: () = {
             if is_required($name) {
-                panic!("tag is optional but marked as required");
+                panic!(stringify!($name));
+                // panic!("tag is optional but marked as required");
             }
         };
         define_tags! { @define { $($tail)* }}
@@ -91,6 +93,7 @@ macro_rules! define_tags {
             #[allow(non_camel_case_types)]
             #[allow(clippy::enum_clike_unportable_variant)]
             #[allow(clippy::upper_case_acronyms)]
+            #[allow(dead_code)]
             enum Tags {
                 $(
                     $name = $tag,
@@ -164,6 +167,12 @@ define_tags! {
     BLOCK_INDEX_BLOCK_HASHES = 0x55e547d8,
     BLOCK_INDEX_BLOCK_SIZES = 0x4668c5ba,
 
+    /// Signatures segment of the bundle.
+    SIGNATURES = 0xa83936f1?,
+
+    /// CMS signature.
+    SIGNATURES_CMS_SIGNATURE = 0x9795498f?,
+
     /// Payloads segment of the bundle.
     PAYLOADS = 0x1f38fba,
 
@@ -198,4 +207,9 @@ define_tags! {
 
     /// Hash to identify a delta encoding input.
     DELTA_ENCODING_INPUT_HASH = 0x3a0d1307,
+
+    /// Signed metadata.
+    SIGNED_METADATA = 0x61d0871e,
+    /// Signed metadata header hash.
+    SIGNED_METADATA_HEADER_HASH = 0x1f992dfc,
 }

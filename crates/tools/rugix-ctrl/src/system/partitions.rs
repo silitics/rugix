@@ -129,7 +129,7 @@ impl ConfigPartition {
     /// Make the partition writable and return a guard.
     ///
     /// When the guard is dropped, the partition may become read-only again.
-    fn acquire_write_guard(&self) -> SystemResult<ConfigPartitionWriteGuard> {
+    fn acquire_write_guard(&self) -> SystemResult<ConfigPartitionWriteGuard<'_>> {
         let mut writer_count = self.writer_count.lock().unwrap();
         if self.protected && *writer_count == 0 {
             run!(["mount", "-o", "remount,rw", &self.path])

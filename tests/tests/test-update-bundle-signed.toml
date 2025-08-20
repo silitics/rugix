@@ -1,0 +1,57 @@
+[[systems]]
+system  = "customized-arm64"
+ssh = { private-key = "./keys/id_rsa" }
+
+[[steps]]
+action = "run"
+description = "check system state prior to update"
+script = """
+#!/bin/bash
+set -euo pipefail
+rugix-system-assert ".boot.defaultGroup" "a"
+rugix-system-assert ".boot.activeGroup" "a"
+"""
+
+[[steps]]
+action = "run"
+description = "try to install a system update with an invalid signature"
+stdin-file = "./build/customized-arm64-signed.rugixb"
+script = """
+#!/bin/bash
+set -euo pipefail
+if rugix-ctrl update install --reboot no --verify-signature --root-cert /etc/rugix/other-root.crt -; then
+    echo "ERROR: Installation succeeded with wrong root certificate!"
+    exit 1
+else
+    echo "SUCCESS: Installation failed as expected with wrong root certificate."
+fi
+"""
+
+[[steps]]
+action = "run"
+description = "install a system update"
+stdin-file = "./build/customized-arm64-signed.rugixb"
+# Rebooting may cause the SSH client to disconnect while executing the script.
+may-disconnect = true
+script = """
+#!/bin/bash
+set -euo pipefail
+rugix-ctrl update install --verify-signature --root-cert /etc/rugix/root.crt -
+"""
+
+[[steps]]
+action = "wait"
+duration = 10
+
+[[steps]]
+action = "run"
+description = "check whether the update has been installed"
+script = """
+#!/bin/bash
+set -euo pipefail
+rugix-system-assert ".boot.defaultGroup" "a"
+rugix-system-assert ".boot.activeGroup" "b"
+rugix-ctrl system commit
+rugix-system-assert ".boot.defaultGroup" "b"
+rugix-system-assert ".boot.activeGroup" "b"
+"""

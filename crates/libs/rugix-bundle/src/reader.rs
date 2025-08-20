@@ -5,22 +5,26 @@ use block_provider::StoredBlockProvider;
 use byte_calc::{ByteLen, NumBytes};
 use reportify::{bail, whatever, ResultExt};
 use rugix_compression::{ByteProcessor, CompressionFormat};
-use si_crypto_hashes::HashDigest;
+use si_crypto_hashes::{HashAlgorithm, HashDigest};
 use tracing::{error, trace};
 
 use crate::block_encoding::block_index::{BlockId, RawBlockIndex};
 use crate::block_encoding::block_table::BlockTable;
 use crate::format::decode::decode_slice;
 use crate::format::stlv::{read_atom_head, skip, write_atom_head, AtomHead, Tag};
-use crate::format::{self, tags};
+use crate::format::{self, tags, Signatures};
 use crate::source::BundleSource;
-use crate::{BundleResult, BUNDLE_HEADER_SIZE_LIMIT, PAYLOAD_HEADER_SIZE_LIMIT};
+use crate::{
+    BundleResult, BUNDLE_HEADER_SIZE_LIMIT, PAYLOAD_HEADER_SIZE_LIMIT, SIGNATURES_SIZE_LIMIT,
+};
 
 pub mod block_provider;
 
 pub struct BundleReader<S> {
     source: S,
     header: format::BundleHeader,
+    header_raw: Vec<u8>,
+    signatures: Option<Signatures>,
     next_payload: usize,
 }
 
@@ -41,16 +45,31 @@ impl<S: BundleSource> BundleReader<S> {
             }
         }
         let header = decode_slice::<format::BundleHeader>(&bundle_header)?;
-        let _ = skip_until_start(&mut source, tags::PAYLOADS)?;
+        let signatures = read_optional_metadata(&mut source)?;
+        // At this point, we are in the payloads section.
         Ok(Self {
             source,
             header,
+            signatures,
+            header_raw: bundle_header,
             next_payload: 0,
         })
     }
 
     pub fn header(&self) -> &format::BundleHeader {
         &self.header
+    }
+
+    pub fn header_raw(&self) -> &[u8] {
+        &self.header_raw
+    }
+
+    pub fn header_hash(&self, algorithm: HashAlgorithm) -> HashDigest {
+        algorithm.hash(&self.header_raw)
+    }
+
+    pub fn signatures(&self) -> Option<&Signatures> {
+        self.signatures.as_ref()
     }
 
     pub fn next_payload(&mut self) -> BundleResult<Option<PayloadReader<'_, S>>> {
@@ -86,6 +105,30 @@ impl<S: BundleSource> BundleReader<S> {
             remaining_data,
         }))
     }
+}
+
+/// Read optional bundle metadata advancing the source to the payload section.
+pub fn read_optional_metadata(source: &mut dyn BundleSource) -> BundleResult<Option<Signatures>> {
+    let mut signatures = None;
+    loop {
+        let head = expect_atom_head(source)?;
+        match head.tag() {
+            tags::PAYLOADS if head.is_start() => break,
+            tags::SIGNATURES if head.is_start() => {
+                if signatures.is_some() {
+                    bail!("multiple signature segments");
+                }
+                let mut bundle_signatures = Vec::new();
+                read_into_vec(source, &mut bundle_signatures, head, SIGNATURES_SIZE_LIMIT)?;
+                signatures = Some(decode_slice(&bundle_signatures)?);
+            }
+            _ if tags::is_required(head.tag()) => {
+                bail!("found unexpected required tag {}", head.tag());
+            }
+            _ => skip(source, head)?,
+        }
+    }
+    Ok(signatures)
 }
 
 pub struct PayloadReader<'r, S> {

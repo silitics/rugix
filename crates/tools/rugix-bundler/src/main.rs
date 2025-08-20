@@ -2,9 +2,12 @@ use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 
+use cms::cert::x509::der::oid::db::rfc5911::ID_SIGNED_DATA;
+use cms::cert::x509::der::Decode;
 use reportify::{bail, ResultExt};
+use rugix_bundle::format::decode::decode_slice;
 use rugix_bundle::format::tags::TagNameResolver;
 use rugix_bundle::manifest::{
     BlockEncoding, BundleManifest, Compression, DeliveryConfig, DeltaEncoding, DeltaEncodingFormat,
@@ -13,10 +16,11 @@ use rugix_bundle::manifest::{
 use rugix_bundle::reader::BundleReader;
 use rugix_bundle::source::FileSource;
 use rugix_bundle::xdelta::xdelta_compress;
-use rugix_bundle::BundleResult;
+use rugix_bundle::{add_bundle_signature, bundle_hash, format, signed_metadata, BundleResult};
 use rugix_chunker::ChunkerAlgorithm;
 use si_crypto_hashes::HashDigest;
 use tracing::{info, Level};
+use xscript::{cmd_os, run, ParentEnv, Run};
 
 mod simulation;
 
@@ -43,12 +47,61 @@ pub enum Cmd {
     Delta(DeltaCmd),
     /// Inspect an update bundle.
     Inspect(InspectCmd),
+    /// Manipulate and inspect signatures.
+    #[clap(subcommand)]
+    Signatures(SignaturesCmd),
     /// Simulate an update.
     #[clap(subcommand)]
     Simulator(simulation::SimulationCmd),
     /// Print the low-level structure of a bundle.
     #[clap(hide(true))]
     PrintStructure(PrintCmd),
+}
+
+#[derive(Debug, Subcommand)]
+pub enum SignaturesCmd {
+    /// Add a signature to a bundle.
+    Add {
+        /// Bundle to add the signature to.
+        bundle: PathBuf,
+        /// Signature in CMS format.
+        signature: PathBuf,
+        /// Output bundle.
+        out: PathBuf,
+    },
+    /// Extract bundle metadata for signing.
+    Prepare {
+        /// Bundle to extract metadata from.
+        bundle: PathBuf,
+        /// Output path.
+        out: PathBuf,
+    },
+    /// List the signatures in a bundle.
+    List {
+        /// Bundle to inspect.
+        bundle: PathBuf,
+    },
+    /// Sign a bundle.
+    Sign {
+        /// Additional intermediate certificates to include.
+        #[clap(long = "intermediate-cert")]
+        certs: Vec<PathBuf>,
+        /// Bundle to sign.
+        bundle: PathBuf,
+        /// Signer certificate.
+        cert: PathBuf,
+        /// Signer private key.
+        key: PathBuf,
+        /// Output path.
+        out: PathBuf,
+    },
+    /// Verify that the bundle has been signed using the given certificate.
+    Verify {
+        /// Bundle to verify.
+        bundle: PathBuf,
+        /// Root certificate.
+        cert: PathBuf,
+    },
 }
 
 #[derive(Debug, Parser)]
@@ -277,6 +330,143 @@ fn main() -> BundleResult<()> {
         Cmd::Simulator(cmd) => {
             simulation::run(&cmd);
         }
+        Cmd::Signatures(cmd) => match cmd {
+            SignaturesCmd::Add {
+                bundle,
+                signature,
+                out,
+            } => {
+                let signature = std::fs::read(&signature).whatever("unable to read signature")?;
+                let content_info = cms::content_info::ContentInfo::from_der(&signature)
+                    .expect("invalid signature");
+                if content_info.content_type != ID_SIGNED_DATA {
+                    bail!("invalid signature content type");
+                }
+                let signed_data = content_info
+                    .content
+                    .decode_as::<cms::signed_data::SignedData>()
+                    .expect("invalid signature");
+                println!("CMS Version: {:?}", signed_data.version);
+                println!(
+                    "Embedded Certificates: {}",
+                    signed_data.certificates.map(|c| c.0.len()).unwrap_or(0)
+                );
+                let bundle_hash = bundle_hash(&bundle)?;
+                if let Some(content) = signed_data.encap_content_info.econtent {
+                    let signed_metadata = decode_slice::<format::SignedMetadata>(content.value())?;
+                    if bundle_hash != signed_metadata.header_hash {
+                        bail!("bundle hash does not match signature");
+                    }
+                } else {
+                    bail!("no encapsulated content");
+                }
+                add_bundle_signature(&bundle, signature, &out)?;
+            }
+            SignaturesCmd::List { bundle } => {
+                let source = FileSource::from_unbuffered(File::open(&bundle).unwrap());
+                let reader = BundleReader::start(source, None)?;
+                if let Some(signatures) = reader.signatures() {
+                    for (idx, signature) in signatures.cms_signatures.iter().enumerate() {
+                        println!("CMS Signature {} (length={})", idx, signature.raw.len());
+                    }
+                } else {
+                    println!("No signatures found");
+                }
+            }
+            SignaturesCmd::Prepare { bundle, out } => {
+                let metadata = signed_metadata(&bundle)?;
+                std::fs::write(out, metadata).whatever("unable to write metadata")?;
+            }
+            SignaturesCmd::Sign {
+                certs,
+                bundle,
+                cert,
+                key,
+                out,
+            } => {
+                let tempdir =
+                    tempfile::tempdir().whatever("unable to create temporary directory")?;
+                let tempdir_path = tempdir.path();
+                let signed_metadata_raw = tempdir_path.join("signed-metadata.raw");
+                let signed_metadata_cms = tempdir_path.join("signed-metadata.cms");
+                let metadata = signed_metadata(&bundle)?;
+                std::fs::write(&signed_metadata_raw, metadata)
+                    .whatever("unable to write metadata")?;
+                let mut cmd = cmd_os!(
+                    "openssl",
+                    "cms",
+                    "-sign",
+                    "-in",
+                    &signed_metadata_raw,
+                    "-signer",
+                    &cert,
+                    "-inkey",
+                    &key,
+                    "-out",
+                    &signed_metadata_cms,
+                    "-outform",
+                    "DER",
+                    "-nosmimecap",
+                    "-nodetach",
+                    "-binary"
+                );
+                for cert in certs {
+                    cmd.add_arg("-certfile");
+                    cmd.add_arg(cert);
+                }
+                ParentEnv.run(cmd).whatever("unable to sign bundle")?;
+                let signature =
+                    std::fs::read(&signed_metadata_cms).whatever("unable to read signature")?;
+                add_bundle_signature(&bundle, signature, &out)?;
+            }
+            SignaturesCmd::Verify { bundle, cert } => {
+                let source = FileSource::from_unbuffered(File::open(&bundle).unwrap());
+                let reader = BundleReader::start(source, None)?;
+                let Some(signatures) = reader.signatures() else {
+                    bail!("no signatures found");
+                };
+                let mut found_valid_signature = false;
+                for signature in signatures.cms_signatures.iter() {
+                    let tempdir =
+                        tempfile::tempdir().whatever("unable to create temporary directory")?;
+                    let tempdir_path = tempdir.path();
+                    let signed_metadata_raw = tempdir_path.join("signed-metadata.raw");
+                    let signed_metadata_cms = tempdir_path.join("signed-metadata.cms");
+                    std::fs::write(&signed_metadata_cms, &signature.raw)
+                        .whatever("unable to write CMS signature")?;
+                    if let Err(error) = run!([
+                        "openssl",
+                        "cms",
+                        "-verify",
+                        "-in",
+                        &signed_metadata_cms,
+                        "-inform",
+                        "DER",
+                        "-CAfile",
+                        &cert,
+                        "-out",
+                        &signed_metadata_raw,
+                    ]) {
+                        println!("{error}");
+                        continue;
+                    }
+                    let signed_metadata = std::fs::read(&signed_metadata_raw)
+                        .whatever("unable to read signed metadata")?;
+                    let signed_metadata = decode_slice::<format::SignedMetadata>(&signed_metadata)
+                        .whatever("unable to decode signed metadata")?;
+                    if signed_metadata.header_hash
+                        == reader.header_hash(signed_metadata.header_hash.algorithm())
+                    {
+                        found_valid_signature = true;
+                        println!("Found valid signature!");
+                        break;
+                    }
+                }
+                if !found_valid_signature {
+                    bail!("no valid signature found");
+                }
+            }
+        },
     }
     Ok(())
 }
