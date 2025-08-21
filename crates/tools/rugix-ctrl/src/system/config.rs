@@ -43,7 +43,7 @@ mod tests {
             partition = 7
 
             [boot-flow]
-            type = "u-boot"
+            type = "rpi-uboot"
 
             [slots.boot-a]
             type = "block"
