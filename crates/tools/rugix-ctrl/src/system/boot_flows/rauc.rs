@@ -4,27 +4,47 @@ use hashbrown::HashMap;
 use reportify::bail;
 
 use crate::boot::fwenv::{load_vars, set_vars};
+use crate::config::system::RaucBootFlowConfig;
 use crate::system::boot_flows::{BootFlow, BootFlowResult};
 use crate::system::boot_groups::{BootGroupIdx, BootGroups};
 
-#[derive(Debug)]
-struct RaucBootFlow {
-    entry_a: BootGroupIdx,
-    entry_b: BootGroupIdx,
+#[derive(Debug, Clone)]
+struct RaucBootGroup {
+    idx: BootGroupIdx,
+    name: String,
 }
 
-fn rauc_boot_fow(boot_entries: &BootGroups) -> BootFlowResult<RaucBootFlow> {
-    let mut entries = boot_entries.iter();
-    let Some((entry_a_idx, _)) = entries.next() else {
-        bail!("invalid number of entries");
-    };
-    let Some((entry_b_idx, _)) = entries.next() else {
-        bail!("invalid number of entries");
-    };
-    Ok(RaucBootFlow {
-        entry_a: entry_a_idx,
-        entry_b: entry_b_idx,
-    })
+#[derive(Debug)]
+struct RaucBootFlow {
+    groups: HashMap<BootGroupIdx, RaucBootGroup>,
+}
+
+fn rauc_boot_fow(
+    boot_entries: &BootGroups,
+    config: &RaucBootFlowConfig,
+) -> BootFlowResult<RaucBootFlow> {
+    let groups = boot_entries
+        .iter()
+        .enumerate()
+        .map(|(no, (idx, group))| {
+            (
+                idx,
+                RaucBootGroup {
+                    idx,
+                    name: config
+                        .group_names
+                        .as_ref()
+                        .and_then(|n| n.get(no))
+                        .map(|n| n.to_owned())
+                        .unwrap_or_else(|| group.name().to_uppercase()),
+                },
+            )
+        })
+        .collect::<HashMap<_, _>>();
+    if groups.len() < 2 {
+        bail!("at least two boot groups are required");
+    }
+    Ok(RaucBootFlow { groups })
 }
 
 #[derive(Debug)]
@@ -33,8 +53,8 @@ pub struct RaucUboot {
 }
 
 impl RaucUboot {
-    pub fn new(boot_entries: &BootGroups) -> BootFlowResult<Self> {
-        let inner = rauc_boot_fow(boot_entries)?;
+    pub fn new(boot_entries: &BootGroups, config: &RaucBootFlowConfig) -> BootFlowResult<Self> {
+        let inner = rauc_boot_fow(boot_entries, config)?;
         Ok(Self { inner })
     }
 }
@@ -50,16 +70,23 @@ impl BootFlow for RaucUboot {
         group: BootGroupIdx,
     ) -> super::BootFlowResult<()> {
         if group != self.get_default(system)? {
+            let boot_env = load_vars()?;
+            let Some(rauc_group) = self.inner.groups.get(&group) else {
+                bail!("invalid boot group");
+            };
+            let Some(mut boot_order) = boot_env.get("BOOT_ORDER").map(|v| v.trim()).map(|v| {
+                v.split_whitespace()
+                    .map(|e| e.to_owned())
+                    .collect::<Vec<_>>()
+            }) else {
+                bail!("unable to determine the boot order");
+            };
+            boot_order.retain(|e| e != &rauc_group.name);
+            boot_order.insert(0, rauc_group.name.clone());
             let mut env = HashMap::new();
-            if group == self.inner.entry_a {
-                env.insert("BOOT_ORDER".to_owned(), "A B".to_owned());
-                env.insert("BOOT_A_LEFT".to_owned(), "1".to_owned());
-                env.insert("BOOT_B_LEFT".to_owned(), "3".to_owned());
-            } else {
-                env.insert("BOOT_ORDER".to_owned(), "B A".to_owned());
-                env.insert("BOOT_A_LEFT".to_owned(), "3".to_owned());
-                env.insert("BOOT_B_LEFT".to_owned(), "1".to_owned());
-            }
+            // Allow booting into the selected slot once.
+            env.insert(format!("BOOT_{}_LEFT", rauc_group.name), "1".to_owned());
+            env.insert("BOOT_ORDER".to_owned(), boot_order.join(" "));
             set_vars(&env)?;
         }
         Ok(())
@@ -67,58 +94,54 @@ impl BootFlow for RaucUboot {
 
     fn get_default(&self, _: &crate::system::System) -> super::BootFlowResult<BootGroupIdx> {
         let boot_env = load_vars()?;
-        let Some(boot_order) = boot_env.get("BOOT_ORDER").map(|v| v.trim()) else {
+        let Some(boot_order) = boot_env
+            .get("BOOT_ORDER")
+            .map(|v| v.trim())
+            .map(|v| v.split_whitespace().collect::<Vec<_>>())
+        else {
             bail!("unable to determine the boot order");
         };
-        let Some(a_left) = boot_env
-            .get("BOOT_A_LEFT")
-            .and_then(|v| v.trim().parse::<u32>().ok())
-        else {
-            bail!("Update available flag is not set");
-        };
-        let Some(b_left) = boot_env
-            .get("BOOT_B_LEFT")
-            .and_then(|v| v.trim().parse::<u32>().ok())
-        else {
-            bail!("Update available flag is not set");
-        };
-        let a_first = boot_order == "A B";
-        // Invert active `mender_boot_part` if an update is available.
-        Ok(if a_first {
-            if a_left > 0 {
-                self.inner.entry_a
-            } else {
-                self.inner.entry_b
+        for group in boot_order {
+            let left = boot_env
+                .get(&format!("BOOT_{group}_LEFT"))
+                .and_then(|v| v.trim().parse::<u32>().ok())
+                .unwrap_or(0);
+            for rauc_group in self.inner.groups.values() {
+                if group == rauc_group.name && left > 0 {
+                    return Ok(rauc_group.idx);
+                }
             }
-        } else {
-            if b_left > 0 {
-                self.inner.entry_b
-            } else {
-                self.inner.entry_a
-            }
-        })
+        }
+        bail!("unable to determine the default boot group");
     }
 
     fn commit(&self, system: &crate::system::System) -> super::BootFlowResult<()> {
-        let mut env = HashMap::new();
-        if system.active_boot_entry().unwrap() == self.inner.entry_a {
-            env.insert("BOOT_ORDER".to_owned(), "A B".to_owned());
-            env.insert("BOOT_A_LEFT".to_owned(), "3".to_owned());
-        } else {
-            env.insert("BOOT_ORDER".to_owned(), "B A".to_owned());
-            env.insert("BOOT_A_LEFT".to_owned(), "3".to_owned());
+        let boot_env = load_vars()?;
+        let group = system.active_boot_entry().unwrap();
+        let Some(rauc_group) = self.inner.groups.get(&group) else {
+            bail!("invalid boot group");
         };
+        let Some(mut boot_order) = boot_env.get("BOOT_ORDER").map(|v| v.trim()).map(|v| {
+            v.split_whitespace()
+                .map(|e| e.to_owned())
+                .collect::<Vec<_>>()
+        }) else {
+            bail!("unable to determine the boot order");
+        };
+        boot_order.retain(|e| e != &rauc_group.name);
+        boot_order.insert(0, rauc_group.name.clone());
+        let mut env = HashMap::new();
+        // Allow booting into the selected slot once.
+        env.insert(format!("BOOT_{}_LEFT", rauc_group.name), "3".to_owned());
+        env.insert("BOOT_ORDER".to_owned(), boot_order.join(" "));
         set_vars(&env)?;
         Ok(())
     }
 
     fn mark_good(&self, _: &crate::system::System, group: BootGroupIdx) -> BootFlowResult<()> {
         let mut env = HashMap::new();
-        if group == self.inner.entry_a {
-            env.insert("BOOT_A_LEFT".to_owned(), "3".to_owned());
-        } else {
-            env.insert("BOOT_A_LEFT".to_owned(), "3".to_owned());
-        };
+        let rauc_group = self.inner.groups.get(&group).unwrap();
+        env.insert(format!("BOOT_{}_LEFT", rauc_group.name), "3".to_owned());
         set_vars(&env)?;
         Ok(())
     }
@@ -128,11 +151,126 @@ impl BootFlow for RaucUboot {
         if group == system.active_boot_entry().unwrap() {
             bail!("cannot mark the active boot group as bad");
         }
-        if group == self.inner.entry_a {
-            env.insert("BOOT_A_LEFT".to_owned(), "0".to_owned());
-        } else {
-            env.insert("BOOT_A_LEFT".to_owned(), "0".to_owned());
+        let rauc_group = self.inner.groups.get(&group).unwrap();
+        env.insert(format!("BOOT_{}_LEFT", rauc_group.name), "0".to_owned());
+        set_vars(&env)?;
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct RaucGrub {
+    inner: RaucBootFlow,
+}
+
+impl RaucGrub {
+    pub fn new(boot_entries: &BootGroups, config: &RaucBootFlowConfig) -> BootFlowResult<Self> {
+        let inner = rauc_boot_fow(boot_entries, config)?;
+        Ok(Self { inner })
+    }
+}
+
+impl BootFlow for RaucGrub {
+    fn name(&self) -> &str {
+        "rauc-grub"
+    }
+
+    fn set_try_next(
+        &self,
+        system: &crate::system::System,
+        group: BootGroupIdx,
+    ) -> super::BootFlowResult<()> {
+        if group != self.get_default(system)? {
+            let boot_env = load_vars()?;
+            let Some(rauc_group) = self.inner.groups.get(&group) else {
+                bail!("invalid boot group");
+            };
+            let Some(mut boot_order) = boot_env.get("BOOT_ORDER").map(|v| v.trim()).map(|v| {
+                v.split_whitespace()
+                    .map(|e| e.to_owned())
+                    .collect::<Vec<_>>()
+            }) else {
+                bail!("unable to determine the boot order");
+            };
+            boot_order.retain(|e| e != &rauc_group.name);
+            boot_order.insert(0, rauc_group.name.clone());
+            let mut env = HashMap::new();
+            env.insert(format!("{}_OK", rauc_group.name), "1".to_owned());
+            env.insert(format!("{}_TRY", rauc_group.name), "0".to_owned());
+            env.insert("BOOT_ORDER".to_owned(), boot_order.join(" "));
+            set_vars(&env)?;
+        }
+        Ok(())
+    }
+
+    fn get_default(&self, _: &crate::system::System) -> super::BootFlowResult<BootGroupIdx> {
+        let boot_env = load_vars()?;
+        let Some(boot_order) = boot_env
+            .get("BOOT_ORDER")
+            .map(|v| v.trim())
+            .map(|v| v.split_whitespace().collect::<Vec<_>>())
+        else {
+            bail!("unable to determine the boot order");
         };
+        for group in boot_order {
+            let group_ok = boot_env
+                .get(&format!("{group}_OK"))
+                .and_then(|v| v.trim().parse::<u32>().ok())
+                .unwrap_or(0);
+            let group_try = boot_env
+                .get(&format!("{group}_TRY"))
+                .and_then(|v| v.trim().parse::<u32>().ok())
+                .unwrap_or(1);
+            for rauc_group in self.inner.groups.values() {
+                if group_ok > 0 && group_try < 1 {
+                    return Ok(rauc_group.idx);
+                }
+            }
+        }
+        bail!("unable to determine the default boot group");
+    }
+
+    fn commit(&self, system: &crate::system::System) -> super::BootFlowResult<()> {
+        let boot_env = load_vars()?;
+        let group = system.active_boot_entry().unwrap();
+        let Some(rauc_group) = self.inner.groups.get(&group) else {
+            bail!("invalid boot group");
+        };
+        let Some(mut boot_order) = boot_env.get("BOOT_ORDER").map(|v| v.trim()).map(|v| {
+            v.split_whitespace()
+                .map(|e| e.to_owned())
+                .collect::<Vec<_>>()
+        }) else {
+            bail!("unable to determine the boot order");
+        };
+        boot_order.retain(|e| e != &rauc_group.name);
+        boot_order.insert(0, rauc_group.name.clone());
+        let mut env = HashMap::new();
+        // Allow booting into the selected slot once.
+        env.insert(format!("{}_OK", rauc_group.name), "1".to_owned());
+        env.insert(format!("{}_TRY", rauc_group.name), "0".to_owned());
+        env.insert("BOOT_ORDER".to_owned(), boot_order.join(" "));
+        set_vars(&env)?;
+        Ok(())
+    }
+
+    fn mark_good(&self, _: &crate::system::System, group: BootGroupIdx) -> BootFlowResult<()> {
+        let mut env = HashMap::new();
+        let rauc_group = self.inner.groups.get(&group).unwrap();
+        env.insert(format!("{}_OK", rauc_group.name), "1".to_owned());
+        env.insert(format!("{}_TRY", rauc_group.name), "0".to_owned());
+        set_vars(&env)?;
+        Ok(())
+    }
+
+    fn mark_bad(&self, system: &crate::system::System, group: BootGroupIdx) -> BootFlowResult<()> {
+        let mut env = HashMap::new();
+        if group == system.active_boot_entry().unwrap() {
+            bail!("cannot mark the active boot group as bad");
+        }
+        let rauc_group = self.inner.groups.get(&group).unwrap();
+        env.insert(format!("{}_OK", rauc_group.name), "0".to_owned());
+        env.insert(format!("{}_TRY", rauc_group.name), "0".to_owned());
         set_vars(&env)?;
         Ok(())
     }

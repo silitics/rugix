@@ -6327,18 +6327,22 @@ pub mod system {
     #[derive(Clone, Debug)]
     pub enum BootFlowConfig {
         #[doc = "Tryboot boot flow.\n"]
-        Tryboot,
+        RpiTryboot,
         #[doc = "U-Boot boot flow.\n"]
-        UBoot,
+        RpiUboot,
+        #[doc = "Generic U-boot boot flow.\n"]
+        Uboot,
         #[doc = "Grub (EFI) boot flow.\n"]
-        GrubEfi,
-        #[doc = "RAUC U-Boot.\n"]
-        RaucUboot,
-        #[doc = "Mender Grub.\n"]
-        MenderGrub,
-        #[doc = "Mender U-Boot.\n"]
-        MenderUboot,
-        #[doc = "Custom boot flow.\n"]
+        Grub,
+        #[doc = "RAUC-compatible U-Boot boot flow.\n"]
+        RaucUboot(RaucBootFlowConfig),
+        #[doc = "RAUC-compatible Grub boot flow.\n"]
+        RaucGrub(RaucBootFlowConfig),
+        #[doc = "Mender-compatible Grub boot flow.\n"]
+        MenderGrub(MenderBootFlowConfig),
+        #[doc = "Mender-compatible U-Boot boot flow.\n"]
+        MenderUboot(MenderBootFlowConfig),
+        #[doc = "Custom, user-defined boot flow.\n"]
         Custom(CustomBootFlowConfig),
     }
     #[automatically_derived]
@@ -6350,18 +6354,26 @@ pub mod system {
             let __serializer =
                 __sidex_serde::ser::VariantSerializer::new(__serializer, "BootFlowConfig");
             match self {
-                Self::Tryboot => __serializer.serialize_internal_tag("type", "tryboot", 0u32),
-                Self::UBoot => __serializer.serialize_internal_tag("type", "u-boot", 1u32),
-                Self::GrubEfi => __serializer.serialize_internal_tag("type", "grub-efi", 2u32),
-                Self::RaucUboot => __serializer.serialize_internal_tag("type", "rauc-uboot", 3u32),
-                Self::MenderGrub => {
-                    __serializer.serialize_internal_tag("type", "mender-grub", 4u32)
+                Self::RpiTryboot => {
+                    __serializer.serialize_internal_tag("type", "rpi-tryboot", 0u32)
                 }
-                Self::MenderUboot => {
-                    __serializer.serialize_internal_tag("type", "mender-uboot", 5u32)
+                Self::RpiUboot => __serializer.serialize_internal_tag("type", "rpi-uboot", 1u32),
+                Self::Uboot => __serializer.serialize_internal_tag("type", "uboot", 2u32),
+                Self::Grub => __serializer.serialize_internal_tag("type", "grub", 3u32),
+                Self::RaucUboot(__value) => {
+                    __serializer.serialize_internally_tagged("type", "rauc-uboot", 4u32, __value)
+                }
+                Self::RaucGrub(__value) => {
+                    __serializer.serialize_internally_tagged("type", "rauc-grub", 5u32, __value)
+                }
+                Self::MenderGrub(__value) => {
+                    __serializer.serialize_internally_tagged("type", "mender-grub", 6u32, __value)
+                }
+                Self::MenderUboot(__value) => {
+                    __serializer.serialize_internally_tagged("type", "mender-uboot", 7u32, __value)
                 }
                 Self::Custom(__value) => {
-                    __serializer.serialize_internally_tagged("type", "custom", 6u32, __value)
+                    __serializer.serialize_internally_tagged("type", "custom", 8u32, __value)
                 }
             }
         }
@@ -6373,16 +6385,18 @@ pub mod system {
         ) -> ::std::result::Result<Self, __D::Error> {
             #[doc(hidden)]
             const __IDENTIFIERS: &'static [&'static str] = &[
-                "tryboot",
-                "u-boot",
-                "grub-efi",
+                "rpi-tryboot",
+                "rpi-uboot",
+                "uboot",
+                "grub",
                 "rauc-uboot",
+                "rauc-grub",
                 "mender-grub",
                 "mender-uboot",
                 "custom",
             ];
             #[doc(hidden)]
-            const __EXPECTING_IDENTIFIERS : & 'static str = "an identifier in [\"tryboot\", \"u-boot\", \"grub-efi\", \"rauc-uboot\", \"mender-grub\", \"mender-uboot\", \"custom\"]" ;
+            const __EXPECTING_IDENTIFIERS : & 'static str = "an identifier in [\"rpi-tryboot\", \"rpi-uboot\", \"uboot\", \"grub\", \"rauc-uboot\", \"rauc-grub\", \"mender-grub\", \"mender-uboot\", \"custom\"]" ;
             #[derive(:: core :: clone :: Clone, :: core :: marker :: Copy)]
             #[doc(hidden)]
             enum __Identifier {
@@ -6393,6 +6407,8 @@ pub mod system {
                 __Identifier4,
                 __Identifier5,
                 __Identifier6,
+                __Identifier7,
+                __Identifier8,
             }
             #[doc(hidden)]
             struct __IdentifierVisitor;
@@ -6416,6 +6432,8 @@ pub mod system {
                         4u64 => ::core::result::Result::Ok(__Identifier::__Identifier4),
                         5u64 => ::core::result::Result::Ok(__Identifier::__Identifier5),
                         6u64 => ::core::result::Result::Ok(__Identifier::__Identifier6),
+                        7u64 => ::core::result::Result::Ok(__Identifier::__Identifier7),
+                        8u64 => ::core::result::Result::Ok(__Identifier::__Identifier8),
                         __variant => {
                             ::core::result::Result::Err(__serde::de::Error::invalid_value(
                                 __serde::de::Unexpected::Unsigned(__variant),
@@ -6429,13 +6447,15 @@ pub mod system {
                     __E: __serde::de::Error,
                 {
                     match __value {
-                        "tryboot" => ::core::result::Result::Ok(__Identifier::__Identifier0),
-                        "u-boot" => ::core::result::Result::Ok(__Identifier::__Identifier1),
-                        "grub-efi" => ::core::result::Result::Ok(__Identifier::__Identifier2),
-                        "rauc-uboot" => ::core::result::Result::Ok(__Identifier::__Identifier3),
-                        "mender-grub" => ::core::result::Result::Ok(__Identifier::__Identifier4),
-                        "mender-uboot" => ::core::result::Result::Ok(__Identifier::__Identifier5),
-                        "custom" => ::core::result::Result::Ok(__Identifier::__Identifier6),
+                        "rpi-tryboot" => ::core::result::Result::Ok(__Identifier::__Identifier0),
+                        "rpi-uboot" => ::core::result::Result::Ok(__Identifier::__Identifier1),
+                        "uboot" => ::core::result::Result::Ok(__Identifier::__Identifier2),
+                        "grub" => ::core::result::Result::Ok(__Identifier::__Identifier3),
+                        "rauc-uboot" => ::core::result::Result::Ok(__Identifier::__Identifier4),
+                        "rauc-grub" => ::core::result::Result::Ok(__Identifier::__Identifier5),
+                        "mender-grub" => ::core::result::Result::Ok(__Identifier::__Identifier6),
+                        "mender-uboot" => ::core::result::Result::Ok(__Identifier::__Identifier7),
+                        "custom" => ::core::result::Result::Ok(__Identifier::__Identifier8),
                         __variant => ::core::result::Result::Err(
                             __serde::de::Error::unknown_variant(__variant, __IDENTIFIERS),
                         ),
@@ -6449,13 +6469,15 @@ pub mod system {
                     __E: __serde::de::Error,
                 {
                     match __value {
-                        b"tryboot" => ::core::result::Result::Ok(__Identifier::__Identifier0),
-                        b"u-boot" => ::core::result::Result::Ok(__Identifier::__Identifier1),
-                        b"grub-efi" => ::core::result::Result::Ok(__Identifier::__Identifier2),
-                        b"rauc-uboot" => ::core::result::Result::Ok(__Identifier::__Identifier3),
-                        b"mender-grub" => ::core::result::Result::Ok(__Identifier::__Identifier4),
-                        b"mender-uboot" => ::core::result::Result::Ok(__Identifier::__Identifier5),
-                        b"custom" => ::core::result::Result::Ok(__Identifier::__Identifier6),
+                        b"rpi-tryboot" => ::core::result::Result::Ok(__Identifier::__Identifier0),
+                        b"rpi-uboot" => ::core::result::Result::Ok(__Identifier::__Identifier1),
+                        b"uboot" => ::core::result::Result::Ok(__Identifier::__Identifier2),
+                        b"grub" => ::core::result::Result::Ok(__Identifier::__Identifier3),
+                        b"rauc-uboot" => ::core::result::Result::Ok(__Identifier::__Identifier4),
+                        b"rauc-grub" => ::core::result::Result::Ok(__Identifier::__Identifier5),
+                        b"mender-grub" => ::core::result::Result::Ok(__Identifier::__Identifier6),
+                        b"mender-uboot" => ::core::result::Result::Ok(__Identifier::__Identifier7),
+                        b"custom" => ::core::result::Result::Ok(__Identifier::__Identifier8),
                         __variant => {
                             ::core::result::Result::Err(__serde::de::Error::invalid_value(
                                 __serde::de::Unexpected::Bytes(__variant),
@@ -6479,10 +6501,12 @@ pub mod system {
             }
             #[doc(hidden)]
             const __VARIANTS: &'static [&'static str] = &[
-                "tryboot",
-                "u-boot",
-                "grub-efi",
+                "rpi-tryboot",
+                "rpi-uboot",
+                "uboot",
+                "grub",
                 "rauc-uboot",
+                "rauc-grub",
                 "mender-grub",
                 "mender-uboot",
                 "custom",
@@ -6494,24 +6518,44 @@ pub mod system {
                 >(__deserializer, "type")?;
                 match __tagged.tag {
                     __Identifier::__Identifier0 => {
-                        ::core::result::Result::Ok(BootFlowConfig::Tryboot)
+                        ::core::result::Result::Ok(BootFlowConfig::RpiTryboot)
                     }
                     __Identifier::__Identifier1 => {
-                        ::core::result::Result::Ok(BootFlowConfig::UBoot)
+                        ::core::result::Result::Ok(BootFlowConfig::RpiUboot)
                     }
                     __Identifier::__Identifier2 => {
-                        ::core::result::Result::Ok(BootFlowConfig::GrubEfi)
+                        ::core::result::Result::Ok(BootFlowConfig::Uboot)
                     }
-                    __Identifier::__Identifier3 => {
-                        ::core::result::Result::Ok(BootFlowConfig::RaucUboot)
-                    }
+                    __Identifier::__Identifier3 => ::core::result::Result::Ok(BootFlowConfig::Grub),
                     __Identifier::__Identifier4 => {
-                        ::core::result::Result::Ok(BootFlowConfig::MenderGrub)
+                        ::core::result::Result::Ok(BootFlowConfig::RaucUboot(
+                            __tagged
+                                .deserialize_internally_tagged::<RaucBootFlowConfig, __D::Error>(
+                                )?,
+                        ))
                     }
                     __Identifier::__Identifier5 => {
-                        ::core::result::Result::Ok(BootFlowConfig::MenderUboot)
+                        ::core::result::Result::Ok(BootFlowConfig::RaucGrub(
+                            __tagged
+                                .deserialize_internally_tagged::<RaucBootFlowConfig, __D::Error>(
+                                )?,
+                        ))
                     }
                     __Identifier::__Identifier6 => {
+                        ::core::result::Result::Ok(BootFlowConfig::MenderGrub(
+                            __tagged
+                                .deserialize_internally_tagged::<MenderBootFlowConfig, __D::Error>(
+                                )?,
+                        ))
+                    }
+                    __Identifier::__Identifier7 => {
+                        ::core::result::Result::Ok(BootFlowConfig::MenderUboot(
+                            __tagged
+                                .deserialize_internally_tagged::<MenderBootFlowConfig, __D::Error>(
+                                )?,
+                        ))
+                    }
+                    __Identifier::__Identifier8 => {
                         ::core::result::Result::Ok(BootFlowConfig::Custom(
                             __tagged
                                 .deserialize_internally_tagged::<CustomBootFlowConfig, __D::Error>(
@@ -6544,22 +6588,16 @@ pub mod system {
                         #[allow(unreachable_patterns)]
                         match __identifier {
                             __Identifier::__Identifier0 => {
-                                ::core::result::Result::Ok(BootFlowConfig::Tryboot)
+                                ::core::result::Result::Ok(BootFlowConfig::RpiTryboot)
                             }
                             __Identifier::__Identifier1 => {
-                                ::core::result::Result::Ok(BootFlowConfig::UBoot)
+                                ::core::result::Result::Ok(BootFlowConfig::RpiUboot)
                             }
                             __Identifier::__Identifier2 => {
-                                ::core::result::Result::Ok(BootFlowConfig::GrubEfi)
+                                ::core::result::Result::Ok(BootFlowConfig::Uboot)
                             }
                             __Identifier::__Identifier3 => {
-                                ::core::result::Result::Ok(BootFlowConfig::RaucUboot)
-                            }
-                            __Identifier::__Identifier4 => {
-                                ::core::result::Result::Ok(BootFlowConfig::MenderGrub)
-                            }
-                            __Identifier::__Identifier5 => {
-                                ::core::result::Result::Ok(BootFlowConfig::MenderUboot)
+                                ::core::result::Result::Ok(BootFlowConfig::Grub)
                             }
                             _ => Err(__E::invalid_value(
                                 __serde::de::Unexpected::Str(__value),
@@ -6578,29 +6616,45 @@ pub mod system {
                         match __serde::de::EnumAccess::variant::<__Identifier>(__data)? {
                             (__Identifier::__Identifier0, __variant) => {
                                 __serde::de::VariantAccess::unit_variant(__variant)?;
-                                ::core::result::Result::Ok(BootFlowConfig::Tryboot)
+                                ::core::result::Result::Ok(BootFlowConfig::RpiTryboot)
                             }
                             (__Identifier::__Identifier1, __variant) => {
                                 __serde::de::VariantAccess::unit_variant(__variant)?;
-                                ::core::result::Result::Ok(BootFlowConfig::UBoot)
+                                ::core::result::Result::Ok(BootFlowConfig::RpiUboot)
                             }
                             (__Identifier::__Identifier2, __variant) => {
                                 __serde::de::VariantAccess::unit_variant(__variant)?;
-                                ::core::result::Result::Ok(BootFlowConfig::GrubEfi)
+                                ::core::result::Result::Ok(BootFlowConfig::Uboot)
                             }
                             (__Identifier::__Identifier3, __variant) => {
                                 __serde::de::VariantAccess::unit_variant(__variant)?;
-                                ::core::result::Result::Ok(BootFlowConfig::RaucUboot)
+                                ::core::result::Result::Ok(BootFlowConfig::Grub)
                             }
                             (__Identifier::__Identifier4, __variant) => {
-                                __serde::de::VariantAccess::unit_variant(__variant)?;
-                                ::core::result::Result::Ok(BootFlowConfig::MenderGrub)
+                                let __value = __serde::de::VariantAccess::newtype_variant::<
+                                    RaucBootFlowConfig,
+                                >(__variant)?;
+                                ::core::result::Result::Ok(BootFlowConfig::RaucUboot(__value))
                             }
                             (__Identifier::__Identifier5, __variant) => {
-                                __serde::de::VariantAccess::unit_variant(__variant)?;
-                                ::core::result::Result::Ok(BootFlowConfig::MenderUboot)
+                                let __value = __serde::de::VariantAccess::newtype_variant::<
+                                    RaucBootFlowConfig,
+                                >(__variant)?;
+                                ::core::result::Result::Ok(BootFlowConfig::RaucGrub(__value))
                             }
                             (__Identifier::__Identifier6, __variant) => {
+                                let __value = __serde::de::VariantAccess::newtype_variant::<
+                                    MenderBootFlowConfig,
+                                >(__variant)?;
+                                ::core::result::Result::Ok(BootFlowConfig::MenderGrub(__value))
+                            }
+                            (__Identifier::__Identifier7, __variant) => {
+                                let __value = __serde::de::VariantAccess::newtype_variant::<
+                                    MenderBootFlowConfig,
+                                >(__variant)?;
+                                ::core::result::Result::Ok(BootFlowConfig::MenderUboot(__value))
+                            }
+                            (__Identifier::__Identifier8, __variant) => {
                                 let __value = __serde::de::VariantAccess::newtype_variant::<
                                     CustomBootFlowConfig,
                                 >(__variant)?;
@@ -6618,6 +6672,642 @@ pub mod system {
                     },
                 )
             }
+        }
+    }
+    #[doc = "RAUC boot flow configuration.\n"]
+    #[derive(Clone, Debug)]
+    pub struct RaucBootFlowConfig {
+        #[doc = "RAUC boot group names.\n\nDefaults to the respective Rugix boot group names converted to uppercase.\n"]
+        pub group_names: ::std::option::Option<::std::vec::Vec<::std::string::String>>,
+        #[doc = "Default number of attempts left when committing or marking a boot group as good.\n\nDefaults to 3.\n\nNote that this is only used by U-Boot (and potentially Barebox in the future).\n"]
+        pub default_attempts: ::std::option::Option<u32>,
+    }
+    impl RaucBootFlowConfig {
+        #[doc = "Creates a new [`RaucBootFlowConfig`]."]
+        pub fn new() -> Self {
+            Self {
+                group_names: ::std::default::Default::default(),
+                default_attempts: ::std::default::Default::default(),
+            }
+        }
+        #[doc = "Sets the value of `group_names`."]
+        pub fn set_group_names(
+            &mut self,
+            group_names: ::std::option::Option<::std::vec::Vec<::std::string::String>>,
+        ) -> &mut Self {
+            self.group_names = group_names;
+            self
+        }
+        #[doc = "Sets the value of `group_names`."]
+        pub fn with_group_names(
+            mut self,
+            group_names: ::std::option::Option<::std::vec::Vec<::std::string::String>>,
+        ) -> Self {
+            self.group_names = group_names;
+            self
+        }
+        #[doc = "Sets the value of `default_attempts`."]
+        pub fn set_default_attempts(
+            &mut self,
+            default_attempts: ::std::option::Option<u32>,
+        ) -> &mut Self {
+            self.default_attempts = default_attempts;
+            self
+        }
+        #[doc = "Sets the value of `default_attempts`."]
+        pub fn with_default_attempts(
+            mut self,
+            default_attempts: ::std::option::Option<u32>,
+        ) -> Self {
+            self.default_attempts = default_attempts;
+            self
+        }
+    }
+    impl ::std::default::Default for RaucBootFlowConfig {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+    #[automatically_derived]
+    impl __serde::Serialize for RaucBootFlowConfig {
+        fn serialize<__S: __serde::Serializer>(
+            &self,
+            __serializer: __S,
+        ) -> ::std::result::Result<__S::Ok, __S::Error> {
+            let mut __record = __sidex_serde::ser::RecordSerializer::new(
+                __serializer,
+                "RaucBootFlowConfig",
+                2usize,
+            )?;
+            __record.serialize_optional_field(
+                "group-names",
+                ::core::option::Option::as_ref(&self.group_names),
+            )?;
+            __record.serialize_optional_field(
+                "default-attempts",
+                ::core::option::Option::as_ref(&self.default_attempts),
+            )?;
+            __record.end()
+        }
+    }
+    #[automatically_derived]
+    impl<'de> __serde::Deserialize<'de> for RaucBootFlowConfig {
+        fn deserialize<__D: __serde::Deserializer<'de>>(
+            __deserializer: __D,
+        ) -> ::std::result::Result<Self, __D::Error> {
+            #[doc(hidden)]
+            struct __Visitor {
+                __phantom_vars: ::core::marker::PhantomData<fn(&())>,
+            }
+            impl<'de> __serde::de::Visitor<'de> for __Visitor {
+                type Value = RaucBootFlowConfig;
+                fn expecting(
+                    &self,
+                    __formatter: &mut ::core::fmt::Formatter,
+                ) -> ::core::fmt::Result {
+                    ::core::fmt::Formatter::write_str(__formatter, "record RaucBootFlowConfig")
+                }
+                #[inline]
+                fn visit_seq<__A>(
+                    self,
+                    mut __seq: __A,
+                ) -> ::core::result::Result<Self::Value, __A::Error>
+                where
+                    __A: __serde::de::SeqAccess<'de>,
+                {
+                    let __field0 = match __serde::de::SeqAccess::next_element::<
+                        ::std::option::Option<::std::vec::Vec<::std::string::String>>,
+                    >(&mut __seq)?
+                    {
+                        ::core::option::Option::Some(__value) => __value,
+                        ::core::option::Option::None => {
+                            return ::core::result::Result::Err(
+                                __serde::de::Error::invalid_length(0usize, &"record with 2 fields"),
+                            );
+                        }
+                    };
+                    let __field1 = match __serde::de::SeqAccess::next_element::<
+                        ::std::option::Option<u32>,
+                    >(&mut __seq)?
+                    {
+                        ::core::option::Option::Some(__value) => __value,
+                        ::core::option::Option::None => {
+                            return ::core::result::Result::Err(
+                                __serde::de::Error::invalid_length(1usize, &"record with 2 fields"),
+                            );
+                        }
+                    };
+                    ::core::result::Result::Ok(RaucBootFlowConfig {
+                        group_names: __field0,
+                        default_attempts: __field1,
+                    })
+                }
+                #[inline]
+                fn visit_map<__A>(
+                    self,
+                    mut __map: __A,
+                ) -> ::core::result::Result<Self::Value, __A::Error>
+                where
+                    __A: __serde::de::MapAccess<'de>,
+                {
+                    #[doc(hidden)]
+                    const __IDENTIFIERS: &'static [&'static str] =
+                        &["group-names", "default-attempts"];
+                    #[doc(hidden)]
+                    const __EXPECTING_IDENTIFIERS: &'static str =
+                        "an identifier in [\"group-names\", \"default-attempts\"]";
+                    #[derive(:: core :: clone :: Clone, :: core :: marker :: Copy)]
+                    #[doc(hidden)]
+                    enum __Identifier {
+                        __Identifier0,
+                        __Identifier1,
+                        __Unknown,
+                    }
+                    #[doc(hidden)]
+                    struct __IdentifierVisitor;
+                    impl<'de> __serde::de::Visitor<'de> for __IdentifierVisitor {
+                        type Value = __Identifier;
+                        fn expecting(
+                            &self,
+                            __formatter: &mut ::core::fmt::Formatter,
+                        ) -> ::core::fmt::Result {
+                            ::core::fmt::Formatter::write_str(__formatter, __EXPECTING_IDENTIFIERS)
+                        }
+                        fn visit_u64<__E>(
+                            self,
+                            __value: u64,
+                        ) -> ::core::result::Result<Self::Value, __E>
+                        where
+                            __E: __serde::de::Error,
+                        {
+                            match __value {
+                                0u64 => ::core::result::Result::Ok(__Identifier::__Identifier0),
+                                1u64 => ::core::result::Result::Ok(__Identifier::__Identifier1),
+                                _ => ::core::result::Result::Ok(__Identifier::__Unknown),
+                            }
+                        }
+                        fn visit_str<__E>(
+                            self,
+                            __value: &str,
+                        ) -> ::core::result::Result<Self::Value, __E>
+                        where
+                            __E: __serde::de::Error,
+                        {
+                            match __value {
+                                "group-names" => {
+                                    ::core::result::Result::Ok(__Identifier::__Identifier0)
+                                }
+                                "default-attempts" => {
+                                    ::core::result::Result::Ok(__Identifier::__Identifier1)
+                                }
+                                _ => ::core::result::Result::Ok(__Identifier::__Unknown),
+                            }
+                        }
+                        fn visit_bytes<__E>(
+                            self,
+                            __value: &[u8],
+                        ) -> ::core::result::Result<Self::Value, __E>
+                        where
+                            __E: __serde::de::Error,
+                        {
+                            match __value {
+                                b"group-names" => {
+                                    ::core::result::Result::Ok(__Identifier::__Identifier0)
+                                }
+                                b"default-attempts" => {
+                                    ::core::result::Result::Ok(__Identifier::__Identifier1)
+                                }
+                                _ => ::core::result::Result::Ok(__Identifier::__Unknown),
+                            }
+                        }
+                    }
+                    impl<'de> __serde::Deserialize<'de> for __Identifier {
+                        #[inline]
+                        fn deserialize<__D>(
+                            __deserializer: __D,
+                        ) -> ::core::result::Result<Self, __D::Error>
+                        where
+                            __D: __serde::Deserializer<'de>,
+                        {
+                            __serde::Deserializer::deserialize_identifier(
+                                __deserializer,
+                                __IdentifierVisitor,
+                            )
+                        }
+                    }
+                    let mut __field0: ::core::option::Option<
+                        ::std::option::Option<::std::vec::Vec<::std::string::String>>,
+                    > = ::core::option::Option::None;
+                    let mut __field1: ::core::option::Option<::std::option::Option<u32>> =
+                        ::core::option::Option::None;
+                    while let ::core::option::Option::Some(__key) =
+                        __serde::de::MapAccess::next_key::<__Identifier>(&mut __map)?
+                    {
+                        match __key {
+                            __Identifier::__Identifier0 => {
+                                if ::core::option::Option::is_some(&__field0) {
+                                    return ::core::result::Result::Err(
+                                        <__A::Error as __serde::de::Error>::duplicate_field(
+                                            "group-names",
+                                        ),
+                                    );
+                                }
+                                __field0 = ::core::option::Option::Some(
+                                    __serde::de::MapAccess::next_value::<
+                                        ::std::option::Option<
+                                            ::std::vec::Vec<::std::string::String>,
+                                        >,
+                                    >(&mut __map)?,
+                                );
+                            }
+                            __Identifier::__Identifier1 => {
+                                if ::core::option::Option::is_some(&__field1) {
+                                    return ::core::result::Result::Err(
+                                        <__A::Error as __serde::de::Error>::duplicate_field(
+                                            "default-attempts",
+                                        ),
+                                    );
+                                }
+                                __field1 = ::core::option::Option::Some(
+                                    __serde::de::MapAccess::next_value::<::std::option::Option<u32>>(
+                                        &mut __map,
+                                    )?,
+                                );
+                            }
+                            _ => {
+                                __serde::de::MapAccess::next_value::<__serde::de::IgnoredAny>(
+                                    &mut __map,
+                                )?;
+                            }
+                        }
+                    }
+                    let __field0 = match __field0 {
+                        ::core::option::Option::Some(__value) => __value,
+                        ::core::option::Option::None => ::core::option::Option::None,
+                    };
+                    let __field1 = match __field1 {
+                        ::core::option::Option::Some(__value) => __value,
+                        ::core::option::Option::None => ::core::option::Option::None,
+                    };
+                    ::core::result::Result::Ok(RaucBootFlowConfig {
+                        group_names: __field0,
+                        default_attempts: __field1,
+                    })
+                }
+            }
+            #[doc(hidden)]
+            const __FIELDS: &'static [&'static str] = &["group-names", "default-attempts"];
+            __serde::Deserializer::deserialize_struct(
+                __deserializer,
+                "RaucBootFlowConfig",
+                __FIELDS,
+                __Visitor {
+                    __phantom_vars: ::core::marker::PhantomData,
+                },
+            )
+        }
+    }
+    #[doc = "Mender boot flow configuration.\n"]
+    #[derive(Clone, Debug)]
+    pub struct MenderBootFlowConfig {
+        #[doc = "Directory of the Mender boot partition.\n\nDefaults to `/boot`.\n"]
+        pub boot_dir: ::std::option::Option<::std::string::String>,
+        #[doc = "Boot Partition A.\n\nDefaults to 2.\n"]
+        pub boot_part_a: ::std::option::Option<u32>,
+        #[doc = "Boot partition B.\n\nDefaults to 3.\n"]
+        pub boot_part_b: ::std::option::Option<u32>,
+    }
+    impl MenderBootFlowConfig {
+        #[doc = "Creates a new [`MenderBootFlowConfig`]."]
+        pub fn new() -> Self {
+            Self {
+                boot_dir: ::std::default::Default::default(),
+                boot_part_a: ::std::default::Default::default(),
+                boot_part_b: ::std::default::Default::default(),
+            }
+        }
+        #[doc = "Sets the value of `boot_dir`."]
+        pub fn set_boot_dir(
+            &mut self,
+            boot_dir: ::std::option::Option<::std::string::String>,
+        ) -> &mut Self {
+            self.boot_dir = boot_dir;
+            self
+        }
+        #[doc = "Sets the value of `boot_dir`."]
+        pub fn with_boot_dir(
+            mut self,
+            boot_dir: ::std::option::Option<::std::string::String>,
+        ) -> Self {
+            self.boot_dir = boot_dir;
+            self
+        }
+        #[doc = "Sets the value of `boot_part_a`."]
+        pub fn set_boot_part_a(&mut self, boot_part_a: ::std::option::Option<u32>) -> &mut Self {
+            self.boot_part_a = boot_part_a;
+            self
+        }
+        #[doc = "Sets the value of `boot_part_a`."]
+        pub fn with_boot_part_a(mut self, boot_part_a: ::std::option::Option<u32>) -> Self {
+            self.boot_part_a = boot_part_a;
+            self
+        }
+        #[doc = "Sets the value of `boot_part_b`."]
+        pub fn set_boot_part_b(&mut self, boot_part_b: ::std::option::Option<u32>) -> &mut Self {
+            self.boot_part_b = boot_part_b;
+            self
+        }
+        #[doc = "Sets the value of `boot_part_b`."]
+        pub fn with_boot_part_b(mut self, boot_part_b: ::std::option::Option<u32>) -> Self {
+            self.boot_part_b = boot_part_b;
+            self
+        }
+    }
+    impl ::std::default::Default for MenderBootFlowConfig {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+    #[automatically_derived]
+    impl __serde::Serialize for MenderBootFlowConfig {
+        fn serialize<__S: __serde::Serializer>(
+            &self,
+            __serializer: __S,
+        ) -> ::std::result::Result<__S::Ok, __S::Error> {
+            let mut __record = __sidex_serde::ser::RecordSerializer::new(
+                __serializer,
+                "MenderBootFlowConfig",
+                3usize,
+            )?;
+            __record.serialize_optional_field(
+                "boot-dir",
+                ::core::option::Option::as_ref(&self.boot_dir),
+            )?;
+            __record.serialize_optional_field(
+                "boot-part-a",
+                ::core::option::Option::as_ref(&self.boot_part_a),
+            )?;
+            __record.serialize_optional_field(
+                "boot-part-b",
+                ::core::option::Option::as_ref(&self.boot_part_b),
+            )?;
+            __record.end()
+        }
+    }
+    #[automatically_derived]
+    impl<'de> __serde::Deserialize<'de> for MenderBootFlowConfig {
+        fn deserialize<__D: __serde::Deserializer<'de>>(
+            __deserializer: __D,
+        ) -> ::std::result::Result<Self, __D::Error> {
+            #[doc(hidden)]
+            struct __Visitor {
+                __phantom_vars: ::core::marker::PhantomData<fn(&())>,
+            }
+            impl<'de> __serde::de::Visitor<'de> for __Visitor {
+                type Value = MenderBootFlowConfig;
+                fn expecting(
+                    &self,
+                    __formatter: &mut ::core::fmt::Formatter,
+                ) -> ::core::fmt::Result {
+                    ::core::fmt::Formatter::write_str(__formatter, "record MenderBootFlowConfig")
+                }
+                #[inline]
+                fn visit_seq<__A>(
+                    self,
+                    mut __seq: __A,
+                ) -> ::core::result::Result<Self::Value, __A::Error>
+                where
+                    __A: __serde::de::SeqAccess<'de>,
+                {
+                    let __field0 = match __serde::de::SeqAccess::next_element::<
+                        ::std::option::Option<::std::string::String>,
+                    >(&mut __seq)?
+                    {
+                        ::core::option::Option::Some(__value) => __value,
+                        ::core::option::Option::None => {
+                            return ::core::result::Result::Err(
+                                __serde::de::Error::invalid_length(0usize, &"record with 3 fields"),
+                            );
+                        }
+                    };
+                    let __field1 = match __serde::de::SeqAccess::next_element::<
+                        ::std::option::Option<u32>,
+                    >(&mut __seq)?
+                    {
+                        ::core::option::Option::Some(__value) => __value,
+                        ::core::option::Option::None => {
+                            return ::core::result::Result::Err(
+                                __serde::de::Error::invalid_length(1usize, &"record with 3 fields"),
+                            );
+                        }
+                    };
+                    let __field2 = match __serde::de::SeqAccess::next_element::<
+                        ::std::option::Option<u32>,
+                    >(&mut __seq)?
+                    {
+                        ::core::option::Option::Some(__value) => __value,
+                        ::core::option::Option::None => {
+                            return ::core::result::Result::Err(
+                                __serde::de::Error::invalid_length(2usize, &"record with 3 fields"),
+                            );
+                        }
+                    };
+                    ::core::result::Result::Ok(MenderBootFlowConfig {
+                        boot_dir: __field0,
+                        boot_part_a: __field1,
+                        boot_part_b: __field2,
+                    })
+                }
+                #[inline]
+                fn visit_map<__A>(
+                    self,
+                    mut __map: __A,
+                ) -> ::core::result::Result<Self::Value, __A::Error>
+                where
+                    __A: __serde::de::MapAccess<'de>,
+                {
+                    #[doc(hidden)]
+                    const __IDENTIFIERS: &'static [&'static str] =
+                        &["boot-dir", "boot-part-a", "boot-part-b"];
+                    #[doc(hidden)]
+                    const __EXPECTING_IDENTIFIERS: &'static str =
+                        "an identifier in [\"boot-dir\", \"boot-part-a\", \"boot-part-b\"]";
+                    #[derive(:: core :: clone :: Clone, :: core :: marker :: Copy)]
+                    #[doc(hidden)]
+                    enum __Identifier {
+                        __Identifier0,
+                        __Identifier1,
+                        __Identifier2,
+                        __Unknown,
+                    }
+                    #[doc(hidden)]
+                    struct __IdentifierVisitor;
+                    impl<'de> __serde::de::Visitor<'de> for __IdentifierVisitor {
+                        type Value = __Identifier;
+                        fn expecting(
+                            &self,
+                            __formatter: &mut ::core::fmt::Formatter,
+                        ) -> ::core::fmt::Result {
+                            ::core::fmt::Formatter::write_str(__formatter, __EXPECTING_IDENTIFIERS)
+                        }
+                        fn visit_u64<__E>(
+                            self,
+                            __value: u64,
+                        ) -> ::core::result::Result<Self::Value, __E>
+                        where
+                            __E: __serde::de::Error,
+                        {
+                            match __value {
+                                0u64 => ::core::result::Result::Ok(__Identifier::__Identifier0),
+                                1u64 => ::core::result::Result::Ok(__Identifier::__Identifier1),
+                                2u64 => ::core::result::Result::Ok(__Identifier::__Identifier2),
+                                _ => ::core::result::Result::Ok(__Identifier::__Unknown),
+                            }
+                        }
+                        fn visit_str<__E>(
+                            self,
+                            __value: &str,
+                        ) -> ::core::result::Result<Self::Value, __E>
+                        where
+                            __E: __serde::de::Error,
+                        {
+                            match __value {
+                                "boot-dir" => {
+                                    ::core::result::Result::Ok(__Identifier::__Identifier0)
+                                }
+                                "boot-part-a" => {
+                                    ::core::result::Result::Ok(__Identifier::__Identifier1)
+                                }
+                                "boot-part-b" => {
+                                    ::core::result::Result::Ok(__Identifier::__Identifier2)
+                                }
+                                _ => ::core::result::Result::Ok(__Identifier::__Unknown),
+                            }
+                        }
+                        fn visit_bytes<__E>(
+                            self,
+                            __value: &[u8],
+                        ) -> ::core::result::Result<Self::Value, __E>
+                        where
+                            __E: __serde::de::Error,
+                        {
+                            match __value {
+                                b"boot-dir" => {
+                                    ::core::result::Result::Ok(__Identifier::__Identifier0)
+                                }
+                                b"boot-part-a" => {
+                                    ::core::result::Result::Ok(__Identifier::__Identifier1)
+                                }
+                                b"boot-part-b" => {
+                                    ::core::result::Result::Ok(__Identifier::__Identifier2)
+                                }
+                                _ => ::core::result::Result::Ok(__Identifier::__Unknown),
+                            }
+                        }
+                    }
+                    impl<'de> __serde::Deserialize<'de> for __Identifier {
+                        #[inline]
+                        fn deserialize<__D>(
+                            __deserializer: __D,
+                        ) -> ::core::result::Result<Self, __D::Error>
+                        where
+                            __D: __serde::Deserializer<'de>,
+                        {
+                            __serde::Deserializer::deserialize_identifier(
+                                __deserializer,
+                                __IdentifierVisitor,
+                            )
+                        }
+                    }
+                    let mut __field0: ::core::option::Option<
+                        ::std::option::Option<::std::string::String>,
+                    > = ::core::option::Option::None;
+                    let mut __field1: ::core::option::Option<::std::option::Option<u32>> =
+                        ::core::option::Option::None;
+                    let mut __field2: ::core::option::Option<::std::option::Option<u32>> =
+                        ::core::option::Option::None;
+                    while let ::core::option::Option::Some(__key) =
+                        __serde::de::MapAccess::next_key::<__Identifier>(&mut __map)?
+                    {
+                        match __key {
+                            __Identifier::__Identifier0 => {
+                                if ::core::option::Option::is_some(&__field0) {
+                                    return ::core::result::Result::Err(
+                                        <__A::Error as __serde::de::Error>::duplicate_field(
+                                            "boot-dir",
+                                        ),
+                                    );
+                                }
+                                __field0 = ::core::option::Option::Some(
+                                    __serde::de::MapAccess::next_value::<
+                                        ::std::option::Option<::std::string::String>,
+                                    >(&mut __map)?,
+                                );
+                            }
+                            __Identifier::__Identifier1 => {
+                                if ::core::option::Option::is_some(&__field1) {
+                                    return ::core::result::Result::Err(
+                                        <__A::Error as __serde::de::Error>::duplicate_field(
+                                            "boot-part-a",
+                                        ),
+                                    );
+                                }
+                                __field1 = ::core::option::Option::Some(
+                                    __serde::de::MapAccess::next_value::<::std::option::Option<u32>>(
+                                        &mut __map,
+                                    )?,
+                                );
+                            }
+                            __Identifier::__Identifier2 => {
+                                if ::core::option::Option::is_some(&__field2) {
+                                    return ::core::result::Result::Err(
+                                        <__A::Error as __serde::de::Error>::duplicate_field(
+                                            "boot-part-b",
+                                        ),
+                                    );
+                                }
+                                __field2 = ::core::option::Option::Some(
+                                    __serde::de::MapAccess::next_value::<::std::option::Option<u32>>(
+                                        &mut __map,
+                                    )?,
+                                );
+                            }
+                            _ => {
+                                __serde::de::MapAccess::next_value::<__serde::de::IgnoredAny>(
+                                    &mut __map,
+                                )?;
+                            }
+                        }
+                    }
+                    let __field0 = match __field0 {
+                        ::core::option::Option::Some(__value) => __value,
+                        ::core::option::Option::None => ::core::option::Option::None,
+                    };
+                    let __field1 = match __field1 {
+                        ::core::option::Option::Some(__value) => __value,
+                        ::core::option::Option::None => ::core::option::Option::None,
+                    };
+                    let __field2 = match __field2 {
+                        ::core::option::Option::Some(__value) => __value,
+                        ::core::option::Option::None => ::core::option::Option::None,
+                    };
+                    ::core::result::Result::Ok(MenderBootFlowConfig {
+                        boot_dir: __field0,
+                        boot_part_a: __field1,
+                        boot_part_b: __field2,
+                    })
+                }
+            }
+            #[doc(hidden)]
+            const __FIELDS: &'static [&'static str] = &["boot-dir", "boot-part-a", "boot-part-b"];
+            __serde::Deserializer::deserialize_struct(
+                __deserializer,
+                "MenderBootFlowConfig",
+                __FIELDS,
+                __Visitor {
+                    __phantom_vars: ::core::marker::PhantomData,
+                },
+            )
         }
     }
     #[doc = "Custom boot flow configuration.\n"]

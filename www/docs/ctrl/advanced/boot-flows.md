@@ -20,7 +20,7 @@ For compatibility with other OTA update solutions, Rugix Ctrl further provides t
 
 :::note
 
-Those boot flows allow safe, in-the-field migrations to Rugix Ctrl from RAUC and Mender, respectively.
+Those boot flows allow [safe, in-the-field migrations to Rugix Ctrl from RAUC and Mender](../migrating/index.md), respectively.
 This allows users to take advantage of Rugix Ctrl's advanced features, such as highly-efficient static delta updates and streaming from arbitrary sources, in brownfield projects without having to re-provision their devices.
 Furthermore, it allows existing bootloader integrations for RAUC and Mender to be re-used with Rugix Ctrl, even in new projects.
 
@@ -32,6 +32,15 @@ In addition to the above generic boot flows, Rugix Ctrl also provides the follow
 - `rpi-tryboot`: Boot flow for Raspberry Pi 4 and newer models using the `tryboot` mechanism of Raspberry Pi's firmware.
 
 If none of these boot flows fit your needs, you can also implement your own `custom` boot flow.
+
+Boot flows are configured through the [`boot-flow` section of the system configuration](../advanced/system-configuration.mdx).
+If no boot flow is configured, Rugix Ctrl will try to detect it dynamically at runtime by inspecting the config partition (usually the first partition of the root disk):
+
+1. If a file `autoboot.txt` exists, then the boot flow is `rpi-tryboot`.
+2. If a file `bootpart.default.env` exists, then the boot flow is `rpi-uboot`.
+3. If a file `rugpi/grub.cfg` exists, then the boot flow is `grub`.
+
+In all other cases, automatic runtime detection will fail.
 
 
 ## Boot Flow Interface
@@ -49,11 +58,11 @@ In addition, a boot flow may support the following operations:
 
 - `pre_install(group)`: Runs before installing an update to the given group.
 - `post_install(group)`: Runs after installing an update to the given group.
-- `mark_good(group)`: Marks the given boot group as *good*.
-- `mark_bad(group)`: Marks the given boot group as *bad*.
+- `mark_good(group)`: Mark the given boot group as *good*.
+- `mark_bad(group)`: Mark the given boot group as *bad*.
 
-The `mark_good` and `mark_bad` are useful for implementing a dead men's switch, where the bootloader triggers a failover to another boot group, after a certain number of failed boot attempts.
-Note that Rugix Ctrl will **not** automatically mark boot groups as *good* or *bad*, instead an external mechanism is required to monitor the system and trigger the marking through `rugix-ctrl boot`.
+The `mark_good` and `mark_bad` operations are useful for implementing a dead men's switch, where the bootloader triggers a failover to another boot group after a certain number of failed boot attempts.
+Rugix Ctrl will **not** automatically mark boot groups as *good* or *bad*, instead an external mechanism is required to monitor the system and trigger the marking through `rugix-ctrl boot`.
 
 :::info
 
@@ -82,97 +91,80 @@ Rebooting with `--boot-group` or `--spare` will trigger the following operations
 Committing an update will trigger the following operations:
 
 1. `get_default()`
-2. `commit(group)` only if the default and given group differ.
+2. `commit(group)` only if the default and active group differ.
 
 Note that `set_try_next` may or may not change the default boot group.
-In any case, it must guaranteed that there is a (transitive) fallback to the current default, to make sure that a broken update will not leave the system in an inoperable state.
+In any case, it must guarantee that there is a (transitive) fallback to the current default to make sure that a broken update will not leave the system in an inoperable state.
 
 
-## Available Boot Flows
+## Generic Boot Flows
 
-We will now discuss the available boot flows in more detail.
+Generic boot flows are independent of any specific device type.
 
-### Tryboot
+### GRUB
 
-`type = "tryboot"`
+`type = "grub"`
 
-This boot flow is specific to Raspberry Pi 4 and newer models.
-
-The `tryboot` boot flow works almost as described in [Raspberry Pi's documentation on the `tryboot` mechanism](https://www.raspberrypi.com/documentation/computers/config_txt.html#example-update-flow-for-ab-booting).
-Instead of reading the device tree `tryboot` flag, it compares the booted partition with the default stored in `autoboot.txt`.
-
-This boot flow assumes the following image and system layout:
+The `grub` boot flow implements an A/B switching mechanism and assumes the following GPT partition layout:
 
 ```
-MBR =============================== Image
-     1: config    FAT32  256M
-     2: boot-a    FAT32  128M  (*)
-     3: boot-b    FAT32  128M
-     5: system-a               (*)
-    =============================== System
-     6: system-b
-     7: data      EXT4   ....
+1: config    FAT32
+2: boot-a    EXT4
+3: boot-b    EXT4
+4: system-a
+5: system-b
 ```
 
-This boot flow also allows updating the `config.txt` file as well as the device tree files.
+That is, it requires separate boot and system partitions.
+The boot partitions must contain a *second stage boot script* that can be safely updated and used to customize the early boot process.
+Furthermore, they typically contain the kernel and initial ramdisk.
 
-### U-Boot
+To implement the A/B switching Rugix Ctrl uses two boot variables:
 
-`type = "u-boot"`
+- `rugpi_bootpart`: The default partition to boot from (set to `2` or `3`).
+- `rugpi_boot_spare`: Indicates whether the spare boot partition should be booted.
 
-Rugix Ctrl supports upstream U-Boot, i.e., it does not require any patches to it.
-Rugix Ctrl achieves this by using U-Boot boot scripts to control the boot process.
-To this end, it relies on two environment files, `bootpart.default.env` and `boot_spare.env`, placed in the first partition, i.e., the `config` partition, of the boot drive.
-The file `bootpart.default.env` sets the `bootpart` variable either to `2` or to `3` indicating the default boot partition (`boot-a` or `boot-b`).
-The file `boot_spare.env` sets the `boot_spare` variable either to `1` or to `0` indicating whether the spare or default partition should be booted, respectively.
-In addition, there are the files `boot_spare.enabled.env` and `boot_spare.disabled.env` for overwriting the `boot_spare.env` file.
+Note that those variables still use `rugpi` as the prefix for compatibility reasons, as this is the historic name of Rugix.
 
-This boot flow assumes the following image and system layout:
+Rugix Ctrl sets `rugpi_boot_spare` to `1` to indicate to the bootloader that the spare partition should be booted.
+In this case, the bootloader will inspect the `rugpi_bootpart` variable and boot from the respective other partition.
+Prior to booting, the bootloader will set the `rugpi_boot_spare` variable back to `0`, falling back to the default partition unless a commit happens.
 
-```
-MBR =============================== Image
-     1: config    FAT32  256M
-     2: boot-a    FAT32  128M  (*)
-     3: boot-b    FAT32  128M
-     5: system-a               (*)
-    =============================== System
-     6: system-b
-     7: data      EXT4   ....
-```
+To communicate the variables to GRUB, Rugix Ctrl uses the following environment files placed on the config partition:
 
-A typical U-Boot boot script would proceed as follows:
+- `rugpi/boot_spare.grubenv`: Contains the value of `rugpi_boot_spare`.
+- `rugpi/primary.grubenv`: Contains the value of `rugpi_bootpart` (primary copy).
+- `rugpi/secondary.grubenv`: Contains the value of `rugpi_bootpart` (secondary copy).
 
-1. Load `bootpart.default.env` and `boot_spare.env`.
-2. If `boot_spare` is set to `1`, invert `bootpart`.
-3. if `boot_spare` is set to `1`, overwrite `boot_spare.env` with `boot_spare.disabled.env`.
-4. Proceed booting from the respective partition.
+Rugix Ctrl writes the SHA1 sum of the environment files containing the value of `rugpi_bootpart` to a respective file with the `.sha1` suffix.
+This allows GRUB to verify the integrity of the environment files prior to loading them.
+Should the primary copy be corrupted, e.g., due to a power failure while writing the file, GRUB will fall back to the secondary copy.
 
-The reference implementation for Raspberry Pi uses two boot scripts, one first stage boot script on the config partition and a second stage boot script on the respective boot partition.
-The first stage follows the steps outlined above and then loads the second stage boot script.
-This has the advantage that the second stage script can be updated in a fail-safe way.
-
-For further details, we refer to the reference [boot scripts](https://github.com/silitics/rugpi/tree/main/boot/u-boot/scripts) for Raspberry Pi.
-
-### Grub (EFI)
-
-`type = "grub-efi"`
-
-This boot flow follows a similar approach to U-Boot, using Grub boot scripts and environment blocks.
+As part of the `post_install` operation, Rugix Ctrl also writes an environment file `boot.grubenv` to the respective boot partition on which the update is installed.
+This environment file contains a variable `rugpi_bootargs` specifying boot arguments that may be used.
+Those boot arguments have the form `ro init=/usr/bin/rugix-ctrl root=PARTUUID=<...>` where `<...>` is replaced by the partition UUID of the respective system partition.
+Those boot arguments may be loaded and used by the second stage boot script, however, they can also be ignored.
+In the future we may add additional variables, e.g., for just the partition UUID.
 
 For further details, we refer to the reference [boot scripts](https://github.com/silitics/rugpi/tree/main/boot/grub/cfg) used by Rugix Bakery.
 
-This boot flow assumes the following image and system layout:
+### U-Boot
 
-```
-GPT =============================== Image
-     1: config    FAT32  256M
-     2: boot-a    EXT4   256M  (*)
-     3: boot-b    EXT4   256M
-     4: system-a               (*)
-    =============================== System
-     5: system-b
-     6: data      EXT4   ....
-```
+`type = "uboot"`
+
+The `uboot` boot flow makes no assumptions about the system partition layout.
+It uses `fw_setenv` and `fw_printenv` to set and read U-Boot environment variables based on the configuration in `/etc/fw_env.config`.
+
+To implement the A/B switching Rugix Ctrl uses two boot variables:
+
+- `rugix_bootpart`: The default partition to boot from (set to `2` or `3`).
+- `rugix_boot_spare`: Indicates whether the spare boot partition should be booted.
+
+Those variables are set analogously to the respective variables of the `grub` boot flow (see above).
+In contrast to the `grub` boot flow, there is no additional logic, for instance, to store the partition UUID in the boot arguments.
+
+**Rugix Ctrl does not require any patches to U-Boot.
+The required logic can be entirely implemented in U-Boot scripts.**
 
 ### Custom
 
@@ -199,12 +191,11 @@ For now, all operations except `get_default` should simply return an empty JSON 
 { "group": "<name of the boot group>" }
 ```
 
-:::tip
-Custom boot flows can be used to realize a variety of different, more advanced update setups.
-For instance, with custom boot flows you could implement a dead men's switch where systems have to be actively marked as *good* to prevent the bootloader from eventually falling back to a recovery system.
-This makes the system even more robust in case something unexpected happens and the primary system stops working.
-You can also use custom boot flows to migrate from other OTA solutions like Mender, RAUC, or SWUpdate.
-If you need anything specific, Silitics, [the company behind Rugix](/commercial-support), can help you develop a custom boot flow that suits your needs or migrate your existing devices to Rugix Ctrl.
+:::info
+
+Custom boot flows can be used to realize a variety of different update setups and integrate with bootloaders not natively supported by Rugix Ctrl.
+If you need anything specific, [contact us for commercial support](mailto:hello@silitics.com?subject=Custom%20Boot%20Flow).
+
 :::
 
 
@@ -215,12 +206,9 @@ If you need anything specific, Silitics, [the company behind Rugix](/commercial-
 :::
 
 ```
-GPT =============================== Image
-     1: EFI       FAT32  512M  (*)
-     2: system-a               (*)
-    =============================== System
-     3: system-b
-     4: data      EXT4   ....
+1: EFI       FAT32
+2: system-a
+3: system-b
 ```
 
 Support for Systemd Boot would use the [Boot Loader Interface](https://systemd.io/BOOT_LOADER_INTERFACE/) for A/B updates by writing to the following EFI variables:
@@ -231,15 +219,88 @@ Support for Systemd Boot would use the [Boot Loader Interface](https://systemd.i
 In contrast to the other boot flows there would be no separate boot partitions.
 
 
-## Automatic Runtime Detection
+## RAUC-compatible Boot Flows
 
-If no boot flow is configured, Rugix Ctrl will try to detect it dynamically at runtime by inspecting the config partition:
+The RAUC-compatible boot flows interact with the bootloader in [the same way as RAUC](https://rauc.readthedocs.io/en/latest/reference.html#bootloader-interaction).
 
-1. If a file `autoboot.txt` exists, then the boot flow is `tryboot`.
-2. If a file `bootpart.default.env` exists, then the boot flow is `u-boot`.
-3. If a file `rugpi/grub.cfg` and a directory `EFI` exist, then the boot flow is `grub-efi`.
+See the [RAUC migration guide for details](../migrating/from-rauc.md).
 
-In all other cases, runtime detection will fail.
+
+## Mender-compatible Boot Flows
+
+The Mender-compatible boot flows interact with the bootloader in the same way as Mender.
+
+See the [Mender migration guide for details](../migrating/from-mender.md).
+
+
+## Raspberry Pi Boot Flows
+
+The following boot flows are specific to Raspberry Pi.
+
+### Tryboot
+
+`type = "rpi-tryboot"`
+
+This boot flow is specific to Raspberry Pi 4 and newer models.
+
+The `tryboot` boot flow works almost as described in [Raspberry Pi's documentation on the `tryboot` mechanism](https://www.raspberrypi.com/documentation/computers/config_txt.html#example-update-flow-for-ab-booting).
+Instead of reading the device tree `tryboot` flag, it compares the booted partition with the default stored in `autoboot.txt`.
+
+This boot flow typically comes with the following image and system layout:
+
+```
+MBR =============================== Image
+     1: config    FAT32
+     2: boot-a    FAT32
+     3: boot-b    FAT32
+     5: system-a
+    =============================== System
+     6: system-b
+     7: data
+```
+
+This boot flow also allows updating the `config.txt` file as well as the device tree files.
+
+This boot flow also supports a GPT partition table where the system partitions are the 4th and 5th partitions, respectively, and the data partition is the 6th partition. Note that in case of an MBR partition table, the 4th partition is the extended partition.
+
+### Raspberry Pi: U-Boot
+
+`type = "rpi-uboot"`
+
+This boot flow assumes the following image and system layout:
+
+```
+MBR =============================== Image
+     1: config    FAT32 
+     2: boot-a    FAT32
+     3: boot-b    FAT32
+     5: system-a
+    =============================== System
+     6: system-b
+     7: data
+```
+
+In contrast to the generic `uboot` boot flow, the `rpi-uboot` boot flow uses U-Boot environment files stored on the config partition.
+This is done, to harmonize the boot flow with the `tryboot` boot flow.
+There are two environment files, `bootpart.default.env` and `boot_spare.env`.
+The file `bootpart.default.env` sets the `bootpart` variable either to `2` or to `3` indicating the default boot partition (`boot-a` or `boot-b`).
+The file `boot_spare.env` sets the `boot_spare` variable either to `1` or to `0` indicating whether the spare or default partition should be booted, respectively.
+In addition, there are the files `boot_spare.enabled.env` and `boot_spare.disabled.env` for overwriting the `boot_spare.env` file.
+
+**Note that there is currently no redundancy for the `bootpart` environment file.**
+
+A typical U-Boot boot script would proceed as follows:
+
+1. Load `bootpart.default.env` and `boot_spare.env`.
+2. If `boot_spare` is set to `1`, invert `bootpart`.
+3. If `boot_spare` is set to `1`, overwrite `boot_spare.env` with `boot_spare.disabled.env`.
+4. Proceed booting from the respective partition.
+
+The reference implementation for Raspberry Pi uses two boot scripts, one first stage boot script on the config partition and a second stage boot script on the respective boot partition.
+The first stage follows the steps outlined above and then loads the second stage boot script.
+This has the advantage that the second stage script can be updated in a fail-safe way.
+
+For further details, we refer to the reference [boot scripts](https://github.com/silitics/rugpi/tree/main/boot/u-boot/scripts) for Raspberry Pi.
 
 
 ## On Atomicity of Commits
