@@ -401,6 +401,8 @@ fn apply_recipes(
                         PackageManager::Apt
                     } else if root_dir_path.join("sbin/apk").exists() {
                         PackageManager::Apk
+                    } else if root_dir_path.join("usr/bin/pacman").exists() {
+                        PackageManager::Pacman
                     } else {
                         bail!("unable to determine package manager")
                     };
@@ -412,6 +414,9 @@ fn apply_recipes(
                             }
                             PackageManager::Apk => {
                                 cmd!("chroot", root_dir_path, "apk", "add", "--no-interactive")
+                            }
+                            PackageManager::Pacman => {
+                                cmd!("chroot", root_dir_path, "pacman", "-S", "--noconfirm")
                             }
                         };
                         cmd.extend_args(packages);

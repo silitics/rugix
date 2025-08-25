@@ -16,3 +16,8 @@ fi
 if command -v apk; then
     rm -rf /var/cache/apk/*
 fi
+
+if command -v pacman; then
+    pacman -Scc --noconfirm
+    rm -rf /var/cache/pacman/pkg/*
+fi
