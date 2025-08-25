@@ -2,15 +2,16 @@
 
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Child;
 
+use rugix_bundle::format::decode::decode_slice;
 use rugix_bundle::manifest::ChunkerAlgorithm;
 use rugix_bundle::reader::block_provider::StoredBlockProvider;
 use rugix_bundle::reader::{DecodedPayloadInfo, PayloadTarget};
 use rugix_bundle::source::{BundleSource, ReaderSource, SkipRead};
 use rugix_bundle::xdelta::xdelta_decompress;
-use rugix_bundle::BUNDLE_MAGIC;
+use rugix_bundle::{format, BUNDLE_MAGIC};
 use rugix_common::pipe::{buffered_pipe, PipeWriter};
 use rugix_common::slots::SlotState;
 use rugix_hooks::{HooksLoader, RunOptions};
@@ -25,7 +26,7 @@ use reportify::{bail, whatever, ErrorExt, ResultExt};
 use rugix_common::disk::stream::ImgStream;
 use rugix_common::maybe_compressed::{MaybeCompressed, PeekReader};
 use rugix_common::stream_hasher::StreamHasher;
-use xscript::{vars, Vars};
+use xscript::{cmd_os, vars, ParentEnv, Run, Vars};
 
 use crate::http_source::HttpSource;
 use crate::overlay::overlay_dir;
@@ -98,6 +99,8 @@ pub fn main() -> SystemResult<()> {
                     check_hash,
                     verify_bundle,
                     boot_group,
+                    verify_signature,
+                    root_cert,
                 } => {
                     let check_hash = check_hash.as_deref()
                             .map(|encoded_hash| -> SystemResult<ImageHash> {
@@ -168,6 +171,8 @@ pub fn main() -> SystemResult<()> {
                         check_hash,
                         verify_bundle,
                         boot_group.as_ref(),
+                        *verify_signature,
+                        root_cert,
                     )?;
 
                     hooks
@@ -454,14 +459,22 @@ fn install_update_stream(
     check_hash: Option<ImageHash>,
     verify_bundle: &Option<HashDigest>,
     boot_group: Option<&(BootGroupIdx, &BootGroup)>,
+    verify_signature: bool,
+    root_cert: &[PathBuf],
 ) -> SystemResult<UpdateRebootType> {
     if image.starts_with("http") {
         if check_hash.is_some() {
             bail!("--check-hash is not supported for update bundles, use --verify-bundle");
         }
         let mut bundle_source = HttpSource::new(image)?;
-        let should_reboot =
-            install_update_bundle(system, &mut bundle_source, verify_bundle, boot_group)?;
+        let should_reboot = install_update_bundle(
+            system,
+            &mut bundle_source,
+            verify_bundle,
+            boot_group,
+            verify_signature,
+            root_cert,
+        )?;
         let stats = bundle_source.get_download_stats();
         info!(
             "downloaded {:.1}% ({}/{}) of the full bundle",
@@ -494,10 +507,20 @@ fn install_update_stream(
             bail!("--check-hash is not supported for update bundles, use --verify-bundle");
         }
         let bundle_source = ReaderSource::<_, SkipRead>::from_unbuffered(update_stream);
-        return install_update_bundle(system, bundle_source, verify_bundle, boot_group);
+        return install_update_bundle(
+            system,
+            bundle_source,
+            verify_bundle,
+            boot_group,
+            verify_signature,
+            root_cert,
+        );
     }
     if verify_bundle.is_some() {
         bail!("--verify-bundle is not supported on images, use --check-hash");
+    }
+    if verify_signature {
+        bail!("--verify-signature is not supported on images");
     }
 
     let Some((entry_idx, entry)) = boot_group else {
@@ -622,10 +645,78 @@ fn install_update_bundle<R: BundleSource>(
     bundle_source: R,
     verify_bundle: &Option<HashDigest>,
     boot_group: Option<&(BootGroupIdx, &BootGroup)>,
+    verify_signature: bool,
+    root_certs: &[PathBuf],
 ) -> SystemResult<UpdateRebootType> {
     let mut bundle_reader =
         rugix_bundle::reader::BundleReader::start(bundle_source, verify_bundle.clone())
             .whatever("unable to read bundle")?;
+
+    if verify_signature {
+        let Some(signatures) = bundle_reader.signatures() else {
+            bail!("no signatures found in bundle");
+        };
+        if root_certs.is_empty() {
+            bail!("no root certificates provided for signature verification");
+        }
+        if root_certs.len() > 1 {
+            bail!("multiple root certificates are not yet supported");
+        }
+        let mut found_valid_signature = false;
+        info!("checking bundle signatures");
+        for signature in signatures.cms_signatures.iter() {
+            let tempdir = tempfile::tempdir().whatever("unable to create temporary directory")?;
+            let tempdir_path = tempdir.path();
+            let signed_metadata_raw = tempdir_path.join("signed-metadata.raw");
+            let signed_metadata_cms = tempdir_path.join("signed-metadata.cms");
+            std::fs::write(&signed_metadata_cms, &signature.raw)
+                .whatever("unable to write CMS signature")?;
+            let mut cmd = cmd_os!(
+                "openssl",
+                "cms",
+                "-verify",
+                "-in",
+                &signed_metadata_cms,
+                "-inform",
+                "DER",
+                "-out",
+                &signed_metadata_raw,
+                // Do not load OS default certificates.
+                "-no-CAfile",
+                "-no-CApath",
+                "-no-CAstore",
+                // Non-zero exit code on verification failure.
+                "-verify_retcode",
+            );
+            for cert in root_certs {
+                if cert.is_dir() {
+                    cmd.add_arg("-CApath");
+                    cmd.add_arg(cert);
+                } else {
+                    cmd.add_arg("-CAfile");
+                    cmd.add_arg(cert);
+                }
+            }
+            if let Err(error) = ParentEnv.run(cmd) {
+                println!("{error}");
+                continue;
+            }
+            let signed_metadata =
+                std::fs::read(&signed_metadata_raw).whatever("unable to read signed metadata")?;
+            let signed_metadata = decode_slice::<format::SignedMetadata>(&signed_metadata)
+                .whatever("unable to decode signed metadata")?;
+            if signed_metadata.header_hash
+                == bundle_reader.header_hash(signed_metadata.header_hash.algorithm())
+            {
+                found_valid_signature = true;
+                info!("found valid signature");
+                break;
+            }
+        }
+        if !found_valid_signature {
+            bail!("no valid signature found");
+        }
+    }
 
     if !bundle_reader.header().is_incremental {
         let Some((entry_idx, _)) = boot_group else {
@@ -1081,6 +1172,12 @@ pub enum UpdateCommand {
         /// Check whether the (streamed) image matches the given hash.
         #[clap(long)]
         check_hash: Option<String>,
+        /// Verify the signatures of the bundle.
+        #[clap(long)]
+        verify_signature: bool,
+        /// Root certificate to use for signature verification.
+        #[clap(long = "root-cert")]
+        root_cert: Vec<PathBuf>,
         /// Verify a bundle based on the provided hash.
         #[clap(long)]
         verify_bundle: Option<HashDigest>,

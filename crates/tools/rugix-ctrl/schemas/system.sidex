@@ -67,26 +67,67 @@ record BootGroupConfig {
 #[json(tag="type", rename_all="kebab-case")]
 variant BootFlowConfig {
     /// Tryboot boot flow.
-    Tryboot,
+    #[json(name="rpi-tryboot")]
+    RpiTryboot,
     /// U-Boot boot flow.
-    #[json(name="u-boot")]
-    UBoot,
+    #[json(name="rpi-uboot")]
+    RpiUboot,
+    /// Generic U-boot boot flow.
+    #[json(name="uboot")]
+    Uboot,
     /// Grub (EFI) boot flow.
-    GrubEfi,
-    /// RAUC U-Boot.
+    #[json(name="grub")]
+    Grub,
+    /// RAUC-compatible U-Boot boot flow.
     #[json(name="rauc-uboot")]
-    RaucUboot,
-    /// Mender Grub.
+    RaucUboot: RaucBootFlowConfig,
+    /// RAUC-compatible Grub boot flow.
+    #[json(name="rauc-grub")]
+    RaucGrub: RaucBootFlowConfig,
+    /// Mender-compatible Grub boot flow.
     #[json(name="mender-grub")]
-    MenderGrub,
-    /// Mender U-Boot.
+    MenderGrub: MenderBootFlowConfig,
+    /// Mender-compatible U-Boot boot flow.
     #[json(name="mender-uboot")]
-    MenderUboot,
-    /// Custom boot flow.
+    MenderUboot: MenderBootFlowConfig,
+    /// Custom, user-defined boot flow.
     Custom: CustomBootFlowConfig,
 }
 
+/// RAUC boot flow configuration.
+#[json(rename_all = "kebab-case")]
+record RaucBootFlowConfig {
+    /// RAUC boot group names.
+    /// 
+    /// Defaults to the respective Rugix boot group names converted to uppercase.
+    group_names?: [string],
+    /// Default number of attempts left when committing or marking a boot group as good.
+    /// 
+    /// Defaults to 3.
+    /// 
+    /// Note that this is only used by U-Boot (and potentially Barebox in the future).
+    default_attempts?: u32,
+}
+
+/// Mender boot flow configuration.
+#[json(rename_all = "kebab-case")]
+record MenderBootFlowConfig {
+    /// Directory of the Mender boot partition.
+    /// 
+    /// Defaults to `/boot`.
+    boot_dir?: string,
+    /// Boot Partition A.
+    /// 
+    /// Defaults to 2.
+    boot_part_a?: u32,
+    /// Boot partition B.
+    /// 
+    /// Defaults to 3.
+    boot_part_b?: u32,
+}
+
 /// Custom boot flow configuration.
+#[json(rename_all = "kebab-case")]
 record CustomBootFlowConfig {
     /// Path to the script implementing the boot flow.
     controller: string,

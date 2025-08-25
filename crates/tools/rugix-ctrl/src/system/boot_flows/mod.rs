@@ -14,9 +14,10 @@ use tempfile::tempdir;
 use super::boot_groups::{BootGroupIdx, BootGroups};
 use super::slots::SlotIdx;
 use super::{ConfigPartition, System};
+use crate::boot::fwenv::{load_vars, set_vars};
 use crate::config::system::BootFlowConfig;
 use crate::system::boot_flows::mender::{MenderGrub, MenderUboot};
-use crate::system::boot_flows::rauc::RaucUboot;
+use crate::system::boot_flows::rauc::{RaucGrub, RaucUboot};
 use crate::system::slots::SlotKind;
 use rugix_common::boot::grub::{load_grub_env, write_with_hash, RUGIX_BOOTPART};
 use rugix_common::boot::tryboot::{self, AutobootSection, AUTOBOOT_A, AUTOBOOT_B};
@@ -98,32 +99,38 @@ pub fn from_config(
 ) -> BootFlowResult<Box<dyn BootFlow>> {
     if let Some(config) = config {
         return Ok(match config {
-            BootFlowConfig::Tryboot => Box::new(Tryboot {
+            BootFlowConfig::RpiTryboot => Box::new(RpiTryboot {
                 inner: rugix_boot_flow(boot_entries)?,
             }),
-            BootFlowConfig::UBoot => Box::new(UBoot {
+            BootFlowConfig::RpiUboot => Box::new(RpiUboot {
                 inner: rugix_boot_flow(boot_entries)?,
             }),
-            BootFlowConfig::GrubEfi => Box::new(GrubEfi {
+            BootFlowConfig::Uboot => Box::new(Uboot {
+                inner: rugix_boot_flow(boot_entries)?,
+            }),
+            BootFlowConfig::Grub => Box::new(GrubEfi {
                 inner: rugix_boot_flow(boot_entries)?,
             }),
             BootFlowConfig::Custom(custom_boot_flow_config) => Box::new(CustomBootFlow {
                 controller: custom_boot_flow_config.controller.clone().into(),
             }),
-            BootFlowConfig::MenderGrub => Box::new(MenderGrub::new(boot_entries)?),
-            BootFlowConfig::MenderUboot => Box::new(MenderUboot::new(boot_entries)?),
-            BootFlowConfig::RaucUboot => Box::new(RaucUboot::new(boot_entries)?),
+            BootFlowConfig::MenderGrub(config) => Box::new(MenderGrub::new(boot_entries, config)?),
+            BootFlowConfig::MenderUboot(config) => {
+                Box::new(MenderUboot::new(boot_entries, config)?)
+            }
+            BootFlowConfig::RaucUboot(config) => Box::new(RaucUboot::new(boot_entries, config)?),
+            BootFlowConfig::RaucGrub(config) => Box::new(RaucGrub::new(boot_entries, config)?),
         });
     }
     let inner = rugix_boot_flow(boot_entries)?;
     if config_partition.path().join("autoboot.txt").exists() {
-        Ok(Box::new(Tryboot { inner }))
+        Ok(Box::new(RpiTryboot { inner }))
     } else if config_partition
         .path()
         .join("bootpart.default.env")
         .exists()
     {
-        Ok(Box::new(UBoot { inner }))
+        Ok(Box::new(RpiUboot { inner }))
     } else if config_partition
         .path()
         .join("rugpi/primary.grubenv")
@@ -177,11 +184,11 @@ struct RugixBootFlow {
 }
 
 #[derive(Debug)]
-struct Tryboot {
+struct RpiTryboot {
     inner: RugixBootFlow,
 }
 
-impl BootFlow for Tryboot {
+impl BootFlow for RpiTryboot {
     fn set_try_next(&self, system: &System, entry: BootGroupIdx) -> BootFlowResult<()> {
         if entry != self.get_default(system)? {
             tryboot::set_spare_flag().whatever("unable to set tryboot flag")?;
@@ -260,16 +267,16 @@ impl BootFlow for Tryboot {
     }
 
     fn name(&self) -> &str {
-        "tryboot"
+        "rpi-tryboot"
     }
 }
 
 #[derive(Debug)]
-struct UBoot {
+struct RpiUboot {
     inner: RugixBootFlow,
 }
 
-impl BootFlow for UBoot {
+impl BootFlow for RpiUboot {
     fn set_try_next(&self, system: &System, entry: BootGroupIdx) -> BootFlowResult<()> {
         if entry != self.get_default(system)? {
             crate::boot::uboot::set_spare_flag(system)?;
@@ -334,7 +341,63 @@ impl BootFlow for UBoot {
     }
 
     fn name(&self) -> &str {
-        "u-boot"
+        "rpi-uboot"
+    }
+}
+
+#[derive(Debug)]
+struct Uboot {
+    inner: RugixBootFlow,
+}
+
+impl BootFlow for Uboot {
+    fn set_try_next(&self, system: &System, entry: BootGroupIdx) -> BootFlowResult<()> {
+        let mut boot_env = hashbrown::HashMap::new();
+        if entry != self.get_default(system)? {
+            boot_env.insert("rugix_boot_spare".to_owned(), "1".to_owned());
+        } else {
+            boot_env.insert("rugix_boot_spare".to_owned(), "0".to_owned());
+        }
+        set_vars(&boot_env)?;
+        Ok(())
+    }
+
+    fn commit(&self, system: &System) -> BootFlowResult<()> {
+        let config_partition = system
+            .require_config_partition()
+            .whatever("unable to get config partition")?;
+        config_partition
+            .ensure_writable(|| {
+                let mut boot_env = hashbrown::HashMap::new();
+                if system.active_boot_entry() == Some(self.inner.entry_a) {
+                    boot_env.insert("rugix_bootpart".to_owned(), "2".to_owned());
+                } else if system.active_boot_entry() == Some(self.inner.entry_b) {
+                    boot_env.insert("rugix_bootpart".to_owned(), "3".to_owned());
+                } else {
+                    panic!("should never happen");
+                };
+                set_vars(&boot_env)?;
+                Ok(())
+            })
+            .whatever("unable to make config partition writable")?
+    }
+
+    fn get_default(&self, _: &System) -> BootFlowResult<BootGroupIdx> {
+        let boot_env = load_vars()?;
+        let Some(bootpart) = boot_env.get("rugix_bootpart").map(|v| v.trim()) else {
+            bail!("Rugix boot partition is not set.");
+        };
+        if bootpart == "2" {
+            Ok(self.inner.entry_a)
+        } else if bootpart == "3" {
+            Ok(self.inner.entry_b)
+        } else {
+            bail!("Invalid default `bootpart`.");
+        }
+    }
+
+    fn name(&self) -> &str {
+        "uboot"
     }
 }
 
@@ -483,6 +546,6 @@ impl BootFlow for GrubEfi {
     }
 
     fn name(&self) -> &str {
-        "grub-efi"
+        "grub"
     }
 }

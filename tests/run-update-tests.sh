@@ -11,8 +11,10 @@ export RUGIX_DEV=true
 ./run-bakery bake bundle customized-arm64 --without-compression
 ./run-bakery bake bundle customized-arm64-delta --without-compression
 ./run-bakery bundler delta build/customized-arm64/system.rugixb build/customized-arm64-delta/system.rugixb build/delta.rugixb
+./run-bakery bundler signatures sign build/customized-arm64/system.rugixb keys/signer.crt keys/signer.key build/customized-arm64-signed.rugixb
 
 ./run-bakery test test-update-bundle
+./run-bakery test test-update-bundle-signed
 ./run-bakery test test-update-image
 ./run-bakery test test-update-index
 ./run-bakery test test-update-index-http

@@ -107,6 +107,22 @@ define_struct! {
 }
 
 define_struct! {
+    /// Signatures.
+    pub struct Signatures {
+        /// Embedded CMS signatures.
+        pub cms_signatures[SIGNATURES_CMS_SIGNATURE]: Vec<Bytes>,
+    }
+}
+
+impl Default for Signatures {
+    fn default() -> Self {
+        Self {
+            cms_signatures: Default::default(),
+        }
+    }
+}
+
+define_struct! {
     /// Payload block encoding.
     pub struct BlockEncoding {
         /// Chunker used for the encoding.
@@ -134,6 +150,12 @@ define_struct! {
 
 define_struct! {
     pub struct XzCompression {}
+}
+
+define_struct! {
+    pub struct SignedMetadata {
+        pub header_hash[SIGNED_METADATA_HEADER_HASH]: HashDigest,
+    }
 }
 
 /// Encodable and decodable bytes.

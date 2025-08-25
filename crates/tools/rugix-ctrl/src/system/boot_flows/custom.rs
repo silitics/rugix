@@ -83,6 +83,32 @@ impl BootFlow for CustomBootFlow {
             .whatever("invalid output produced by custom boot flow")?;
         Ok(())
     }
+
+    fn mark_good(
+        &self,
+        system: &crate::system::System,
+        group: crate::system::boot_groups::BootGroupIdx,
+    ) -> super::BootFlowResult<()> {
+        let name = system.boot_entries()[group].name();
+        let output = read_str!([&self.controller, "mark_good", name])
+            .whatever("error running `mark_good` on custom boot flow")?;
+        serde_json::from_str::<OutputNone>(&output)
+            .whatever("invalid output produced by custom boot flow")?;
+        Ok(())
+    }
+
+    fn mark_bad(
+        &self,
+        system: &crate::system::System,
+        group: crate::system::boot_groups::BootGroupIdx,
+    ) -> super::BootFlowResult<()> {
+        let name = system.boot_entries()[group].name();
+        let output = read_str!([&self.controller, "mark_bad", name])
+            .whatever("error running `mark_bad` on custom boot flow")?;
+        serde_json::from_str::<OutputNone>(&output)
+            .whatever("invalid output produced by custom boot flow")?;
+        Ok(())
+    }
 }
 
 /// Output type for operations that output a boot group.

@@ -172,7 +172,7 @@ impl BlockIndex {
     }
 
     /// Retrieve the entry for the given block.
-    pub fn entry(&self, block: BlockId) -> BlockIndexEntry {
+    pub fn entry(&self, block: BlockId) -> BlockIndexEntry<'_> {
         BlockIndexEntry {
             hash: self.block_hash(block),
             offset: self.block_offset(block),

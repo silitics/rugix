@@ -135,7 +135,7 @@ Now, here is the promised feature-wise comparison of the different solutions.[^c
 | Bootloaders: Custom | ❌ | ✅ | ✅ | ✅ | Custom bootloader integrations. |
 | Security: Artifact Verification | ✅  | ✅ | ✅  | ✅ | Check the integrity of the update as a whole. |
 | Security: Block-Wise Verification | ❌ | ✅ | ❌ | ✅ | Check blocks individually before writing them. |
-| Security: Embedded Signatures | ✅ | ✅ | ✅ | ❌ | Embed signatures into an update. |
+| Security: Embedded Signatures | ✅ | ✅ | ✅ | ✅ | Embed signatures into an update. |
 | Security: External Signatures | ❌ | ❌ | ❌ | ✅ | Use an external signature/root of trust. |
 | Security: Encrypted Updates | ❌ | ✅ | ✅ | ❌ | Encrypted update artifacts.
 | Yocto Integration | ✅ | ✅ | ❌[^swu-yocto] | ✅ | Ready-made Yocto integration. |

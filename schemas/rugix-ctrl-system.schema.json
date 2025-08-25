@@ -401,7 +401,7 @@
           "type": "object",
           "properties": {
             "type": {
-              "const": "tryboot"
+              "const": "rpi-tryboot"
             }
           },
           "required": [
@@ -412,7 +412,7 @@
           "type": "object",
           "properties": {
             "type": {
-              "const": "u-boot"
+              "const": "rpi-uboot"
             }
           },
           "required": [
@@ -423,7 +423,18 @@
           "type": "object",
           "properties": {
             "type": {
-              "const": "grub-efi"
+              "const": "uboot"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "grub"
             }
           },
           "required": [
@@ -435,6 +446,37 @@
           "properties": {
             "type": {
               "const": "rauc-uboot"
+            },
+            "group-names": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "default-attempts": {
+              "type": "integer",
+              "format": "uint32"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "rauc-grub"
+            },
+            "group-names": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "default-attempts": {
+              "type": "integer",
+              "format": "uint32"
             }
           },
           "required": [
@@ -446,6 +488,17 @@
           "properties": {
             "type": {
               "const": "mender-grub"
+            },
+            "boot-dir": {
+              "type": "string"
+            },
+            "boot-part-a": {
+              "type": "integer",
+              "format": "uint32"
+            },
+            "boot-part-b": {
+              "type": "integer",
+              "format": "uint32"
             }
           },
           "required": [
@@ -457,6 +510,17 @@
           "properties": {
             "type": {
               "const": "mender-uboot"
+            },
+            "boot-dir": {
+              "type": "string"
+            },
+            "boot-part-a": {
+              "type": "integer",
+              "format": "uint32"
+            },
+            "boot-part-b": {
+              "type": "integer",
+              "format": "uint32"
             }
           },
           "required": [
@@ -545,6 +609,26 @@
       ],
       "unevaluatedProperties": false
     },
+    "rugix_ctrl.system.MenderBootFlowConfig": {
+      "$id": "rugix_ctrl.system.MenderBootFlowConfig",
+      "type": "object",
+      "description": "Mender boot flow configuration.",
+      "properties": {
+        "boot-dir": {
+          "type": "string"
+        },
+        "boot-part-a": {
+          "type": "integer",
+          "format": "uint32"
+        },
+        "boot-part-b": {
+          "type": "integer",
+          "format": "uint32"
+        }
+      },
+      "required": [],
+      "unevaluatedProperties": false
+    },
     "rugix_ctrl.system.PartitionConfig": {
       "$id": "rugix_ctrl.system.PartitionConfig",
       "type": "object",
@@ -565,6 +649,25 @@
         },
         "protected": {
           "type": "boolean"
+        }
+      },
+      "required": [],
+      "unevaluatedProperties": false
+    },
+    "rugix_ctrl.system.RaucBootFlowConfig": {
+      "$id": "rugix_ctrl.system.RaucBootFlowConfig",
+      "type": "object",
+      "description": "RAUC boot flow configuration.",
+      "properties": {
+        "group-names": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "default-attempts": {
+          "type": "integer",
+          "format": "uint32"
         }
       },
       "required": [],

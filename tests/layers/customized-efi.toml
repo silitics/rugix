@@ -12,6 +12,7 @@ recipes = [
     # Setup the network.
     "setup-network",
     "setup-ssh",
+    "install-root-certs",
     "rugix-system-assert",
     "simple-sbom",
     "hello-world",

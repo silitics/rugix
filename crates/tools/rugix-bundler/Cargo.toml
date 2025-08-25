@@ -25,6 +25,8 @@ tar = "0.4.44"
 rugix-chunker.workspace = true
 rugix-compression.workspace = true
 serde.workspace = true
+cms = "0.2.3"
+xscript.workspace = true
 
 [lints]
 workspace = true
