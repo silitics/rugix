@@ -125,6 +125,13 @@ impl BootFlow for MenderGrub {
                 self.inner.boot_part_b().to_string(),
             );
         }
+        let _write_guard = system.config_partition().and_then(|c| {
+            if self.inner.boot_root().starts_with(c.path()) {
+                Some(c.acquire_write_guard())
+            } else {
+                None
+            }
+        });
         // TODO: Implement Mender's lock file mechanism.
         save_grub_env(&self.inner.boot_root().join(MENDER_GRUB_ENV1), &boot_env)
             .whatever("unable to save Grub environment")?;
@@ -179,6 +186,13 @@ impl BootFlow for MenderGrub {
                 self.inner.boot_part_b().to_string(),
             );
         };
+        let _write_guard = system.config_partition().and_then(|c| {
+            if self.inner.boot_root().starts_with(c.path()) {
+                Some(c.acquire_write_guard())
+            } else {
+                None
+            }
+        });
         save_grub_env(self.inner.boot_root().join(MENDER_GRUB_ENV1), &boot_env)
             .whatever("unable to save Grub environment")?;
         save_grub_env(self.inner.boot_root().join(MENDER_GRUB_ENV2), &boot_env)
