@@ -29,7 +29,7 @@ use rugix_common::disk::repart::{
 use rugix_common::disk::PartitionTable;
 use rugix_common::partitions::mkfs_ext4;
 use rugix_hooks::HooksLoader;
-use xscript::{run, Run, Vars};
+use xscript::{run, vars, Run, Vars};
 
 use crate::utils::{clear_flag, is_flag_set, is_init_process, reboot, DEFERRED_SPARE_REBOOT_FLAG};
 
@@ -152,6 +152,9 @@ fn init() -> SystemResult<()> {
 
     let system = System::initialize()?;
 
+    let requires_commit =
+        system.boot_flow().get_default(&system).ok() != system.active_boot_entry();
+
     if let Err(error) = check_deferred_spare_reboot(&system) {
         println!("Warning: Error executing deferred reboot.");
         println!("{:?}", error);
@@ -185,7 +188,7 @@ fn init() -> SystemResult<()> {
     setup_persistent_state(&root_dir, state_profile, &state_config)?;
 
     // 9️⃣ Restore the machine id and hand off to Systemd.
-    exec_chroot_init(&root_dir)?;
+    exec_chroot_init(&root_dir, requires_commit)?;
 
     Ok(())
 }
@@ -550,7 +553,7 @@ fn restore_machine_id(root_dir: &Path) -> SystemResult<()> {
 /// We follow the example from the manpage of the `pivot_root` system call here.
 ///
 /// We are not using `chroot` as this lead to problems with Docker.
-fn exec_chroot_init(root_dir: &Path) -> SystemResult<()> {
+fn exec_chroot_init(root_dir: &Path, requires_commit: bool) -> SystemResult<()> {
     if root_dir != Path::new("/") {
         restore_machine_id(root_dir)?;
         println!("Changing current working directory to overlay root directory.");
@@ -560,8 +563,22 @@ fn exec_chroot_init(root_dir: &Path) -> SystemResult<()> {
         println!("Unmounting the previous root filesystem.");
         nix::mount::umount2(".", MntFlags::MNT_DETACH)
             .whatever("unable to unmount old root directory")?;
-        println!("Starting system init process.");
+        println!("Changing current working directory to `/`.");
+        nix::unistd::chdir("/").whatever("unable to switch to current working directory")?;
     }
+    let boot_hooks = HooksLoader::default()
+        .load_hooks("boot")
+        .whatever("unable to load `boot` hooks")?;
+    if let Err(error) = boot_hooks.run_hooks(
+        "pre-init",
+        vars! {
+            RUGIX_REQUIRES_COMMIT = if requires_commit { "true" } else { "false" }
+        },
+        &Default::default(),
+    ) {
+        println!("Error: {error:?}");
+    }
+    println!("Starting system init process.");
     let systemd_init = &CString::new("/sbin/init").unwrap();
     nix::unistd::execv(systemd_init, &[systemd_init]).whatever("unable to run system init")?;
     Ok(())

@@ -2,12 +2,13 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io::{self};
 use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 
 use tracing::{info, warn};
 
-use xscript::{run, Run, Vars};
+use xscript::Vars;
 
-use reportify::{ErrorExt, Report, ResultExt};
+use reportify::{bail, ErrorExt, Report, ResultExt};
 
 use crate::error::{HooksLoadError, HooksRunError};
 
@@ -53,18 +54,21 @@ impl Hooks {
             if !opts.silent {
                 info!("running hook {}", hook.name);
             }
-            let out = if opts.silent {
-                xscript::Out::Discard
-            } else {
-                xscript::Out::Inherit
-            };
-            run!([&hook.path, self.operation, stage]
-                .with_vars(vars.clone())
-                .with_stderr(out.clone())
-                .with_stdout(out))
-            .whatever_with(|_| {
-                format!("hook \"{}/{}/{}\" failed", self.operation, stage, hook.name)
-            })?;
+            let mut cmd = Command::new(&hook.path);
+            cmd.arg(self.operation).arg(stage);
+            for (var, value) in vars.values() {
+                let Some(value) = value else {
+                    continue;
+                };
+                cmd.env(var, value);
+            }
+            if opts.silent {
+                cmd.stderr(Stdio::null());
+                cmd.stdout(Stdio::null());
+            }
+            if !cmd.status().map(|s| s.success()).unwrap_or(false) {
+                bail!("hook \"{}/{}/{}\" failed", self.operation, stage, hook.name)
+            }
         }
         Ok(())
     }
