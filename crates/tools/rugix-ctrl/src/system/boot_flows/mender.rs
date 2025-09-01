@@ -50,7 +50,7 @@ impl MenderBootFlow {
             .boot_dir
             .as_deref()
             .map(Path::new)
-            .unwrap_or(Path::new("/boot"))
+            .unwrap_or(Path::new("/boot/efi"))
     }
 
     pub fn boot_part_a(&self) -> u32 {
@@ -144,18 +144,18 @@ impl BootFlow for MenderGrub {
         else {
             bail!("Mender boot partition is not set");
         };
-        let Some(update_avaliable) = boot_env.get("upgrade_available").map(|v| v.trim()) else {
+        let Some(upgrade_available) = boot_env.get("upgrade_available").map(|v| v.trim()) else {
             bail!("Update available flag is not set");
         };
         // Invert active `mender_boot_part` if an update is available.
-        Ok(if update_avaliable == "1" {
+        Ok(if upgrade_available == "1" {
             if mender_boot_part == self.inner.boot_part_a() {
                 self.inner.entry_b
             } else {
                 self.inner.entry_a
             }
         } else {
-            if mender_boot_part == self.inner.boot_part_b() {
+            if mender_boot_part == self.inner.boot_part_a() {
                 self.inner.entry_a
             } else {
                 self.inner.entry_b
