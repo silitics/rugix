@@ -159,7 +159,7 @@ impl PartitionTable {
             if partition.start < next_free {
                 bail!(
                     "invalid starting block of partition ({} < {next_free})",
-                    next_free
+                    partition.start
                 )
             }
             if partition.number < next_number {
