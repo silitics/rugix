@@ -170,7 +170,7 @@ fn init() -> SystemResult<()> {
         // The existence of the file indicates that the state shall be reset.
         fs::remove_dir_all(state_profile).ok();
         reset_hooks
-            .run_hooks("pre-reset", Vars::new(), &Default::default())
+            .run_hooks("post-reset", Vars::new(), &Default::default())
             .whatever("unable to run `post-reset` hooks")?;
     }
     fs::create_dir_all(state_profile).ok();
