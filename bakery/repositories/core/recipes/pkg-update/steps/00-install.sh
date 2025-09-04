@@ -9,3 +9,7 @@ fi
 if command -v apk; then
     apk update
 fi
+
+if command -v pacman; then
+    pacman -Syy
+fi
