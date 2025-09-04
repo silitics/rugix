@@ -91,3 +91,12 @@ For bootstrapping, the stages of `bootstrap` hooks are:
 - `post-layout`: Runs directly after applying the system partition layout.
 
 All stages run during the boot process and the same considerations as for [State Management Hooks](#state-management-hooks) apply (see above).
+
+## Boot Hooks
+
+During the boot process, the following `boot` hooks are invoked:
+
+- `pre-init`: Runs early before the system is initialized.
+- `post-init`: Runs after the system has been initialized.
+
+When `post-init` runs, everything has been set up and Rugix Ctrl is going to hand over control to the actual init system, e.g., Systemd.

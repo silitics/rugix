@@ -29,7 +29,7 @@ use rugix_common::disk::repart::{
 use rugix_common::disk::PartitionTable;
 use rugix_common::partitions::mkfs_ext4;
 use rugix_hooks::HooksLoader;
-use xscript::{run, vars, Run, Vars};
+use xscript::{cmd_os, run, vars, ParentEnv, Run, Vars};
 
 use crate::utils::{clear_flag, is_flag_set, is_init_process, reboot, DEFERRED_SPARE_REBOOT_FLAG};
 
@@ -69,6 +69,14 @@ fn init() -> SystemResult<()> {
 
     // Mount essential filesystems.
     mount_essential_filesystems()?;
+
+    let boot_hooks = HooksLoader::default()
+        .load_hooks("boot")
+        .whatever("unable to load `boot` hooks")?;
+
+    if let Err(error) = boot_hooks.run_hooks("pre-init", Default::default(), &Default::default()) {
+        println!("Error: {error:?}");
+    }
 
     let system_config = load_system_config()?;
     let Some(system_device) = find_system_device() else {
@@ -117,29 +125,50 @@ fn init() -> SystemResult<()> {
         info!("Done bootstrapping")
     }
 
-    let Some(data_partition) = resolve_data_partition(
+    fs::create_dir_all(MOUNT_POINT_DATA).ok();
+    let data_partition = resolve_data_partition(
         Some(&root),
         system_config
             .data_partition
             .as_ref()
             .unwrap_or(&PartitionConfig::new()),
-    ) else {
+    );
+    if let Some(mount_script) = system_config
+        .data_partition
+        .as_ref()
+        .and_then(|part| part.mount_script.as_deref())
+    {
+        let mut cmd = cmd_os!(mount_script, MOUNT_POINT_DATA);
+        if let Some(data_partition) = data_partition {
+            cmd.add_arg(data_partition.path());
+        }
+        if let Err(error) = ParentEnv.run(cmd) {
+            println!("Mounting of the data partition failed!");
+            println!("{error:?}");
+            // We proceed anyway. This will look like a factory reset.
+            fs::create_dir_all(Path::new(MOUNT_POINT_DATA).join(".rugix")).ok();
+            fs::write(
+                Path::new(MOUNT_POINT_DATA).join(".rugix/data-mount-error.log"),
+                format!("{error:?}"),
+            )
+            .ok();
+        }
+    } else if let Some(data_partition) = data_partition {
+        // 3️⃣ Check and mount the data partition.
+        if let Err(error) = run!([FSCK, "-p", data_partition.path()]) {
+            println!("fsck reported: {error}")
+        }
+        run!([
+            MOUNT,
+            "-o",
+            "noatime",
+            data_partition.path(),
+            MOUNT_POINT_DATA
+        ])
+        .whatever("unable to mount data partition")?;
+    } else {
         bail!("Rugix pre-init requires a data partition");
-    };
-
-    // 3️⃣ Check and mount the data partition.
-    if let Err(error) = run!([FSCK, "-p", data_partition.path()]) {
-        println!("fsck reported: {error}")
     }
-    fs::create_dir_all(MOUNT_POINT_DATA).ok();
-    run!([
-        MOUNT,
-        "-o",
-        "noatime",
-        data_partition.path(),
-        MOUNT_POINT_DATA
-    ])
-    .whatever("unable to mount data partition")?;
 
     let state_config = load_state_config()?;
 
@@ -570,7 +599,7 @@ fn exec_chroot_init(root_dir: &Path, requires_commit: bool) -> SystemResult<()> 
         .load_hooks("boot")
         .whatever("unable to load `boot` hooks")?;
     if let Err(error) = boot_hooks.run_hooks(
-        "pre-init",
+        "post-init",
         vars! {
             RUGIX_REQUIRES_COMMIT = if requires_commit { "true" } else { "false" }
         },

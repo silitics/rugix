@@ -4649,12 +4649,14 @@ pub mod system {
     #[doc = "Partition configuration.\n"]
     #[derive(Clone, Debug)]
     pub struct PartitionConfig {
-        #[doc = ""]
+        #[doc = "Explicitly disable the partition.\n"]
         pub disabled: ::std::option::Option<bool>,
         #[doc = "Path to the partition block device.\n"]
         pub device: ::std::option::Option<::std::string::String>,
         #[doc = "Partition number of the root device.\n"]
         pub partition: ::std::option::Option<u32>,
+        #[doc = "User-defined script for mounting the partition.\n"]
+        pub mount_script: ::std::option::Option<::std::string::String>,
         #[doc = "Path where the partition is or should be mounted.\n"]
         pub path: ::std::option::Option<::std::string::String>,
         #[doc = "Indicates whether the partition is write-protected.\n"]
@@ -4667,6 +4669,7 @@ pub mod system {
                 disabled: ::std::default::Default::default(),
                 device: ::std::default::Default::default(),
                 partition: ::std::default::Default::default(),
+                mount_script: ::std::default::Default::default(),
                 path: ::std::default::Default::default(),
                 protected: ::std::default::Default::default(),
             }
@@ -4702,6 +4705,22 @@ pub mod system {
         #[doc = "Sets the value of `partition`."]
         pub fn with_partition(mut self, partition: ::std::option::Option<u32>) -> Self {
             self.partition = partition;
+            self
+        }
+        #[doc = "Sets the value of `mount_script`."]
+        pub fn set_mount_script(
+            &mut self,
+            mount_script: ::std::option::Option<::std::string::String>,
+        ) -> &mut Self {
+            self.mount_script = mount_script;
+            self
+        }
+        #[doc = "Sets the value of `mount_script`."]
+        pub fn with_mount_script(
+            mut self,
+            mount_script: ::std::option::Option<::std::string::String>,
+        ) -> Self {
+            self.mount_script = mount_script;
             self
         }
         #[doc = "Sets the value of `path`."]
@@ -4740,7 +4759,7 @@ pub mod system {
             __serializer: __S,
         ) -> ::std::result::Result<__S::Ok, __S::Error> {
             let mut __record =
-                __sidex_serde::ser::RecordSerializer::new(__serializer, "PartitionConfig", 5usize)?;
+                __sidex_serde::ser::RecordSerializer::new(__serializer, "PartitionConfig", 6usize)?;
             __record.serialize_optional_field(
                 "disabled",
                 ::core::option::Option::as_ref(&self.disabled),
@@ -4750,6 +4769,10 @@ pub mod system {
             __record.serialize_optional_field(
                 "partition",
                 ::core::option::Option::as_ref(&self.partition),
+            )?;
+            __record.serialize_optional_field(
+                "mount-script",
+                ::core::option::Option::as_ref(&self.mount_script),
             )?;
             __record
                 .serialize_optional_field("path", ::core::option::Option::as_ref(&self.path))?;
@@ -4792,7 +4815,7 @@ pub mod system {
                         ::core::option::Option::Some(__value) => __value,
                         ::core::option::Option::None => {
                             return ::core::result::Result::Err(
-                                __serde::de::Error::invalid_length(0usize, &"record with 5 fields"),
+                                __serde::de::Error::invalid_length(0usize, &"record with 6 fields"),
                             );
                         }
                     };
@@ -4803,7 +4826,7 @@ pub mod system {
                         ::core::option::Option::Some(__value) => __value,
                         ::core::option::Option::None => {
                             return ::core::result::Result::Err(
-                                __serde::de::Error::invalid_length(1usize, &"record with 5 fields"),
+                                __serde::de::Error::invalid_length(1usize, &"record with 6 fields"),
                             );
                         }
                     };
@@ -4814,7 +4837,7 @@ pub mod system {
                         ::core::option::Option::Some(__value) => __value,
                         ::core::option::Option::None => {
                             return ::core::result::Result::Err(
-                                __serde::de::Error::invalid_length(2usize, &"record with 5 fields"),
+                                __serde::de::Error::invalid_length(2usize, &"record with 6 fields"),
                             );
                         }
                     };
@@ -4825,18 +4848,29 @@ pub mod system {
                         ::core::option::Option::Some(__value) => __value,
                         ::core::option::Option::None => {
                             return ::core::result::Result::Err(
-                                __serde::de::Error::invalid_length(3usize, &"record with 5 fields"),
+                                __serde::de::Error::invalid_length(3usize, &"record with 6 fields"),
                             );
                         }
                     };
                     let __field4 = match __serde::de::SeqAccess::next_element::<
+                        ::std::option::Option<::std::string::String>,
+                    >(&mut __seq)?
+                    {
+                        ::core::option::Option::Some(__value) => __value,
+                        ::core::option::Option::None => {
+                            return ::core::result::Result::Err(
+                                __serde::de::Error::invalid_length(4usize, &"record with 6 fields"),
+                            );
+                        }
+                    };
+                    let __field5 = match __serde::de::SeqAccess::next_element::<
                         ::std::option::Option<bool>,
                     >(&mut __seq)?
                     {
                         ::core::option::Option::Some(__value) => __value,
                         ::core::option::Option::None => {
                             return ::core::result::Result::Err(
-                                __serde::de::Error::invalid_length(4usize, &"record with 5 fields"),
+                                __serde::de::Error::invalid_length(5usize, &"record with 6 fields"),
                             );
                         }
                     };
@@ -4844,8 +4878,9 @@ pub mod system {
                         disabled: __field0,
                         device: __field1,
                         partition: __field2,
-                        path: __field3,
-                        protected: __field4,
+                        mount_script: __field3,
+                        path: __field4,
+                        protected: __field5,
                     })
                 }
                 #[inline]
@@ -4857,10 +4892,16 @@ pub mod system {
                     __A: __serde::de::MapAccess<'de>,
                 {
                     #[doc(hidden)]
-                    const __IDENTIFIERS: &'static [&'static str] =
-                        &["disabled", "device", "partition", "path", "protected"];
+                    const __IDENTIFIERS: &'static [&'static str] = &[
+                        "disabled",
+                        "device",
+                        "partition",
+                        "mount-script",
+                        "path",
+                        "protected",
+                    ];
                     #[doc(hidden)]
-                    const __EXPECTING_IDENTIFIERS : & 'static str = "an identifier in [\"disabled\", \"device\", \"partition\", \"path\", \"protected\"]" ;
+                    const __EXPECTING_IDENTIFIERS : & 'static str = "an identifier in [\"disabled\", \"device\", \"partition\", \"mount-script\", \"path\", \"protected\"]" ;
                     #[derive(:: core :: clone :: Clone, :: core :: marker :: Copy)]
                     #[doc(hidden)]
                     enum __Identifier {
@@ -4869,6 +4910,7 @@ pub mod system {
                         __Identifier2,
                         __Identifier3,
                         __Identifier4,
+                        __Identifier5,
                         __Unknown,
                     }
                     #[doc(hidden)]
@@ -4894,6 +4936,7 @@ pub mod system {
                                 2u64 => ::core::result::Result::Ok(__Identifier::__Identifier2),
                                 3u64 => ::core::result::Result::Ok(__Identifier::__Identifier3),
                                 4u64 => ::core::result::Result::Ok(__Identifier::__Identifier4),
+                                5u64 => ::core::result::Result::Ok(__Identifier::__Identifier5),
                                 _ => ::core::result::Result::Ok(__Identifier::__Unknown),
                             }
                         }
@@ -4912,9 +4955,12 @@ pub mod system {
                                 "partition" => {
                                     ::core::result::Result::Ok(__Identifier::__Identifier2)
                                 }
-                                "path" => ::core::result::Result::Ok(__Identifier::__Identifier3),
+                                "mount-script" => {
+                                    ::core::result::Result::Ok(__Identifier::__Identifier3)
+                                }
+                                "path" => ::core::result::Result::Ok(__Identifier::__Identifier4),
                                 "protected" => {
-                                    ::core::result::Result::Ok(__Identifier::__Identifier4)
+                                    ::core::result::Result::Ok(__Identifier::__Identifier5)
                                 }
                                 _ => ::core::result::Result::Ok(__Identifier::__Unknown),
                             }
@@ -4936,9 +4982,12 @@ pub mod system {
                                 b"partition" => {
                                     ::core::result::Result::Ok(__Identifier::__Identifier2)
                                 }
-                                b"path" => ::core::result::Result::Ok(__Identifier::__Identifier3),
+                                b"mount-script" => {
+                                    ::core::result::Result::Ok(__Identifier::__Identifier3)
+                                }
+                                b"path" => ::core::result::Result::Ok(__Identifier::__Identifier4),
                                 b"protected" => {
-                                    ::core::result::Result::Ok(__Identifier::__Identifier4)
+                                    ::core::result::Result::Ok(__Identifier::__Identifier5)
                                 }
                                 _ => ::core::result::Result::Ok(__Identifier::__Unknown),
                             }
@@ -4968,7 +5017,10 @@ pub mod system {
                     let mut __field3: ::core::option::Option<
                         ::std::option::Option<::std::string::String>,
                     > = ::core::option::Option::None;
-                    let mut __field4: ::core::option::Option<::std::option::Option<bool>> =
+                    let mut __field4: ::core::option::Option<
+                        ::std::option::Option<::std::string::String>,
+                    > = ::core::option::Option::None;
+                    let mut __field5: ::core::option::Option<::std::option::Option<bool>> =
                         ::core::option::Option::None;
                     while let ::core::option::Option::Some(__key) =
                         __serde::de::MapAccess::next_key::<__Identifier>(&mut __map)?
@@ -5019,7 +5071,9 @@ pub mod system {
                             __Identifier::__Identifier3 => {
                                 if ::core::option::Option::is_some(&__field3) {
                                     return ::core::result::Result::Err(
-                                        <__A::Error as __serde::de::Error>::duplicate_field("path"),
+                                        <__A::Error as __serde::de::Error>::duplicate_field(
+                                            "mount-script",
+                                        ),
                                     );
                                 }
                                 __field3 = ::core::option::Option::Some(
@@ -5031,12 +5085,24 @@ pub mod system {
                             __Identifier::__Identifier4 => {
                                 if ::core::option::Option::is_some(&__field4) {
                                     return ::core::result::Result::Err(
+                                        <__A::Error as __serde::de::Error>::duplicate_field("path"),
+                                    );
+                                }
+                                __field4 = ::core::option::Option::Some(
+                                    __serde::de::MapAccess::next_value::<
+                                        ::std::option::Option<::std::string::String>,
+                                    >(&mut __map)?,
+                                );
+                            }
+                            __Identifier::__Identifier5 => {
+                                if ::core::option::Option::is_some(&__field5) {
+                                    return ::core::result::Result::Err(
                                         <__A::Error as __serde::de::Error>::duplicate_field(
                                             "protected",
                                         ),
                                     );
                                 }
-                                __field4 = ::core::option::Option::Some(
+                                __field5 = ::core::option::Option::Some(
                                     __serde::de::MapAccess::next_value::<
                                         ::std::option::Option<bool>,
                                     >(&mut __map)?,
@@ -5069,18 +5135,29 @@ pub mod system {
                         ::core::option::Option::Some(__value) => __value,
                         ::core::option::Option::None => ::core::option::Option::None,
                     };
+                    let __field5 = match __field5 {
+                        ::core::option::Option::Some(__value) => __value,
+                        ::core::option::Option::None => ::core::option::Option::None,
+                    };
                     ::core::result::Result::Ok(PartitionConfig {
                         disabled: __field0,
                         device: __field1,
                         partition: __field2,
-                        path: __field3,
-                        protected: __field4,
+                        mount_script: __field3,
+                        path: __field4,
+                        protected: __field5,
                     })
                 }
             }
             #[doc(hidden)]
-            const __FIELDS: &'static [&'static str] =
-                &["disabled", "device", "partition", "path", "protected"];
+            const __FIELDS: &'static [&'static str] = &[
+                "disabled",
+                "device",
+                "partition",
+                "mount-script",
+                "path",
+                "protected",
+            ];
             __serde::Deserializer::deserialize_struct(
                 __deserializer,
                 "PartitionConfig",

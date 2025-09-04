@@ -614,6 +614,9 @@
           "type": "integer",
           "format": "uint32"
         },
+        "mount-script": {
+          "type": "string"
+        },
         "path": {
           "type": "string"
         },
