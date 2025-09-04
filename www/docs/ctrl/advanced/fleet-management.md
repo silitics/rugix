@@ -15,7 +15,7 @@ It also allows you to choose a fleet management provider based on the needs and 
 
 :::
 
-Currently, there are ready-made integrations with [Nexigon](https://nexiogn.dev/?utm_source=rugix.org&utm_campaign=rugix-fleet-management), [thin-edge.io](https://thin-edge.io/), [Memfault](https://memfault.com/), and [Mender](https://mender.io/).
+Currently, there are ready-made integrations with [Nexigon](https://nexigon.dev/?utm_source=rugix.org&utm_campaign=rugix-fleet-management), [thin-edge.io](https://thin-edge.io/), [Memfault](https://memfault.com/), and [Mender](https://mender.io/).
 For other fleet management solutions, you can develop your own integration or [contract Silitics](/commercial-support), the company behind Rugix, to develop an integration for you.
 
 
