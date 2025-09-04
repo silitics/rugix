@@ -15,6 +15,7 @@ use tracing::info;
 use url::Url;
 use xscript::{run, Run};
 
+use crate::config::images::PartitionTableType;
 use crate::config::systems::{Architecture, Target};
 use crate::project::library::LayerIdx;
 use crate::project::ProjectRef;
@@ -221,10 +222,19 @@ pub fn bake_bundle(
     let bundle_dir = tempdir().whatever("unable to create temporary directory")?;
     let bundle_dir = bundle_dir.path();
     let system_config = project.config().resolve_system_config(system)?;
+    let is_gpt = system_config
+        .image
+        .as_ref()
+        .and_then(|img| {
+            img.layout
+                .as_ref()
+                .map(|layout| layout.ty == Some(PartitionTableType::Gpt))
+        })
+        .unwrap_or(false);
     let config = match system_config.target.clone().unwrap_or(Target::Unknown) {
         Target::GenericGrubEfi => efi_bundle_config(opts),
-        Target::RpiTryboot => rpi_bundle_config(opts),
-        Target::RpiUboot => rpi_bundle_config(opts),
+        Target::RpiTryboot => rpi_bundle_config(opts, is_gpt),
+        Target::RpiUboot => rpi_bundle_config(opts, is_gpt),
         Target::Unknown => bail!("cannot bake bundles for unknown targets"),
     };
     std::fs::write(
@@ -248,7 +258,7 @@ pub fn bake_bundle(
     Ok(())
 }
 
-fn rpi_bundle_config(opts: &BundleOpts) -> BundleManifest {
+fn rpi_bundle_config(opts: &BundleOpts, is_gpt: bool) -> BundleManifest {
     let compression = if opts.without_compression {
         None
     } else {
@@ -272,7 +282,11 @@ fn rpi_bundle_config(opts: &BundleOpts) -> BundleManifest {
                 manifest::DeliveryConfig::Slot(manifest::SlotDeliveryConfig {
                     slot: "system".to_owned(),
                 }),
-                "partition-5.img".to_owned(),
+                if is_gpt {
+                    "partition-4.img".to_owned()
+                } else {
+                    "partition-5.img".to_owned()
+                },
             )
             .with_block_encoding(Some(
                 manifest::BlockEncoding::new(opts.chunker_algorithm())

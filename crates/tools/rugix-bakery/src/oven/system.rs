@@ -211,12 +211,19 @@ pub fn make_system(
     if let Some(target) = &config.target {
         if matches!(target, Target::RpiTryboot | Target::RpiUboot) {
             let disk_id = match table.disk_id {
-                DiskId::Mbr(mbr_id) => mbr_id.into_raw(),
+                DiskId::Mbr(mbr_id) => {
+                    format!("PARTUUID={:08X}-05", mbr_id.into_raw())
+                }
+                DiskId::Gpt(_) => {
+                    let Some(gpt_id) = table.partitions[3].gpt_id else {
+                        bail!("unable to determine GTP partition ID");
+                    };
+                    format!("PARTUUID={gpt_id}")
+                }
                 _ => bail!("unsupported GPT partition layout"),
             };
             info!("Patching boot configuration.");
-            rpi_patch_boot(&boot_dir, format!("PARTUUID={disk_id:08X}-05"))
-                .whatever("unable to patch boot configuration")?;
+            rpi_patch_boot(&boot_dir, disk_id).whatever("unable to patch boot configuration")?;
         }
         if matches!(target, Target::GenericGrubEfi) {
             let root_part = &table.partitions[3];

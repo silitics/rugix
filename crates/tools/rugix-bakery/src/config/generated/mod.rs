@@ -1,7 +1,5 @@
 /* GENERATED WITH SIDEX. DO NOT MODIFY! */
 
-#![allow(warnings)]
-
 pub mod foreign {
     #![doc = "Foreign types.\n"]
     #[allow(unused)]
@@ -736,7 +734,7 @@ pub mod images {
         }
     }
     #[doc = "Partition table type.\n"]
-    #[derive(Clone, Debug, Copy)]
+    #[derive(Clone, Debug, Copy, PartialEq, Eq, Hash)]
     pub enum PartitionTableType {
         #[doc = "MBR partition.\n"]
         Mbr,

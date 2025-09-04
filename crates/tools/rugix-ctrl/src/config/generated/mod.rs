@@ -1,7 +1,5 @@
 /* GENERATED WITH SIDEX. DO NOT MODIFY! */
 
-#![allow(warnings)]
-
 pub mod bootstrapping {
     #![doc = "Bootstrapping configuration.\n"]
     #[allow(unused)]
