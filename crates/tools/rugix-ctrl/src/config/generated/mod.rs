@@ -1296,12 +1296,15 @@ pub mod bootstrapping {
     pub struct Ext4Filesystem {
         #[doc = ""]
         pub label: ::std::option::Option<::std::string::String>,
+        #[doc = ""]
+        pub additional_options: ::std::option::Option<::std::vec::Vec<::std::string::String>>,
     }
     impl Ext4Filesystem {
         #[doc = "Creates a new [`Ext4Filesystem`]."]
         pub fn new() -> Self {
             Self {
                 label: ::std::default::Default::default(),
+                additional_options: ::std::default::Default::default(),
             }
         }
         #[doc = "Sets the value of `label`."]
@@ -1317,6 +1320,22 @@ pub mod bootstrapping {
             self.label = label;
             self
         }
+        #[doc = "Sets the value of `additional_options`."]
+        pub fn set_additional_options(
+            &mut self,
+            additional_options: ::std::option::Option<::std::vec::Vec<::std::string::String>>,
+        ) -> &mut Self {
+            self.additional_options = additional_options;
+            self
+        }
+        #[doc = "Sets the value of `additional_options`."]
+        pub fn with_additional_options(
+            mut self,
+            additional_options: ::std::option::Option<::std::vec::Vec<::std::string::String>>,
+        ) -> Self {
+            self.additional_options = additional_options;
+            self
+        }
     }
     impl ::std::default::Default for Ext4Filesystem {
         fn default() -> Self {
@@ -1330,9 +1349,13 @@ pub mod bootstrapping {
             __serializer: __S,
         ) -> ::std::result::Result<__S::Ok, __S::Error> {
             let mut __record =
-                __sidex_serde::ser::RecordSerializer::new(__serializer, "Ext4Filesystem", 1usize)?;
+                __sidex_serde::ser::RecordSerializer::new(__serializer, "Ext4Filesystem", 2usize)?;
             __record
                 .serialize_optional_field("label", ::core::option::Option::as_ref(&self.label))?;
+            __record.serialize_optional_field(
+                "additional-options",
+                ::core::option::Option::as_ref(&self.additional_options),
+            )?;
             __record.end()
         }
     }
@@ -1368,11 +1391,25 @@ pub mod bootstrapping {
                         ::core::option::Option::Some(__value) => __value,
                         ::core::option::Option::None => {
                             return ::core::result::Result::Err(
-                                __serde::de::Error::invalid_length(0usize, &"record with 1 fields"),
+                                __serde::de::Error::invalid_length(0usize, &"record with 2 fields"),
                             );
                         }
                     };
-                    ::core::result::Result::Ok(Ext4Filesystem { label: __field0 })
+                    let __field1 = match __serde::de::SeqAccess::next_element::<
+                        ::std::option::Option<::std::vec::Vec<::std::string::String>>,
+                    >(&mut __seq)?
+                    {
+                        ::core::option::Option::Some(__value) => __value,
+                        ::core::option::Option::None => {
+                            return ::core::result::Result::Err(
+                                __serde::de::Error::invalid_length(1usize, &"record with 2 fields"),
+                            );
+                        }
+                    };
+                    ::core::result::Result::Ok(Ext4Filesystem {
+                        label: __field0,
+                        additional_options: __field1,
+                    })
                 }
                 #[inline]
                 fn visit_map<__A>(
@@ -1383,13 +1420,15 @@ pub mod bootstrapping {
                     __A: __serde::de::MapAccess<'de>,
                 {
                     #[doc(hidden)]
-                    const __IDENTIFIERS: &'static [&'static str] = &["label"];
+                    const __IDENTIFIERS: &'static [&'static str] = &["label", "additional-options"];
                     #[doc(hidden)]
-                    const __EXPECTING_IDENTIFIERS: &'static str = "an identifier in [\"label\"]";
+                    const __EXPECTING_IDENTIFIERS: &'static str =
+                        "an identifier in [\"label\", \"additional-options\"]";
                     #[derive(:: core :: clone :: Clone, :: core :: marker :: Copy)]
                     #[doc(hidden)]
                     enum __Identifier {
                         __Identifier0,
+                        __Identifier1,
                         __Unknown,
                     }
                     #[doc(hidden)]
@@ -1411,6 +1450,7 @@ pub mod bootstrapping {
                         {
                             match __value {
                                 0u64 => ::core::result::Result::Ok(__Identifier::__Identifier0),
+                                1u64 => ::core::result::Result::Ok(__Identifier::__Identifier1),
                                 _ => ::core::result::Result::Ok(__Identifier::__Unknown),
                             }
                         }
@@ -1423,6 +1463,9 @@ pub mod bootstrapping {
                         {
                             match __value {
                                 "label" => ::core::result::Result::Ok(__Identifier::__Identifier0),
+                                "additional-options" => {
+                                    ::core::result::Result::Ok(__Identifier::__Identifier1)
+                                }
                                 _ => ::core::result::Result::Ok(__Identifier::__Unknown),
                             }
                         }
@@ -1435,6 +1478,9 @@ pub mod bootstrapping {
                         {
                             match __value {
                                 b"label" => ::core::result::Result::Ok(__Identifier::__Identifier0),
+                                b"additional-options" => {
+                                    ::core::result::Result::Ok(__Identifier::__Identifier1)
+                                }
                                 _ => ::core::result::Result::Ok(__Identifier::__Unknown),
                             }
                         }
@@ -1456,6 +1502,9 @@ pub mod bootstrapping {
                     let mut __field0: ::core::option::Option<
                         ::std::option::Option<::std::string::String>,
                     > = ::core::option::Option::None;
+                    let mut __field1: ::core::option::Option<
+                        ::std::option::Option<::std::vec::Vec<::std::string::String>>,
+                    > = ::core::option::Option::None;
                     while let ::core::option::Option::Some(__key) =
                         __serde::de::MapAccess::next_key::<__Identifier>(&mut __map)?
                     {
@@ -1474,6 +1523,22 @@ pub mod bootstrapping {
                                     >(&mut __map)?,
                                 );
                             }
+                            __Identifier::__Identifier1 => {
+                                if ::core::option::Option::is_some(&__field1) {
+                                    return ::core::result::Result::Err(
+                                        <__A::Error as __serde::de::Error>::duplicate_field(
+                                            "additional-options",
+                                        ),
+                                    );
+                                }
+                                __field1 = ::core::option::Option::Some(
+                                    __serde::de::MapAccess::next_value::<
+                                        ::std::option::Option<
+                                            ::std::vec::Vec<::std::string::String>,
+                                        >,
+                                    >(&mut __map)?,
+                                );
+                            }
                             _ => {
                                 __serde::de::MapAccess::next_value::<__serde::de::IgnoredAny>(
                                     &mut __map,
@@ -1485,11 +1550,18 @@ pub mod bootstrapping {
                         ::core::option::Option::Some(__value) => __value,
                         ::core::option::Option::None => ::core::option::Option::None,
                     };
-                    ::core::result::Result::Ok(Ext4Filesystem { label: __field0 })
+                    let __field1 = match __field1 {
+                        ::core::option::Option::Some(__value) => __value,
+                        ::core::option::Option::None => ::core::option::Option::None,
+                    };
+                    ::core::result::Result::Ok(Ext4Filesystem {
+                        label: __field0,
+                        additional_options: __field1,
+                    })
                 }
             }
             #[doc(hidden)]
-            const __FIELDS: &'static [&'static str] = &["label"];
+            const __FIELDS: &'static [&'static str] = &["label", "additional-options"];
             __serde::Deserializer::deserialize_struct(
                 __deserializer,
                 "Ext4Filesystem",

@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use reportify::{Report, ResultExt};
-use xscript::{read_str, run, Run};
+use xscript::{cmd_os, read_str, run, ParentEnv, Run};
 
 pub fn is_dir(path: impl AsRef<Path>) -> bool {
     path.as_ref().is_dir()
@@ -36,14 +36,21 @@ const MKFS_VFAT: &str = "/usr/sbin/mkfs.vfat";
 
 /// Formats a boot partition with FAT32.
 pub fn mkfs_vfat(dev: impl AsRef<Path>, label: impl AsRef<str>) -> Result<(), Report<DiskError>> {
-    run!([MKFS_VFAT, "-n", label.as_ref(), dev.as_ref()])
+    run!([MKFS_VFAT, "-n", label.as_ref(), dev.as_ref(),])
         .whatever("unable to create FAT32 filesystem")?;
     Ok(())
 }
 
 /// Formats a system partition with EXT4.
-pub fn mkfs_ext4(dev: impl AsRef<Path>, label: impl AsRef<str>) -> Result<(), Report<DiskError>> {
-    run!([MKFS_ETX4, "-F", "-L", label.as_ref(), dev.as_ref()])
+pub fn mkfs_ext4(
+    dev: impl AsRef<Path>,
+    label: impl AsRef<str>,
+    additional_options: &[String],
+) -> Result<(), Report<DiskError>> {
+    let mut cmd = cmd_os!(MKFS_ETX4, "-F", "-L", label.as_ref(), dev.as_ref());
+    cmd.extend_args(additional_options);
+    ParentEnv
+        .run(cmd)
         .whatever("unable to create ETX4 filesystem")?;
     Ok(())
 }

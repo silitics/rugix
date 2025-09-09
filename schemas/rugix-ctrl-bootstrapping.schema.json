@@ -35,6 +35,12 @@
       "properties": {
         "label": {
           "type": "string"
+        },
+        "additional-options": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "required": [],
@@ -52,6 +58,12 @@
             },
             "label": {
               "type": "string"
+            },
+            "additional-options": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           },
           "required": [

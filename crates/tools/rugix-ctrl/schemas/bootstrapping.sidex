@@ -51,8 +51,10 @@ variant Filesystem {
     Ext4: Ext4Filesystem,
 }
 
+#[json(rename_all = "kebab-case")]
 record Ext4Filesystem {
     label?: string,
+    additional_options?: [string]
 }
 
 /// Default layout configuration.

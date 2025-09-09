@@ -317,6 +317,10 @@ fn bootstrap(root: &SystemRoot) -> SystemResult<()> {
                                 mkfs_ext4(
                                     block_device,
                                     ext4_filesystem.label.as_deref().unwrap_or(""),
+                                    ext4_filesystem
+                                        .additional_options
+                                        .as_deref()
+                                        .unwrap_or_default(),
                                 )
                                 .whatever("unable to create filesystem on data partition")?;
                             }
@@ -327,8 +331,12 @@ fn bootstrap(root: &SystemRoot) -> SystemResult<()> {
                     let data_partition_idx = if ty.is_mbr() { 7 } else { 6 };
                     if data_partition_idx as usize >= old_table.partitions.len() {
                         // Create Ext4 filesystem on data partition.
-                        mkfs_ext4(root.resolve_partition(data_partition_idx).unwrap(), "data")
-                            .whatever("unable to create filesystem on data partition")?;
+                        mkfs_ext4(
+                            root.resolve_partition(data_partition_idx).unwrap(),
+                            "data",
+                            &[],
+                        )
+                        .whatever("unable to create filesystem on data partition")?;
                     }
                 }
                 SystemLayoutConfig::None => unreachable!(),
