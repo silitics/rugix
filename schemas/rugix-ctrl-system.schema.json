@@ -276,6 +276,35 @@
       "required": [],
       "unevaluatedProperties": false
     },
+    "rugix_ctrl.output.StateManagementStatus": {
+      "$id": "rugix_ctrl.output.StateManagementStatus",
+      "enum": [
+        {
+          "tag": "Disabled"
+        },
+        {
+          "tag": "Active"
+        },
+        {
+          "tag": "Error"
+        }
+      ],
+      "description": ""
+    },
+    "rugix_ctrl.output.StateOutput": {
+      "$id": "rugix_ctrl.output.StateOutput",
+      "type": "object",
+      "description": "",
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/rugix_ctrl.output.StateManagementStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "unevaluatedProperties": false
+    },
     "rugix_ctrl.output.SystemStateOutput": {
       "$id": "rugix_ctrl.output.SystemStateOutput",
       "type": "object",
@@ -289,10 +318,14 @@
         },
         "boot": {
           "$ref": "#/$defs/rugix_ctrl.output.BootStateOutput"
+        },
+        "state": {
+          "$ref": "#/$defs/rugix_ctrl.output.StateOutput"
         }
       },
       "required": [
-        "slots"
+        "slots",
+        "state"
       ],
       "unevaluatedProperties": false
     },

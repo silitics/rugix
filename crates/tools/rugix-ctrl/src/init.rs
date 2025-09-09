@@ -160,14 +160,23 @@ fn init() -> SystemResult<()> {
         if let Err(error) = run!([FSCK, "-p", data_partition.path()]) {
             println!("fsck reported: {error}")
         }
-        run!([
+        if let Err(error) = run!([
             MOUNT,
             "-o",
             "noatime",
             data_partition.path(),
             MOUNT_POINT_DATA
-        ])
-        .whatever("unable to mount data partition")?;
+        ]) {
+            println!("Mounting of the data partition failed!");
+            println!("{error:?}");
+            // We proceed anyway. This will look like a factory reset.
+            fs::create_dir_all(Path::new(MOUNT_POINT_DATA).join(".rugix")).ok();
+            fs::write(
+                Path::new(MOUNT_POINT_DATA).join(".rugix/data-mount-error.log"),
+                format!("{error:?}"),
+            )
+            .ok();
+        }
     } else {
         bail!("Rugix pre-init requires a data partition");
     }

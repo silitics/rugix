@@ -1,10 +1,14 @@
+use std::path::Path;
+
 use tracing::error;
 
 use crate::slot_db;
+use crate::system::paths::MOUNT_POINT_DATA;
 use crate::system::System;
 
 use crate::config::output::{
-    BootGroupStateOutput, BootStateOutput, SlotStateOutput, SystemStateOutput,
+    BootGroupStateOutput, BootStateOutput, SlotStateOutput, StateManagementStatus, StateOutput,
+    SystemStateOutput,
 };
 
 pub fn state_from_system(system: &System) -> SystemStateOutput {
@@ -51,10 +55,24 @@ pub fn state_from_system(system: &System) -> SystemStateOutput {
         .iter()
         .map(|(_, group)| (group.name().to_owned(), BootGroupStateOutput {}))
         .collect();
-    SystemStateOutput::new(slots).with_boot(Some(BootStateOutput {
-        boot_flow,
-        active_group: active_boot_group,
-        default_group: default_boot_group,
-        groups: boot_groups,
-    }))
+    let state_management_status = if !Path::new("/run/rugix/state").exists() {
+        StateManagementStatus::Disabled
+    } else {
+        if Path::new(MOUNT_POINT_DATA)
+            .join(".rugix/data-mount-error.log")
+            .exists()
+        {
+            StateManagementStatus::Error
+        } else {
+            StateManagementStatus::Active
+        }
+    };
+    SystemStateOutput::new(slots, StateOutput::new(state_management_status)).with_boot(Some(
+        BootStateOutput {
+            boot_flow,
+            active_group: active_boot_group,
+            default_group: default_boot_group,
+            groups: boot_groups,
+        },
+    ))
 }

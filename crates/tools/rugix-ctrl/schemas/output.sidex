@@ -1,6 +1,24 @@
 record SystemStateOutput {
     slots: [string: SlotStateOutput],
     boot?: BootStateOutput,
+    /// System state management information.
+    state: StateOutput,
+}
+
+/// State management status.
+variant StateManagementStatus {
+    /// State management has not been enabled.
+    Disabled,
+    /// State management is active.
+    Active,
+    /// State management is inactive due to an error.
+    /// 
+    /// State is stored in memory and will fail to persist even if declared.
+    Error,
+}
+
+record StateOutput {
+    status: StateManagementStatus,
 }
 
 record SlotStateOutput {
