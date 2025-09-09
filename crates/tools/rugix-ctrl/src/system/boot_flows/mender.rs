@@ -30,12 +30,14 @@ use std::str::FromStr;
 
 use hashbrown::HashMap;
 use reportify::{bail, ResultExt};
-use rugix_common::boot::grub::{load_grub_env, save_grub_env};
+use rugix_common::boot::grub::{load_grub_env, save_grub_env, GrubEnv};
+use tracing::error;
 
 use crate::boot::fwenv::{load_vars, set_vars};
 use crate::config::system::MenderBootFlowConfig;
 use crate::system::boot_flows::{BootFlow, BootFlowResult};
 use crate::system::boot_groups::{BootGroupIdx, BootGroups};
+use crate::system::System;
 
 #[derive(Debug)]
 struct MenderBootFlow {
@@ -81,7 +83,79 @@ fn mender_boot_flow(
 }
 
 const MENDER_GRUB_ENV1: &str = "grub-mender-grubenv/mender_grubenv1/env";
+const MENDER_GRUB_LOCK1: &str = "grub-mender-grubenv/mender_grubenv1/lock";
 const MENDER_GRUB_ENV2: &str = "grub-mender-grubenv/mender_grubenv2/env";
+const MENDER_GRUB_LOCK2: &str = "grub-mender-grubenv/mender_grubenv2/lock";
+
+fn mender_save_grub_env(boot_root: &Path, env: &GrubEnv) -> BootFlowResult<()> {
+    let mut locked = std::collections::HashMap::new();
+    locked.insert("editing".to_owned(), "1".to_owned());
+    let mut unlocked = std::collections::HashMap::new();
+    unlocked.insert("editing".to_owned(), "0".to_owned());
+    // Primary environment file.
+    save_grub_env(boot_root.join(MENDER_GRUB_LOCK1), &locked).ok();
+    save_grub_env(boot_root.join(MENDER_GRUB_ENV1), env)
+        .whatever("unable to save Grub environment")?;
+    save_grub_env(boot_root.join(MENDER_GRUB_LOCK1), &unlocked).ok();
+    // Secondary environment file.
+    save_grub_env(boot_root.join(MENDER_GRUB_LOCK2), &locked).ok();
+    save_grub_env(boot_root.join(MENDER_GRUB_ENV2), &env)
+        .whatever("unable to save Grub environment")?;
+    save_grub_env(&boot_root.join(MENDER_GRUB_LOCK2), &locked).ok();
+    Ok(())
+}
+
+fn mender_load_grub_env(system: &System, boot_root: &Path) -> BootFlowResult<GrubEnv> {
+    let primary_ok = load_grub_env(boot_root.join(MENDER_GRUB_ENV1))
+        .map(|env| match env.get("editing").as_deref() {
+            Some(value) if value == "0" => true,
+            _ => false,
+        })
+        .unwrap_or(false);
+    let secondary_ok = load_grub_env(boot_root.join(MENDER_GRUB_ENV1))
+        .map(|env| match env.get("editing").as_deref() {
+            Some(value) if value == "0" => true,
+            _ => false,
+        })
+        .unwrap_or(false);
+    let boot_env = if primary_ok {
+        load_grub_env(boot_root.join(MENDER_GRUB_ENV1))
+            .whatever("unable to load Grub environment")?
+    } else if secondary_ok {
+        load_grub_env(boot_root.join(MENDER_GRUB_ENV2))
+            .whatever("unable to load Grub environment")?
+    } else {
+        error!("both primary and secondary environment files are corrupted");
+        // Try to load the primary environment anyway.
+        load_grub_env(boot_root.join(MENDER_GRUB_ENV1))
+            .whatever("unable to load Grub environment")?
+    };
+
+    if !primary_ok || !secondary_ok {
+        let _write_guard = system.config_partition().and_then(|c| {
+            if boot_root.starts_with(c.path()) {
+                Some(c.acquire_write_guard())
+            } else {
+                None
+            }
+        });
+        let mut locked = std::collections::HashMap::new();
+        locked.insert("editing".to_owned(), "1".to_owned());
+        let mut unlocked = std::collections::HashMap::new();
+        unlocked.insert("editing".to_owned(), "0".to_owned());
+        if !primary_ok {
+            save_grub_env(boot_root.join(MENDER_GRUB_LOCK1), &locked).ok();
+            save_grub_env(boot_root.join(MENDER_GRUB_ENV1), &boot_env).ok();
+            save_grub_env(boot_root.join(MENDER_GRUB_LOCK1), &unlocked).ok();
+        }
+        if !secondary_ok {
+            save_grub_env(boot_root.join(MENDER_GRUB_LOCK2), &locked).ok();
+            save_grub_env(boot_root.join(MENDER_GRUB_ENV2), &boot_env).ok();
+            save_grub_env(&boot_root.join(MENDER_GRUB_LOCK2), &locked).ok();
+        }
+    }
+    Ok(boot_env)
+}
 
 #[derive(Debug)]
 pub struct MenderGrub {
@@ -125,6 +199,8 @@ impl BootFlow for MenderGrub {
                 self.inner.boot_part_b().to_string(),
             );
         }
+        // Load the boot environment once and repair it if necessary.
+        let _ = mender_load_grub_env(system, self.inner.boot_root());
         let _write_guard = system.config_partition().and_then(|c| {
             if self.inner.boot_root().starts_with(c.path()) {
                 Some(c.acquire_write_guard())
@@ -132,18 +208,12 @@ impl BootFlow for MenderGrub {
                 None
             }
         });
-        // TODO: Implement Mender's lock file mechanism.
-        save_grub_env(&self.inner.boot_root().join(MENDER_GRUB_ENV1), &boot_env)
-            .whatever("unable to save Grub environment")?;
-        save_grub_env(&self.inner.boot_root().join(MENDER_GRUB_ENV2), &boot_env)
-            .whatever("unable to save Grub environment")?;
-
+        mender_save_grub_env(self.inner.boot_root(), &boot_env)?;
         Ok(())
     }
 
-    fn get_default(&self, _: &crate::system::System) -> super::BootFlowResult<BootGroupIdx> {
-        let boot_env = load_grub_env(self.inner.boot_root().join(MENDER_GRUB_ENV1))
-            .whatever("unable to load Grub environment")?;
+    fn get_default(&self, system: &crate::system::System) -> super::BootFlowResult<BootGroupIdx> {
+        let boot_env = mender_load_grub_env(system, self.inner.boot_root())?;
         let Some(mender_boot_part) = boot_env
             .get("mender_boot_part")
             .map(|v| v.trim())
@@ -186,6 +256,7 @@ impl BootFlow for MenderGrub {
                 self.inner.boot_part_b().to_string(),
             );
         };
+        let _ = mender_load_grub_env(system, self.inner.boot_root());
         let _write_guard = system.config_partition().and_then(|c| {
             if self.inner.boot_root().starts_with(c.path()) {
                 Some(c.acquire_write_guard())
@@ -193,10 +264,7 @@ impl BootFlow for MenderGrub {
                 None
             }
         });
-        save_grub_env(self.inner.boot_root().join(MENDER_GRUB_ENV1), &boot_env)
-            .whatever("unable to save Grub environment")?;
-        save_grub_env(self.inner.boot_root().join(MENDER_GRUB_ENV2), &boot_env)
-            .whatever("unable to save Grub environment")?;
+        mender_save_grub_env(self.inner.boot_root(), &boot_env)?;
         Ok(())
     }
 }

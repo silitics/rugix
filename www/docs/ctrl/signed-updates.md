@@ -4,6 +4,12 @@ sidebar_position: 6
 
 # Signed Updates
 
+:::warning
+
+**The functionality described here has not been fully battle-tested yet.**
+
+:::
+
 When updates are installed from untrusted sources, such as user-provided update bundles, it is important to verify that updates are genuine and have not been tampered with.
 To this end, Rugix Ctrl supports *embedded signatures* in update bundles.
 Embedded signatures are based on the widely-adopted [*Cryptographic Message Syntax* (CMS) standard](https://datatracker.ietf.org/doc/html/rfc5652), which supports certificate-based signature verification.

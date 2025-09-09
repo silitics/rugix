@@ -2,7 +2,7 @@
 
 :::warning
 
-**The functionality described here is still in development and not fully mature and battle-tested yet.**
+**Some of the functionality described here is still in development and not fully mature and battle-tested yet.**
 
 :::
 
