@@ -1,9 +1,6 @@
 [[systems]]
 system = "customized-arm64"
 ssh = { private-key = "./keys/id_rsa" }
-[[systems]]
-system = "customized-temp-overlay"
-ssh = { private-key = "./keys/id_rsa" }
 
 [[steps]]
 action = "run"
@@ -44,7 +41,7 @@ may-disconnect = true
 script = """
 #!/bin/bash
 set -euo pipefail
-rugix-ctrl state reset
+rugix-ctrl state reset --backup --backup-name "test-backup"
 """
 
 [[steps]]
@@ -59,6 +56,10 @@ script = """
 set -euo pipefail
 if [ -e /run/rugix/state/this-file-should-persist ]; then
     echo "File should not exist anymore!"
+    exit1
+fi
+if [ ! -e /run/rugix/mounts/data/state/test-backup/this-file-should-persist ]; then
+    echo "File should still exist in the backup!"
     exit1
 fi
 """

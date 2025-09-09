@@ -60,6 +60,8 @@ const MOUNT: &str = "/usr/bin/mount";
 /// The `sync` executable.
 const SYNC: &str = "/usr/bin/sync";
 
+const STATE_PROFILES_DIR: &str = "/run/rugix/mounts/data/state/";
+
 const DEFAULT_STATE_DIR: &str = "/run/rugix/mounts/data/state/default";
 
 fn init() -> SystemResult<()> {
@@ -191,7 +193,12 @@ fn init() -> SystemResult<()> {
 
     // 6️⃣ Setup state in `/run/rugix/state`.
     let state_profile = Path::new(DEFAULT_STATE_DIR);
-    if state_profile.join(".rugix/reset-state").exists() {
+    let reset_flag = state_profile.join(".rugix/reset-state");
+    if reset_flag.exists() {
+        let backup_name = std::fs::read(reset_flag)
+            .ok()
+            .and_then(|d| String::from_utf8(d).ok())
+            .unwrap_or_default();
         let reset_hooks = HooksLoader::default()
             .load_hooks("state-reset")
             .whatever("unable to load `state-reset` hooks")?;
@@ -200,7 +207,13 @@ fn init() -> SystemResult<()> {
             .run_hooks("pre-reset", Vars::new(), &Default::default())
             .whatever("unable to run `pre-reset` hooks")?;
         // The existence of the file indicates that the state shall be reset.
-        fs::remove_dir_all(state_profile).ok();
+        if backup_name.trim().is_empty() {
+            fs::remove_dir_all(state_profile).ok();
+        } else {
+            let backup_profile = Path::new(STATE_PROFILES_DIR).join(backup_name);
+            fs::rename(state_profile, &backup_profile).ok();
+            fs::remove_file(backup_profile.join(".rugix/reset-state")).ok();
+        }
         reset_hooks
             .run_hooks("post-reset", Vars::new(), &Default::default())
             .whatever("unable to run `post-reset` hooks")?;

@@ -39,10 +39,13 @@ fn create_rugix_state_directory() -> SystemResult<()> {
         .whatever("unable to create `/run/rugix/state/.rugix`")
 }
 
-fn set_rugix_state_flag(name: &str) -> SystemResult<()> {
-    fs::write(Path::new("/run/rugix/state/.rugix").join(name), "")
-        .whatever("unable to write state flag")
-        .with_info(|_| format!("name: {name}"))
+fn set_rugix_state_flag(name: &str, value: Option<&str>) -> SystemResult<()> {
+    fs::write(
+        Path::new("/run/rugix/state/.rugix").join(name),
+        value.unwrap_or_default(),
+    )
+    .whatever("unable to write state flag")
+    .with_info(|_| format!("name: {name}"))
 }
 
 fn clear_rugix_state_flag(name: &str) -> SystemResult<()> {
@@ -66,23 +69,38 @@ pub fn main() -> SystemResult<()> {
     let system = System::initialize()?;
     match &args.command {
         Command::State(state_cmd) => match state_cmd {
-            StateCommand::Reset => {
+            StateCommand::Reset {
+                backup,
+                backup_name,
+            } => {
+                if backup_name.is_some() && !*backup {
+                    warn!("ignoring `--backup-name` option because `--backup` is not set");
+                }
+
                 let reset_hooks = HooksLoader::default()
                     .load_hooks("state-reset")
                     .whatever("unable to load `state-reset` hooks")?;
-
                 reset_hooks
                     .run_hooks("prepare", Vars::new(), &Default::default())
                     .whatever("unable to run `state-reset/prepare` hooks")?;
                 create_rugix_state_directory()?;
-                set_rugix_state_flag("reset-state")?;
+                if *backup {
+                    let backup_name = backup_name.clone().unwrap_or_else(|| {
+                        jiff::Timestamp::now()
+                            .strftime("default.%Y%m%d%H%M%S")
+                            .to_string()
+                    });
+                    set_rugix_state_flag("reset-state", Some(&backup_name))?;
+                } else {
+                    set_rugix_state_flag("reset-state", None)?;
+                };
                 reboot()?;
             }
             StateCommand::Overlay(overlay_cmd) => match overlay_cmd {
                 OverlayCommand::ForcePersist { persist } => match persist {
                     Boolean::True => {
                         create_rugix_state_directory()?;
-                        set_rugix_state_flag("force-persist-overlay")?;
+                        set_rugix_state_flag("force-persist-overlay", None)?;
                     }
                     Boolean::False => {
                         clear_rugix_state_flag("force-persist-overlay")?;
@@ -1137,7 +1155,14 @@ pub enum Command {
 #[derive(Debug, Parser)]
 pub enum StateCommand {
     /// Perform a factory reset of the system.
-    Reset,
+    Reset {
+        /// Backup the old state by creating a new state profile.
+        #[clap(long)]
+        backup: bool,
+        /// Name of the backup state profile.
+        #[clap(long)]
+        backup_name: Option<String>,
+    },
     /// Configure the root filesystem overlay.
     #[clap(subcommand)]
     Overlay(OverlayCommand),
