@@ -12,7 +12,7 @@ use rugix_bundle::reader::{DecodedPayloadInfo, PayloadTarget};
 use rugix_bundle::source::{BundleSource, ReaderSource, SkipRead};
 use rugix_bundle::xdelta::xdelta_decompress;
 use rugix_bundle::{format, BUNDLE_MAGIC};
-use rugix_common::disk::blkdev::find_block_device;
+use rugix_common::disk::blkdev::{find_block_device, BlockDevice};
 use rugix_common::mount::is_mount_point;
 use rugix_common::pipe::{buffered_pipe, PipeWriter};
 use rugix_common::slots::SlotState;
@@ -447,6 +447,33 @@ pub fn main() -> SystemResult<()> {
             }
             UtilsCommand::IsMountPoint { path } => {
                 serde_json::to_writer(std::io::stdout(), &is_mount_point(path)).ok();
+                println!("");
+            }
+            UtilsCommand::ResolvePartition { disk, partition } => {
+                let disk = if let Some(disk) = disk {
+                    BlockDevice::new(disk).whatever("unable to open disk")?
+                } else {
+                    system.root().as_ref().unwrap().device.clone()
+                };
+                let Some(device) = disk
+                    .get_partition(*partition)
+                    .whatever("unable to get partition")?
+                else {
+                    bail!("partition not found");
+                };
+                serde_json::to_writer(
+                    std::io::stdout(),
+                    &BlockDeviceInfo {
+                        device: device.path().to_string_lossy().into_owned(),
+                        parent: device
+                            .find_parent()
+                            .ok()
+                            .flatten()
+                            .map(|parent| parent.path().to_string_lossy().into_owned()),
+                        partition: device.is_partition().ok().flatten(),
+                    },
+                )
+                .ok();
                 println!("");
             }
         },
@@ -1298,4 +1325,10 @@ pub enum UtilsCommand {
     FindBlockDevice { path: PathBuf },
     /// Check whether a path is a mount point.
     IsMountPoint { path: PathBuf },
+    /// Resolve a partition relative to the main disk or some other block device.
+    ResolvePartition {
+        #[clap(long)]
+        disk: Option<PathBuf>,
+        partition: u32,
+    },
 }
