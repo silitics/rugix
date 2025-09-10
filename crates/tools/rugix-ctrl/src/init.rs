@@ -8,7 +8,8 @@ use nix::mount::MntFlags;
 use reportify::{bail, ensure, ErrorExt, ResultExt};
 use rugix_common::disk::blkdev::BlockDevice;
 
-use tracing::{info, warn};
+use rugix_common::mount::is_mount_point;
+use tracing::{debug, info, warn};
 
 use crate::config::bootstrapping::{BootstrappingConfig, DefaultLayoutConfig, SystemLayoutConfig};
 use crate::config::state::{
@@ -374,22 +375,32 @@ fn bootstrap(root: &SystemRoot) -> SystemResult<()> {
 
 /// Mounts the essential filesystems `/proc`, `/sys`, and `/run`.
 fn mount_essential_filesystems() -> SystemResult<()> {
-    // We ignore any errors. Errors likely mean that the filesystems have already been
-    // mounted.
-    if let Err(error) = run!([MOUNT, "-t", "proc", "proc", "/proc"]) {
-        eprintln!(
-            "{:?}",
-            error.whatever::<SystemError, _>("error mounting /proc"),
-        );
+    if !is_mount_point("/proc") {
+        if let Err(error) = run!([MOUNT, "-t", "proc", "proc", "/proc"]) {
+            eprintln!(
+                "{:?}",
+                error.whatever::<SystemError, _>("error mounting /proc"),
+            );
+        }
+    } else {
+        debug!("skip mounting of `/proc`: already mounted")
     }
-    if let Err(error) = run!([MOUNT, "-t", "sysfs", "sys", "/sys"]) {
-        eprintln!("'/sys' appears to be already mounted: {error}");
+    if !is_mount_point("/sys") {
+        if let Err(error) = run!([MOUNT, "-t", "sysfs", "sys", "/sys"]) {
+            eprintln!("'/sys' appears to be already mounted: {error}");
+        }
+    } else {
+        debug!("skip mounting of `/sys`: already mounted")
     }
-    if let Err(error) = run!([MOUNT, "-t", "tmpfs", "tmp", "/run"]) {
-        eprintln!(
-            "{:?}",
-            error.whatever::<SystemError, _>("error mounting /tmp"),
-        );
+    if !is_mount_point("/run") {
+        if let Err(error) = run!([MOUNT, "-t", "tmpfs", "tmp", "/run"]) {
+            eprintln!(
+                "{:?}",
+                error.whatever::<SystemError, _>("error mounting /tmp"),
+            );
+        }
+    } else {
+        debug!("skip mounting of `/run`: already mounted")
     }
     Ok(())
 }
