@@ -1,7 +1,5 @@
 /* GENERATED WITH SIDEX. DO NOT MODIFY! */
 
-#![allow(warnings)]
-
 pub mod bootstrapping {
     #![doc = "Bootstrapping configuration.\n"]
     #[allow(unused)]
@@ -1793,21 +1791,21 @@ pub mod output {
     use :: serde as __serde;
     #[allow(unused)]
     use :: sidex_serde as __sidex_serde;
-    #[doc = ""]
+    #[doc = "Information about the system.\n"]
     #[derive(Clone, Debug)]
-    pub struct SystemStateOutput {
-        #[doc = ""]
-        pub slots: indexmap::IndexMap<::std::string::String, SlotStateOutput>,
-        #[doc = ""]
-        pub boot: ::std::option::Option<BootStateOutput>,
-        #[doc = ""]
-        pub state: StateOutput,
+    pub struct SystemInfoOutput {
+        #[doc = "Information about the slots.\n"]
+        pub slots: indexmap::IndexMap<::std::string::String, SlotInfoOutput>,
+        #[doc = "Information about the boot flow.\n"]
+        pub boot: ::std::option::Option<BootInfoOutput>,
+        #[doc = "Information about the state management mechanism.\n"]
+        pub state: StateInfoOutput,
     }
-    impl SystemStateOutput {
-        #[doc = "Creates a new [`SystemStateOutput`]."]
+    impl SystemInfoOutput {
+        #[doc = "Creates a new [`SystemInfoOutput`]."]
         pub fn new(
-            slots: indexmap::IndexMap<::std::string::String, SlotStateOutput>,
-            state: StateOutput,
+            slots: indexmap::IndexMap<::std::string::String, SlotInfoOutput>,
+            state: StateInfoOutput,
         ) -> Self {
             Self {
                 slots,
@@ -1818,7 +1816,7 @@ pub mod output {
         #[doc = "Sets the value of `slots`."]
         pub fn set_slots(
             &mut self,
-            slots: indexmap::IndexMap<::std::string::String, SlotStateOutput>,
+            slots: indexmap::IndexMap<::std::string::String, SlotInfoOutput>,
         ) -> &mut Self {
             self.slots = slots;
             self
@@ -1826,41 +1824,41 @@ pub mod output {
         #[doc = "Sets the value of `slots`."]
         pub fn with_slots(
             mut self,
-            slots: indexmap::IndexMap<::std::string::String, SlotStateOutput>,
+            slots: indexmap::IndexMap<::std::string::String, SlotInfoOutput>,
         ) -> Self {
             self.slots = slots;
             self
         }
         #[doc = "Sets the value of `boot`."]
-        pub fn set_boot(&mut self, boot: ::std::option::Option<BootStateOutput>) -> &mut Self {
+        pub fn set_boot(&mut self, boot: ::std::option::Option<BootInfoOutput>) -> &mut Self {
             self.boot = boot;
             self
         }
         #[doc = "Sets the value of `boot`."]
-        pub fn with_boot(mut self, boot: ::std::option::Option<BootStateOutput>) -> Self {
+        pub fn with_boot(mut self, boot: ::std::option::Option<BootInfoOutput>) -> Self {
             self.boot = boot;
             self
         }
         #[doc = "Sets the value of `state`."]
-        pub fn set_state(&mut self, state: StateOutput) -> &mut Self {
+        pub fn set_state(&mut self, state: StateInfoOutput) -> &mut Self {
             self.state = state;
             self
         }
         #[doc = "Sets the value of `state`."]
-        pub fn with_state(mut self, state: StateOutput) -> Self {
+        pub fn with_state(mut self, state: StateInfoOutput) -> Self {
             self.state = state;
             self
         }
     }
     #[automatically_derived]
-    impl __serde::Serialize for SystemStateOutput {
+    impl __serde::Serialize for SystemInfoOutput {
         fn serialize<__S: __serde::Serializer>(
             &self,
             __serializer: __S,
         ) -> ::std::result::Result<__S::Ok, __S::Error> {
             let mut __record = __sidex_serde::ser::RecordSerializer::new(
                 __serializer,
-                "SystemStateOutput",
+                "SystemInfoOutput",
                 3usize,
             )?;
             __record.serialize_field("slots", &self.slots)?;
@@ -1871,7 +1869,7 @@ pub mod output {
         }
     }
     #[automatically_derived]
-    impl<'de> __serde::Deserialize<'de> for SystemStateOutput {
+    impl<'de> __serde::Deserialize<'de> for SystemInfoOutput {
         fn deserialize<__D: __serde::Deserializer<'de>>(
             __deserializer: __D,
         ) -> ::std::result::Result<Self, __D::Error> {
@@ -1880,12 +1878,12 @@ pub mod output {
                 __phantom_vars: ::core::marker::PhantomData<fn(&())>,
             }
             impl<'de> __serde::de::Visitor<'de> for __Visitor {
-                type Value = SystemStateOutput;
+                type Value = SystemInfoOutput;
                 fn expecting(
                     &self,
                     __formatter: &mut ::core::fmt::Formatter,
                 ) -> ::core::fmt::Result {
-                    ::core::fmt::Formatter::write_str(__formatter, "record SystemStateOutput")
+                    ::core::fmt::Formatter::write_str(__formatter, "record SystemInfoOutput")
                 }
                 #[inline]
                 fn visit_seq<__A>(
@@ -1896,7 +1894,7 @@ pub mod output {
                     __A: __serde::de::SeqAccess<'de>,
                 {
                     let __field0 = match __serde::de::SeqAccess::next_element::<
-                        indexmap::IndexMap<::std::string::String, SlotStateOutput>,
+                        indexmap::IndexMap<::std::string::String, SlotInfoOutput>,
                     >(&mut __seq)?
                     {
                         ::core::option::Option::Some(__value) => __value,
@@ -1907,7 +1905,7 @@ pub mod output {
                         }
                     };
                     let __field1 = match __serde::de::SeqAccess::next_element::<
-                        ::std::option::Option<BootStateOutput>,
+                        ::std::option::Option<BootInfoOutput>,
                     >(&mut __seq)?
                     {
                         ::core::option::Option::Some(__value) => __value,
@@ -1917,19 +1915,17 @@ pub mod output {
                             );
                         }
                     };
-                    let __field2 =
-                        match __serde::de::SeqAccess::next_element::<StateOutput>(&mut __seq)? {
-                            ::core::option::Option::Some(__value) => __value,
-                            ::core::option::Option::None => {
-                                return ::core::result::Result::Err(
-                                    __serde::de::Error::invalid_length(
-                                        2usize,
-                                        &"record with 3 fields",
-                                    ),
-                                );
-                            }
-                        };
-                    ::core::result::Result::Ok(SystemStateOutput {
+                    let __field2 = match __serde::de::SeqAccess::next_element::<StateInfoOutput>(
+                        &mut __seq,
+                    )? {
+                        ::core::option::Option::Some(__value) => __value,
+                        ::core::option::Option::None => {
+                            return ::core::result::Result::Err(
+                                __serde::de::Error::invalid_length(2usize, &"record with 3 fields"),
+                            );
+                        }
+                    };
+                    ::core::result::Result::Ok(SystemInfoOutput {
                         slots: __field0,
                         boot: __field1,
                         state: __field2,
@@ -2024,12 +2020,12 @@ pub mod output {
                         }
                     }
                     let mut __field0: ::core::option::Option<
-                        indexmap::IndexMap<::std::string::String, SlotStateOutput>,
+                        indexmap::IndexMap<::std::string::String, SlotInfoOutput>,
                     > = ::core::option::Option::None;
                     let mut __field1: ::core::option::Option<
-                        ::std::option::Option<BootStateOutput>,
+                        ::std::option::Option<BootInfoOutput>,
                     > = ::core::option::Option::None;
-                    let mut __field2: ::core::option::Option<StateOutput> =
+                    let mut __field2: ::core::option::Option<StateInfoOutput> =
                         ::core::option::Option::None;
                     while let ::core::option::Option::Some(__key) =
                         __serde::de::MapAccess::next_key::<__Identifier>(&mut __map)?
@@ -2045,7 +2041,7 @@ pub mod output {
                                 }
                                 __field0 = ::core::option::Option::Some(
                                     __serde::de::MapAccess::next_value::<
-                                        indexmap::IndexMap<::std::string::String, SlotStateOutput>,
+                                        indexmap::IndexMap<::std::string::String, SlotInfoOutput>,
                                     >(&mut __map)?,
                                 );
                             }
@@ -2057,7 +2053,7 @@ pub mod output {
                                 }
                                 __field1 = ::core::option::Option::Some(
                                     __serde::de::MapAccess::next_value::<
-                                        ::std::option::Option<BootStateOutput>,
+                                        ::std::option::Option<BootInfoOutput>,
                                     >(&mut __map)?,
                                 );
                             }
@@ -2070,7 +2066,9 @@ pub mod output {
                                     );
                                 }
                                 __field2 = ::core::option::Option::Some(
-                                    __serde::de::MapAccess::next_value::<StateOutput>(&mut __map)?,
+                                    __serde::de::MapAccess::next_value::<StateInfoOutput>(
+                                        &mut __map,
+                                    )?,
                                 );
                             }
                             _ => {
@@ -2100,7 +2098,7 @@ pub mod output {
                             );
                         }
                     };
-                    ::core::result::Result::Ok(SystemStateOutput {
+                    ::core::result::Result::Ok(SystemInfoOutput {
                         slots: __field0,
                         boot: __field1,
                         state: __field2,
@@ -2111,7 +2109,7 @@ pub mod output {
             const __FIELDS: &'static [&'static str] = &["slots", "boot", "state"];
             __serde::Deserializer::deserialize_struct(
                 __deserializer,
-                "SystemStateOutput",
+                "SystemInfoOutput",
                 __FIELDS,
                 __Visitor {
                     __phantom_vars: ::core::marker::PhantomData,
@@ -2119,33 +2117,35 @@ pub mod output {
             )
         }
     }
-    #[doc = ""]
+    #[doc = "Information about the state management mechanism.\n"]
     #[derive(Clone, Debug)]
-    pub enum StateManagementStatus {
-        #[doc = ""]
+    pub enum StateInfoOutput {
+        #[doc = "State management is disabled.\n"]
         Disabled,
-        #[doc = ""]
-        Active,
-        #[doc = ""]
+        #[doc = "State management is active.\n"]
+        Active(StateInfoActiveOutput),
+        #[doc = "State management is inactive due to an error.\n\nState is stored in memory and will fail to persist even if declared.\n"]
         Error,
     }
     #[automatically_derived]
-    impl __serde::Serialize for StateManagementStatus {
+    impl __serde::Serialize for StateInfoOutput {
         fn serialize<__S: __serde::Serializer>(
             &self,
             __serializer: __S,
         ) -> ::std::result::Result<__S::Ok, __S::Error> {
             let __serializer =
-                __sidex_serde::ser::VariantSerializer::new(__serializer, "StateManagementStatus");
+                __sidex_serde::ser::VariantSerializer::new(__serializer, "StateInfoOutput");
             match self {
-                Self::Disabled => __serializer.serialize_internal_tag("tag", "Disabled", 0u32),
-                Self::Active => __serializer.serialize_internal_tag("tag", "Active", 1u32),
-                Self::Error => __serializer.serialize_internal_tag("tag", "Error", 2u32),
+                Self::Disabled => __serializer.serialize_internal_tag("status", "Disabled", 0u32),
+                Self::Active(__value) => {
+                    __serializer.serialize_internally_tagged("status", "Active", 1u32, __value)
+                }
+                Self::Error => __serializer.serialize_internal_tag("status", "Error", 2u32),
             }
         }
     }
     #[automatically_derived]
-    impl<'de> __serde::Deserialize<'de> for StateManagementStatus {
+    impl<'de> __serde::Deserialize<'de> for StateInfoOutput {
         fn deserialize<__D: __serde::Deserializer<'de>>(
             __deserializer: __D,
         ) -> ::std::result::Result<Self, __D::Error> {
@@ -2238,16 +2238,20 @@ pub mod output {
                 let __tagged = __sidex_serde::de::tagged::deserialize_tagged_variant::<
                     __Identifier,
                     __D,
-                >(__deserializer, "tag")?;
+                >(__deserializer, "status")?;
                 match __tagged.tag {
                     __Identifier::__Identifier0 => {
-                        ::core::result::Result::Ok(StateManagementStatus::Disabled)
+                        ::core::result::Result::Ok(StateInfoOutput::Disabled)
                     }
                     __Identifier::__Identifier1 => {
-                        ::core::result::Result::Ok(StateManagementStatus::Active)
+                        ::core::result::Result::Ok(StateInfoOutput::Active(
+                            __tagged
+                                .deserialize_internally_tagged::<StateInfoActiveOutput, __D::Error>(
+                                )?,
+                        ))
                     }
                     __Identifier::__Identifier2 => {
-                        ::core::result::Result::Ok(StateManagementStatus::Error)
+                        ::core::result::Result::Ok(StateInfoOutput::Error)
                     }
                 }
             } else {
@@ -2256,12 +2260,12 @@ pub mod output {
                     __phantom_vars: ::core::marker::PhantomData<fn(&())>,
                 }
                 impl<'de> __serde::de::Visitor<'de> for __Visitor {
-                    type Value = StateManagementStatus;
+                    type Value = StateInfoOutput;
                     fn expecting(
                         &self,
                         __formatter: &mut ::core::fmt::Formatter,
                     ) -> ::core::fmt::Result {
-                        ::core::fmt::Formatter::write_str(__formatter, "enum StateManagementStatus")
+                        ::core::fmt::Formatter::write_str(__formatter, "enum StateInfoOutput")
                     }
                     #[inline]
                     fn visit_str<__E>(
@@ -2275,13 +2279,10 @@ pub mod output {
                         #[allow(unreachable_patterns)]
                         match __identifier {
                             __Identifier::__Identifier0 => {
-                                ::core::result::Result::Ok(StateManagementStatus::Disabled)
-                            }
-                            __Identifier::__Identifier1 => {
-                                ::core::result::Result::Ok(StateManagementStatus::Active)
+                                ::core::result::Result::Ok(StateInfoOutput::Disabled)
                             }
                             __Identifier::__Identifier2 => {
-                                ::core::result::Result::Ok(StateManagementStatus::Error)
+                                ::core::result::Result::Ok(StateInfoOutput::Error)
                             }
                             _ => Err(__E::invalid_value(
                                 __serde::de::Unexpected::Str(__value),
@@ -2300,22 +2301,24 @@ pub mod output {
                         match __serde::de::EnumAccess::variant::<__Identifier>(__data)? {
                             (__Identifier::__Identifier0, __variant) => {
                                 __serde::de::VariantAccess::unit_variant(__variant)?;
-                                ::core::result::Result::Ok(StateManagementStatus::Disabled)
+                                ::core::result::Result::Ok(StateInfoOutput::Disabled)
                             }
                             (__Identifier::__Identifier1, __variant) => {
-                                __serde::de::VariantAccess::unit_variant(__variant)?;
-                                ::core::result::Result::Ok(StateManagementStatus::Active)
+                                let __value = __serde::de::VariantAccess::newtype_variant::<
+                                    StateInfoActiveOutput,
+                                >(__variant)?;
+                                ::core::result::Result::Ok(StateInfoOutput::Active(__value))
                             }
                             (__Identifier::__Identifier2, __variant) => {
                                 __serde::de::VariantAccess::unit_variant(__variant)?;
-                                ::core::result::Result::Ok(StateManagementStatus::Error)
+                                ::core::result::Result::Ok(StateInfoOutput::Error)
                             }
                         }
                     }
                 }
                 __serde::Deserializer::deserialize_enum(
                     __deserializer,
-                    "StateManagementStatus",
+                    "StateInfoOutput",
                     __VARIANTS,
                     __Visitor {
                         __phantom_vars: ::core::marker::PhantomData,
@@ -2324,42 +2327,61 @@ pub mod output {
             }
         }
     }
-    #[doc = ""]
+    #[doc = "Information about the state management mechanism, if state management is active.\n"]
     #[derive(Clone, Debug)]
-    pub struct StateOutput {
-        #[doc = ""]
-        pub status: StateManagementStatus,
+    pub struct StateInfoActiveOutput {
+        #[doc = "Device backing the data partition, if any.\n"]
+        pub data_partition: ::std::option::Option<::std::string::String>,
     }
-    impl StateOutput {
-        #[doc = "Creates a new [`StateOutput`]."]
-        pub fn new(status: StateManagementStatus) -> Self {
-            Self { status }
+    impl StateInfoActiveOutput {
+        #[doc = "Creates a new [`StateInfoActiveOutput`]."]
+        pub fn new() -> Self {
+            Self {
+                data_partition: ::std::default::Default::default(),
+            }
         }
-        #[doc = "Sets the value of `status`."]
-        pub fn set_status(&mut self, status: StateManagementStatus) -> &mut Self {
-            self.status = status;
+        #[doc = "Sets the value of `data_partition`."]
+        pub fn set_data_partition(
+            &mut self,
+            data_partition: ::std::option::Option<::std::string::String>,
+        ) -> &mut Self {
+            self.data_partition = data_partition;
             self
         }
-        #[doc = "Sets the value of `status`."]
-        pub fn with_status(mut self, status: StateManagementStatus) -> Self {
-            self.status = status;
+        #[doc = "Sets the value of `data_partition`."]
+        pub fn with_data_partition(
+            mut self,
+            data_partition: ::std::option::Option<::std::string::String>,
+        ) -> Self {
+            self.data_partition = data_partition;
             self
+        }
+    }
+    impl ::std::default::Default for StateInfoActiveOutput {
+        fn default() -> Self {
+            Self::new()
         }
     }
     #[automatically_derived]
-    impl __serde::Serialize for StateOutput {
+    impl __serde::Serialize for StateInfoActiveOutput {
         fn serialize<__S: __serde::Serializer>(
             &self,
             __serializer: __S,
         ) -> ::std::result::Result<__S::Ok, __S::Error> {
-            let mut __record =
-                __sidex_serde::ser::RecordSerializer::new(__serializer, "StateOutput", 1usize)?;
-            __record.serialize_field("status", &self.status)?;
+            let mut __record = __sidex_serde::ser::RecordSerializer::new(
+                __serializer,
+                "StateInfoActiveOutput",
+                1usize,
+            )?;
+            __record.serialize_optional_field(
+                "dataPartition",
+                ::core::option::Option::as_ref(&self.data_partition),
+            )?;
             __record.end()
         }
     }
     #[automatically_derived]
-    impl<'de> __serde::Deserialize<'de> for StateOutput {
+    impl<'de> __serde::Deserialize<'de> for StateInfoActiveOutput {
         fn deserialize<__D: __serde::Deserializer<'de>>(
             __deserializer: __D,
         ) -> ::std::result::Result<Self, __D::Error> {
@@ -2368,12 +2390,12 @@ pub mod output {
                 __phantom_vars: ::core::marker::PhantomData<fn(&())>,
             }
             impl<'de> __serde::de::Visitor<'de> for __Visitor {
-                type Value = StateOutput;
+                type Value = StateInfoActiveOutput;
                 fn expecting(
                     &self,
                     __formatter: &mut ::core::fmt::Formatter,
                 ) -> ::core::fmt::Result {
-                    ::core::fmt::Formatter::write_str(__formatter, "record StateOutput")
+                    ::core::fmt::Formatter::write_str(__formatter, "record StateInfoActiveOutput")
                 }
                 #[inline]
                 fn visit_seq<__A>(
@@ -2384,7 +2406,7 @@ pub mod output {
                     __A: __serde::de::SeqAccess<'de>,
                 {
                     let __field0 = match __serde::de::SeqAccess::next_element::<
-                        StateManagementStatus,
+                        ::std::option::Option<::std::string::String>,
                     >(&mut __seq)?
                     {
                         ::core::option::Option::Some(__value) => __value,
@@ -2394,7 +2416,9 @@ pub mod output {
                             );
                         }
                     };
-                    ::core::result::Result::Ok(StateOutput { status: __field0 })
+                    ::core::result::Result::Ok(StateInfoActiveOutput {
+                        data_partition: __field0,
+                    })
                 }
                 #[inline]
                 fn visit_map<__A>(
@@ -2405,9 +2429,10 @@ pub mod output {
                     __A: __serde::de::MapAccess<'de>,
                 {
                     #[doc(hidden)]
-                    const __IDENTIFIERS: &'static [&'static str] = &["status"];
+                    const __IDENTIFIERS: &'static [&'static str] = &["dataPartition"];
                     #[doc(hidden)]
-                    const __EXPECTING_IDENTIFIERS: &'static str = "an identifier in [\"status\"]";
+                    const __EXPECTING_IDENTIFIERS: &'static str =
+                        "an identifier in [\"dataPartition\"]";
                     #[derive(:: core :: clone :: Clone, :: core :: marker :: Copy)]
                     #[doc(hidden)]
                     enum __Identifier {
@@ -2444,7 +2469,9 @@ pub mod output {
                             __E: __serde::de::Error,
                         {
                             match __value {
-                                "status" => ::core::result::Result::Ok(__Identifier::__Identifier0),
+                                "dataPartition" => {
+                                    ::core::result::Result::Ok(__Identifier::__Identifier0)
+                                }
                                 _ => ::core::result::Result::Ok(__Identifier::__Unknown),
                             }
                         }
@@ -2456,7 +2483,7 @@ pub mod output {
                             __E: __serde::de::Error,
                         {
                             match __value {
-                                b"status" => {
+                                b"dataPartition" => {
                                     ::core::result::Result::Ok(__Identifier::__Identifier0)
                                 }
                                 _ => ::core::result::Result::Ok(__Identifier::__Unknown),
@@ -2477,8 +2504,9 @@ pub mod output {
                             )
                         }
                     }
-                    let mut __field0: ::core::option::Option<StateManagementStatus> =
-                        ::core::option::Option::None;
+                    let mut __field0: ::core::option::Option<
+                        ::std::option::Option<::std::string::String>,
+                    > = ::core::option::Option::None;
                     while let ::core::option::Option::Some(__key) =
                         __serde::de::MapAccess::next_key::<__Identifier>(&mut __map)?
                     {
@@ -2487,14 +2515,14 @@ pub mod output {
                                 if ::core::option::Option::is_some(&__field0) {
                                     return ::core::result::Result::Err(
                                         <__A::Error as __serde::de::Error>::duplicate_field(
-                                            "status",
+                                            "dataPartition",
                                         ),
                                     );
                                 }
                                 __field0 = ::core::option::Option::Some(
-                                    __serde::de::MapAccess::next_value::<StateManagementStatus>(
-                                        &mut __map,
-                                    )?,
+                                    __serde::de::MapAccess::next_value::<
+                                        ::std::option::Option<::std::string::String>,
+                                    >(&mut __map)?,
                                 );
                             }
                             _ => {
@@ -2506,20 +2534,18 @@ pub mod output {
                     }
                     let __field0 = match __field0 {
                         ::core::option::Option::Some(__value) => __value,
-                        ::core::option::Option::None => {
-                            return ::core::result::Result::Err(
-                                <__A::Error as __serde::de::Error>::missing_field("status"),
-                            );
-                        }
+                        ::core::option::Option::None => ::core::option::Option::None,
                     };
-                    ::core::result::Result::Ok(StateOutput { status: __field0 })
+                    ::core::result::Result::Ok(StateInfoActiveOutput {
+                        data_partition: __field0,
+                    })
                 }
             }
             #[doc(hidden)]
-            const __FIELDS: &'static [&'static str] = &["status"];
+            const __FIELDS: &'static [&'static str] = &["dataPartition"];
             __serde::Deserializer::deserialize_struct(
                 __deserializer,
-                "StateOutput",
+                "StateInfoActiveOutput",
                 __FIELDS,
                 __Visitor {
                     __phantom_vars: ::core::marker::PhantomData,
@@ -2527,21 +2553,21 @@ pub mod output {
             )
         }
     }
-    #[doc = ""]
+    #[doc = "Information about a slot.\n"]
     #[derive(Clone, Debug)]
-    pub struct SlotStateOutput {
-        #[doc = ""]
+    pub struct SlotInfoOutput {
+        #[doc = "Indicates whether the slot is active, i.e., in use.\n"]
         pub active: ::std::option::Option<bool>,
-        #[doc = ""]
+        #[doc = "Hashes of the slot data according to the slot database.\n"]
         pub hashes:
             ::std::option::Option<indexmap::IndexMap<::std::string::String, ::std::string::String>>,
-        #[doc = ""]
+        #[doc = "Size of the slot data according to the slot database.\n"]
         pub size: ::std::option::Option<u64>,
-        #[doc = ""]
+        #[doc = "Last time the slot has been updated according to the slot database.\n"]
         pub updated_at: ::std::option::Option<::std::string::String>,
     }
-    impl SlotStateOutput {
-        #[doc = "Creates a new [`SlotStateOutput`]."]
+    impl SlotInfoOutput {
+        #[doc = "Creates a new [`SlotInfoOutput`]."]
         pub fn new() -> Self {
             Self {
                 active: ::std::default::Default::default(),
@@ -2607,19 +2633,19 @@ pub mod output {
             self
         }
     }
-    impl ::std::default::Default for SlotStateOutput {
+    impl ::std::default::Default for SlotInfoOutput {
         fn default() -> Self {
             Self::new()
         }
     }
     #[automatically_derived]
-    impl __serde::Serialize for SlotStateOutput {
+    impl __serde::Serialize for SlotInfoOutput {
         fn serialize<__S: __serde::Serializer>(
             &self,
             __serializer: __S,
         ) -> ::std::result::Result<__S::Ok, __S::Error> {
             let mut __record =
-                __sidex_serde::ser::RecordSerializer::new(__serializer, "SlotStateOutput", 4usize)?;
+                __sidex_serde::ser::RecordSerializer::new(__serializer, "SlotInfoOutput", 4usize)?;
             __record
                 .serialize_optional_field("active", ::core::option::Option::as_ref(&self.active))?;
             __record
@@ -2634,7 +2660,7 @@ pub mod output {
         }
     }
     #[automatically_derived]
-    impl<'de> __serde::Deserialize<'de> for SlotStateOutput {
+    impl<'de> __serde::Deserialize<'de> for SlotInfoOutput {
         fn deserialize<__D: __serde::Deserializer<'de>>(
             __deserializer: __D,
         ) -> ::std::result::Result<Self, __D::Error> {
@@ -2643,12 +2669,12 @@ pub mod output {
                 __phantom_vars: ::core::marker::PhantomData<fn(&())>,
             }
             impl<'de> __serde::de::Visitor<'de> for __Visitor {
-                type Value = SlotStateOutput;
+                type Value = SlotInfoOutput;
                 fn expecting(
                     &self,
                     __formatter: &mut ::core::fmt::Formatter,
                 ) -> ::core::fmt::Result {
-                    ::core::fmt::Formatter::write_str(__formatter, "record SlotStateOutput")
+                    ::core::fmt::Formatter::write_str(__formatter, "record SlotInfoOutput")
                 }
                 #[inline]
                 fn visit_seq<__A>(
@@ -2704,7 +2730,7 @@ pub mod output {
                             );
                         }
                     };
-                    ::core::result::Result::Ok(SlotStateOutput {
+                    ::core::result::Result::Ok(SlotInfoOutput {
                         active: __field0,
                         hashes: __field1,
                         size: __field2,
@@ -2910,7 +2936,7 @@ pub mod output {
                         ::core::option::Option::Some(__value) => __value,
                         ::core::option::Option::None => ::core::option::Option::None,
                     };
-                    ::core::result::Result::Ok(SlotStateOutput {
+                    ::core::result::Result::Ok(SlotInfoOutput {
                         active: __field0,
                         hashes: __field1,
                         size: __field2,
@@ -2922,7 +2948,7 @@ pub mod output {
             const __FIELDS: &'static [&'static str] = &["active", "hashes", "size", "updatedAt"];
             __serde::Deserializer::deserialize_struct(
                 __deserializer,
-                "SlotStateOutput",
+                "SlotInfoOutput",
                 __FIELDS,
                 __Visitor {
                     __phantom_vars: ::core::marker::PhantomData,
@@ -2930,23 +2956,23 @@ pub mod output {
             )
         }
     }
-    #[doc = ""]
+    #[doc = "Information about the boot flow.\n"]
     #[derive(Clone, Debug)]
-    pub struct BootStateOutput {
-        #[doc = ""]
+    pub struct BootInfoOutput {
+        #[doc = "Name of the boot flow.\n"]
         pub boot_flow: ::std::string::String,
-        #[doc = ""]
+        #[doc = "Active boot group.\n"]
         pub active_group: ::std::option::Option<::std::string::String>,
-        #[doc = ""]
+        #[doc = "Default boot group.\n"]
         pub default_group: ::std::option::Option<::std::string::String>,
-        #[doc = ""]
-        pub groups: indexmap::IndexMap<::std::string::String, BootGroupStateOutput>,
+        #[doc = "Information about the boot groups.\n"]
+        pub groups: indexmap::IndexMap<::std::string::String, BootGroupInfoOutput>,
     }
-    impl BootStateOutput {
-        #[doc = "Creates a new [`BootStateOutput`]."]
+    impl BootInfoOutput {
+        #[doc = "Creates a new [`BootInfoOutput`]."]
         pub fn new(
             boot_flow: ::std::string::String,
-            groups: indexmap::IndexMap<::std::string::String, BootGroupStateOutput>,
+            groups: indexmap::IndexMap<::std::string::String, BootGroupInfoOutput>,
         ) -> Self {
             Self {
                 boot_flow,
@@ -3000,7 +3026,7 @@ pub mod output {
         #[doc = "Sets the value of `groups`."]
         pub fn set_groups(
             &mut self,
-            groups: indexmap::IndexMap<::std::string::String, BootGroupStateOutput>,
+            groups: indexmap::IndexMap<::std::string::String, BootGroupInfoOutput>,
         ) -> &mut Self {
             self.groups = groups;
             self
@@ -3008,20 +3034,20 @@ pub mod output {
         #[doc = "Sets the value of `groups`."]
         pub fn with_groups(
             mut self,
-            groups: indexmap::IndexMap<::std::string::String, BootGroupStateOutput>,
+            groups: indexmap::IndexMap<::std::string::String, BootGroupInfoOutput>,
         ) -> Self {
             self.groups = groups;
             self
         }
     }
     #[automatically_derived]
-    impl __serde::Serialize for BootStateOutput {
+    impl __serde::Serialize for BootInfoOutput {
         fn serialize<__S: __serde::Serializer>(
             &self,
             __serializer: __S,
         ) -> ::std::result::Result<__S::Ok, __S::Error> {
             let mut __record =
-                __sidex_serde::ser::RecordSerializer::new(__serializer, "BootStateOutput", 4usize)?;
+                __sidex_serde::ser::RecordSerializer::new(__serializer, "BootInfoOutput", 4usize)?;
             __record.serialize_field("bootFlow", &self.boot_flow)?;
             __record.serialize_optional_field(
                 "activeGroup",
@@ -3036,7 +3062,7 @@ pub mod output {
         }
     }
     #[automatically_derived]
-    impl<'de> __serde::Deserialize<'de> for BootStateOutput {
+    impl<'de> __serde::Deserialize<'de> for BootInfoOutput {
         fn deserialize<__D: __serde::Deserializer<'de>>(
             __deserializer: __D,
         ) -> ::std::result::Result<Self, __D::Error> {
@@ -3045,12 +3071,12 @@ pub mod output {
                 __phantom_vars: ::core::marker::PhantomData<fn(&())>,
             }
             impl<'de> __serde::de::Visitor<'de> for __Visitor {
-                type Value = BootStateOutput;
+                type Value = BootInfoOutput;
                 fn expecting(
                     &self,
                     __formatter: &mut ::core::fmt::Formatter,
                 ) -> ::core::fmt::Result {
-                    ::core::fmt::Formatter::write_str(__formatter, "record BootStateOutput")
+                    ::core::fmt::Formatter::write_str(__formatter, "record BootInfoOutput")
                 }
                 #[inline]
                 fn visit_seq<__A>(
@@ -3094,7 +3120,7 @@ pub mod output {
                         }
                     };
                     let __field3 = match __serde::de::SeqAccess::next_element::<
-                        indexmap::IndexMap<::std::string::String, BootGroupStateOutput>,
+                        indexmap::IndexMap<::std::string::String, BootGroupInfoOutput>,
                     >(&mut __seq)?
                     {
                         ::core::option::Option::Some(__value) => __value,
@@ -3104,7 +3130,7 @@ pub mod output {
                             );
                         }
                     };
-                    ::core::result::Result::Ok(BootStateOutput {
+                    ::core::result::Result::Ok(BootInfoOutput {
                         boot_flow: __field0,
                         active_group: __field1,
                         default_group: __field2,
@@ -3226,7 +3252,7 @@ pub mod output {
                         ::std::option::Option<::std::string::String>,
                     > = ::core::option::Option::None;
                     let mut __field3: ::core::option::Option<
-                        indexmap::IndexMap<::std::string::String, BootGroupStateOutput>,
+                        indexmap::IndexMap<::std::string::String, BootGroupInfoOutput>,
                     > = ::core::option::Option::None;
                     while let ::core::option::Option::Some(__key) =
                         __serde::de::MapAccess::next_key::<__Identifier>(&mut __map)?
@@ -3286,7 +3312,7 @@ pub mod output {
                                     __serde::de::MapAccess::next_value::<
                                         indexmap::IndexMap<
                                             ::std::string::String,
-                                            BootGroupStateOutput,
+                                            BootGroupInfoOutput,
                                         >,
                                     >(&mut __map)?,
                                 );
@@ -3322,7 +3348,7 @@ pub mod output {
                             );
                         }
                     };
-                    ::core::result::Result::Ok(BootStateOutput {
+                    ::core::result::Result::Ok(BootInfoOutput {
                         boot_flow: __field0,
                         active_group: __field1,
                         default_group: __field2,
@@ -3335,7 +3361,7 @@ pub mod output {
                 &["bootFlow", "activeGroup", "defaultGroup", "groups"];
             __serde::Deserializer::deserialize_struct(
                 __deserializer,
-                "BootStateOutput",
+                "BootInfoOutput",
                 __FIELDS,
                 __Visitor {
                     __phantom_vars: ::core::marker::PhantomData,
@@ -3343,36 +3369,36 @@ pub mod output {
             )
         }
     }
-    #[doc = ""]
+    #[doc = "Information about a boot group.\n"]
     #[derive(Clone, Debug)]
-    pub struct BootGroupStateOutput {}
-    impl BootGroupStateOutput {
-        #[doc = "Creates a new [`BootGroupStateOutput`]."]
+    pub struct BootGroupInfoOutput {}
+    impl BootGroupInfoOutput {
+        #[doc = "Creates a new [`BootGroupInfoOutput`]."]
         pub fn new() -> Self {
             Self {}
         }
     }
-    impl ::std::default::Default for BootGroupStateOutput {
+    impl ::std::default::Default for BootGroupInfoOutput {
         fn default() -> Self {
             Self::new()
         }
     }
     #[automatically_derived]
-    impl __serde::Serialize for BootGroupStateOutput {
+    impl __serde::Serialize for BootGroupInfoOutput {
         fn serialize<__S: __serde::Serializer>(
             &self,
             __serializer: __S,
         ) -> ::std::result::Result<__S::Ok, __S::Error> {
             let mut __record = __sidex_serde::ser::RecordSerializer::new(
                 __serializer,
-                "BootGroupStateOutput",
+                "BootGroupInfoOutput",
                 0usize,
             )?;
             __record.end()
         }
     }
     #[automatically_derived]
-    impl<'de> __serde::Deserialize<'de> for BootGroupStateOutput {
+    impl<'de> __serde::Deserialize<'de> for BootGroupInfoOutput {
         fn deserialize<__D: __serde::Deserializer<'de>>(
             __deserializer: __D,
         ) -> ::std::result::Result<Self, __D::Error> {
@@ -3381,12 +3407,12 @@ pub mod output {
                 __phantom_vars: ::core::marker::PhantomData<fn(&())>,
             }
             impl<'de> __serde::de::Visitor<'de> for __Visitor {
-                type Value = BootGroupStateOutput;
+                type Value = BootGroupInfoOutput;
                 fn expecting(
                     &self,
                     __formatter: &mut ::core::fmt::Formatter,
                 ) -> ::core::fmt::Result {
-                    ::core::fmt::Formatter::write_str(__formatter, "record BootGroupStateOutput")
+                    ::core::fmt::Formatter::write_str(__formatter, "record BootGroupInfoOutput")
                 }
                 #[inline]
                 fn visit_seq<__A>(
@@ -3396,7 +3422,7 @@ pub mod output {
                 where
                     __A: __serde::de::SeqAccess<'de>,
                 {
-                    ::core::result::Result::Ok(BootGroupStateOutput {})
+                    ::core::result::Result::Ok(BootGroupInfoOutput {})
                 }
                 #[inline]
                 fn visit_map<__A>(
@@ -3484,14 +3510,341 @@ pub mod output {
                             }
                         }
                     }
-                    ::core::result::Result::Ok(BootGroupStateOutput {})
+                    ::core::result::Result::Ok(BootGroupInfoOutput {})
                 }
             }
             #[doc(hidden)]
             const __FIELDS: &'static [&'static str] = &[];
             __serde::Deserializer::deserialize_struct(
                 __deserializer,
-                "BootGroupStateOutput",
+                "BootGroupInfoOutput",
+                __FIELDS,
+                __Visitor {
+                    __phantom_vars: ::core::marker::PhantomData,
+                },
+            )
+        }
+    }
+    #[doc = "Information about a block device.\n"]
+    #[derive(Clone, Debug)]
+    pub struct BlockDeviceInfo {
+        #[doc = "Path of the block device in `/dev`.\n"]
+        pub device: ::std::string::String,
+        #[doc = "Parent of the block device, if any.\n"]
+        pub parent: ::std::option::Option<::std::string::String>,
+        #[doc = "Partition number, if the block device is a partition.\n"]
+        pub partition: ::std::option::Option<u32>,
+    }
+    impl BlockDeviceInfo {
+        #[doc = "Creates a new [`BlockDeviceInfo`]."]
+        pub fn new(device: ::std::string::String) -> Self {
+            Self {
+                device,
+                parent: ::std::default::Default::default(),
+                partition: ::std::default::Default::default(),
+            }
+        }
+        #[doc = "Sets the value of `device`."]
+        pub fn set_device(&mut self, device: ::std::string::String) -> &mut Self {
+            self.device = device;
+            self
+        }
+        #[doc = "Sets the value of `device`."]
+        pub fn with_device(mut self, device: ::std::string::String) -> Self {
+            self.device = device;
+            self
+        }
+        #[doc = "Sets the value of `parent`."]
+        pub fn set_parent(
+            &mut self,
+            parent: ::std::option::Option<::std::string::String>,
+        ) -> &mut Self {
+            self.parent = parent;
+            self
+        }
+        #[doc = "Sets the value of `parent`."]
+        pub fn with_parent(mut self, parent: ::std::option::Option<::std::string::String>) -> Self {
+            self.parent = parent;
+            self
+        }
+        #[doc = "Sets the value of `partition`."]
+        pub fn set_partition(&mut self, partition: ::std::option::Option<u32>) -> &mut Self {
+            self.partition = partition;
+            self
+        }
+        #[doc = "Sets the value of `partition`."]
+        pub fn with_partition(mut self, partition: ::std::option::Option<u32>) -> Self {
+            self.partition = partition;
+            self
+        }
+    }
+    #[automatically_derived]
+    impl __serde::Serialize for BlockDeviceInfo {
+        fn serialize<__S: __serde::Serializer>(
+            &self,
+            __serializer: __S,
+        ) -> ::std::result::Result<__S::Ok, __S::Error> {
+            let mut __record =
+                __sidex_serde::ser::RecordSerializer::new(__serializer, "BlockDeviceInfo", 3usize)?;
+            __record.serialize_field("device", &self.device)?;
+            __record
+                .serialize_optional_field("parent", ::core::option::Option::as_ref(&self.parent))?;
+            __record.serialize_optional_field(
+                "partition",
+                ::core::option::Option::as_ref(&self.partition),
+            )?;
+            __record.end()
+        }
+    }
+    #[automatically_derived]
+    impl<'de> __serde::Deserialize<'de> for BlockDeviceInfo {
+        fn deserialize<__D: __serde::Deserializer<'de>>(
+            __deserializer: __D,
+        ) -> ::std::result::Result<Self, __D::Error> {
+            #[doc(hidden)]
+            struct __Visitor {
+                __phantom_vars: ::core::marker::PhantomData<fn(&())>,
+            }
+            impl<'de> __serde::de::Visitor<'de> for __Visitor {
+                type Value = BlockDeviceInfo;
+                fn expecting(
+                    &self,
+                    __formatter: &mut ::core::fmt::Formatter,
+                ) -> ::core::fmt::Result {
+                    ::core::fmt::Formatter::write_str(__formatter, "record BlockDeviceInfo")
+                }
+                #[inline]
+                fn visit_seq<__A>(
+                    self,
+                    mut __seq: __A,
+                ) -> ::core::result::Result<Self::Value, __A::Error>
+                where
+                    __A: __serde::de::SeqAccess<'de>,
+                {
+                    let __field0 = match __serde::de::SeqAccess::next_element::<
+                        ::std::string::String,
+                    >(&mut __seq)?
+                    {
+                        ::core::option::Option::Some(__value) => __value,
+                        ::core::option::Option::None => {
+                            return ::core::result::Result::Err(
+                                __serde::de::Error::invalid_length(0usize, &"record with 3 fields"),
+                            );
+                        }
+                    };
+                    let __field1 = match __serde::de::SeqAccess::next_element::<
+                        ::std::option::Option<::std::string::String>,
+                    >(&mut __seq)?
+                    {
+                        ::core::option::Option::Some(__value) => __value,
+                        ::core::option::Option::None => {
+                            return ::core::result::Result::Err(
+                                __serde::de::Error::invalid_length(1usize, &"record with 3 fields"),
+                            );
+                        }
+                    };
+                    let __field2 = match __serde::de::SeqAccess::next_element::<
+                        ::std::option::Option<u32>,
+                    >(&mut __seq)?
+                    {
+                        ::core::option::Option::Some(__value) => __value,
+                        ::core::option::Option::None => {
+                            return ::core::result::Result::Err(
+                                __serde::de::Error::invalid_length(2usize, &"record with 3 fields"),
+                            );
+                        }
+                    };
+                    ::core::result::Result::Ok(BlockDeviceInfo {
+                        device: __field0,
+                        parent: __field1,
+                        partition: __field2,
+                    })
+                }
+                #[inline]
+                fn visit_map<__A>(
+                    self,
+                    mut __map: __A,
+                ) -> ::core::result::Result<Self::Value, __A::Error>
+                where
+                    __A: __serde::de::MapAccess<'de>,
+                {
+                    #[doc(hidden)]
+                    const __IDENTIFIERS: &'static [&'static str] =
+                        &["device", "parent", "partition"];
+                    #[doc(hidden)]
+                    const __EXPECTING_IDENTIFIERS: &'static str =
+                        "an identifier in [\"device\", \"parent\", \"partition\"]";
+                    #[derive(:: core :: clone :: Clone, :: core :: marker :: Copy)]
+                    #[doc(hidden)]
+                    enum __Identifier {
+                        __Identifier0,
+                        __Identifier1,
+                        __Identifier2,
+                        __Unknown,
+                    }
+                    #[doc(hidden)]
+                    struct __IdentifierVisitor;
+                    impl<'de> __serde::de::Visitor<'de> for __IdentifierVisitor {
+                        type Value = __Identifier;
+                        fn expecting(
+                            &self,
+                            __formatter: &mut ::core::fmt::Formatter,
+                        ) -> ::core::fmt::Result {
+                            ::core::fmt::Formatter::write_str(__formatter, __EXPECTING_IDENTIFIERS)
+                        }
+                        fn visit_u64<__E>(
+                            self,
+                            __value: u64,
+                        ) -> ::core::result::Result<Self::Value, __E>
+                        where
+                            __E: __serde::de::Error,
+                        {
+                            match __value {
+                                0u64 => ::core::result::Result::Ok(__Identifier::__Identifier0),
+                                1u64 => ::core::result::Result::Ok(__Identifier::__Identifier1),
+                                2u64 => ::core::result::Result::Ok(__Identifier::__Identifier2),
+                                _ => ::core::result::Result::Ok(__Identifier::__Unknown),
+                            }
+                        }
+                        fn visit_str<__E>(
+                            self,
+                            __value: &str,
+                        ) -> ::core::result::Result<Self::Value, __E>
+                        where
+                            __E: __serde::de::Error,
+                        {
+                            match __value {
+                                "device" => ::core::result::Result::Ok(__Identifier::__Identifier0),
+                                "parent" => ::core::result::Result::Ok(__Identifier::__Identifier1),
+                                "partition" => {
+                                    ::core::result::Result::Ok(__Identifier::__Identifier2)
+                                }
+                                _ => ::core::result::Result::Ok(__Identifier::__Unknown),
+                            }
+                        }
+                        fn visit_bytes<__E>(
+                            self,
+                            __value: &[u8],
+                        ) -> ::core::result::Result<Self::Value, __E>
+                        where
+                            __E: __serde::de::Error,
+                        {
+                            match __value {
+                                b"device" => {
+                                    ::core::result::Result::Ok(__Identifier::__Identifier0)
+                                }
+                                b"parent" => {
+                                    ::core::result::Result::Ok(__Identifier::__Identifier1)
+                                }
+                                b"partition" => {
+                                    ::core::result::Result::Ok(__Identifier::__Identifier2)
+                                }
+                                _ => ::core::result::Result::Ok(__Identifier::__Unknown),
+                            }
+                        }
+                    }
+                    impl<'de> __serde::Deserialize<'de> for __Identifier {
+                        #[inline]
+                        fn deserialize<__D>(
+                            __deserializer: __D,
+                        ) -> ::core::result::Result<Self, __D::Error>
+                        where
+                            __D: __serde::Deserializer<'de>,
+                        {
+                            __serde::Deserializer::deserialize_identifier(
+                                __deserializer,
+                                __IdentifierVisitor,
+                            )
+                        }
+                    }
+                    let mut __field0: ::core::option::Option<::std::string::String> =
+                        ::core::option::Option::None;
+                    let mut __field1: ::core::option::Option<
+                        ::std::option::Option<::std::string::String>,
+                    > = ::core::option::Option::None;
+                    let mut __field2: ::core::option::Option<::std::option::Option<u32>> =
+                        ::core::option::Option::None;
+                    while let ::core::option::Option::Some(__key) =
+                        __serde::de::MapAccess::next_key::<__Identifier>(&mut __map)?
+                    {
+                        match __key {
+                            __Identifier::__Identifier0 => {
+                                if ::core::option::Option::is_some(&__field0) {
+                                    return ::core::result::Result::Err(
+                                        <__A::Error as __serde::de::Error>::duplicate_field(
+                                            "device",
+                                        ),
+                                    );
+                                }
+                                __field0 = ::core::option::Option::Some(
+                                    __serde::de::MapAccess::next_value::<::std::string::String>(
+                                        &mut __map,
+                                    )?,
+                                );
+                            }
+                            __Identifier::__Identifier1 => {
+                                if ::core::option::Option::is_some(&__field1) {
+                                    return ::core::result::Result::Err(
+                                        <__A::Error as __serde::de::Error>::duplicate_field(
+                                            "parent",
+                                        ),
+                                    );
+                                }
+                                __field1 = ::core::option::Option::Some(
+                                    __serde::de::MapAccess::next_value::<
+                                        ::std::option::Option<::std::string::String>,
+                                    >(&mut __map)?,
+                                );
+                            }
+                            __Identifier::__Identifier2 => {
+                                if ::core::option::Option::is_some(&__field2) {
+                                    return ::core::result::Result::Err(
+                                        <__A::Error as __serde::de::Error>::duplicate_field(
+                                            "partition",
+                                        ),
+                                    );
+                                }
+                                __field2 = ::core::option::Option::Some(
+                                    __serde::de::MapAccess::next_value::<::std::option::Option<u32>>(
+                                        &mut __map,
+                                    )?,
+                                );
+                            }
+                            _ => {
+                                __serde::de::MapAccess::next_value::<__serde::de::IgnoredAny>(
+                                    &mut __map,
+                                )?;
+                            }
+                        }
+                    }
+                    let __field0 = match __field0 {
+                        ::core::option::Option::Some(__value) => __value,
+                        ::core::option::Option::None => {
+                            return ::core::result::Result::Err(
+                                <__A::Error as __serde::de::Error>::missing_field("device"),
+                            );
+                        }
+                    };
+                    let __field1 = match __field1 {
+                        ::core::option::Option::Some(__value) => __value,
+                        ::core::option::Option::None => ::core::option::Option::None,
+                    };
+                    let __field2 = match __field2 {
+                        ::core::option::Option::Some(__value) => __value,
+                        ::core::option::Option::None => ::core::option::Option::None,
+                    };
+                    ::core::result::Result::Ok(BlockDeviceInfo {
+                        device: __field0,
+                        parent: __field1,
+                        partition: __field2,
+                    })
+                }
+            }
+            #[doc(hidden)]
+            const __FIELDS: &'static [&'static str] = &["device", "parent", "partition"];
+            __serde::Deserializer::deserialize_struct(
+                __deserializer,
+                "BlockDeviceInfo",
                 __FIELDS,
                 __Visitor {
                     __phantom_vars: ::core::marker::PhantomData,

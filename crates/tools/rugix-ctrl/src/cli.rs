@@ -12,6 +12,8 @@ use rugix_bundle::reader::{DecodedPayloadInfo, PayloadTarget};
 use rugix_bundle::source::{BundleSource, ReaderSource, SkipRead};
 use rugix_bundle::xdelta::xdelta_decompress;
 use rugix_bundle::{format, BUNDLE_MAGIC};
+use rugix_common::disk::blkdev::find_block_device;
+use rugix_common::mount::is_mount_point;
 use rugix_common::pipe::{buffered_pipe, PipeWriter};
 use rugix_common::slots::SlotState;
 use rugix_hooks::{HooksLoader, RunOptions};
@@ -28,6 +30,7 @@ use rugix_common::maybe_compressed::{MaybeCompressed, PeekReader};
 use rugix_common::stream_hasher::StreamHasher;
 use xscript::{cmd_os, vars, ParentEnv, Run, Vars};
 
+use crate::config::output::BlockDeviceInfo;
 use crate::http_source::HttpSource;
 use crate::overlay::overlay_dir;
 use crate::slot_db::{self, BlockProvider};
@@ -418,6 +421,33 @@ pub fn main() -> SystemResult<()> {
                     .boot_flow()
                     .mark_bad(&system, group)
                     .whatever("unable to mark boot group as bad")?;
+            }
+        },
+        Command::Utils(cmd) => match cmd {
+            UtilsCommand::FindBlockDevice { path } => {
+                let Some(device) =
+                    find_block_device(path).whatever("error finding block device")?
+                else {
+                    bail!("unable to find block device");
+                };
+                serde_json::to_writer(
+                    std::io::stdout(),
+                    &BlockDeviceInfo {
+                        device: device.path().to_string_lossy().into_owned(),
+                        parent: device
+                            .find_parent()
+                            .ok()
+                            .flatten()
+                            .map(|parent| parent.path().to_string_lossy().into_owned()),
+                        partition: device.is_partition().ok().flatten(),
+                    },
+                )
+                .ok();
+                println!("");
+            }
+            UtilsCommand::IsMountPoint { path } => {
+                serde_json::to_writer(std::io::stdout(), &is_mount_point(path)).ok();
+                println!("");
             }
         },
     }
@@ -1147,6 +1177,9 @@ pub enum Command {
     /// Control the boot flow of the system.
     #[clap(subcommand)]
     Boot(BootCommand),
+    /// Utility commands useful for scripting.
+    #[clap(subcommand)]
+    Utils(UtilsCommand),
     /// Unstable experimental commands.
     #[clap(subcommand)]
     Unstable(UnstableCommand),
@@ -1257,4 +1290,12 @@ pub enum BootCommand {
     MarkGood { group: Option<String> },
     /// Mark a boot group as bad.
     MarkBad { group: String },
+}
+
+#[derive(Debug, Parser)]
+pub enum UtilsCommand {
+    /// Determine the block device behind a path.
+    FindBlockDevice { path: PathBuf },
+    /// Check whether a path is a mount point.
+    IsMountPoint { path: PathBuf },
 }

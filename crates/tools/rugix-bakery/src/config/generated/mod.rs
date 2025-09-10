@@ -1,7 +1,5 @@
 /* GENERATED WITH SIDEX. DO NOT MODIFY! */
 
-#![allow(warnings)]
-
 pub mod foreign {
     #![doc = "Foreign types.\n"]
     #[allow(unused)]

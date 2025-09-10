@@ -1,38 +1,65 @@
-record SystemStateOutput {
-    slots: [string: SlotStateOutput],
-    boot?: BootStateOutput,
-    /// System state management information.
-    state: StateOutput,
+/// Information about the system.
+record SystemInfoOutput {
+    /// Information about the slots.
+    slots: [string: SlotInfoOutput],
+    /// Information about the boot flow.
+    boot?: BootInfoOutput,
+    /// Information about the state management mechanism.
+    state: StateInfoOutput,
 }
 
-/// State management status.
-variant StateManagementStatus {
-    /// State management has not been enabled.
+/// Information about the state management mechanism.
+#[json(tag = "status")]
+variant StateInfoOutput {
+    /// State management is disabled.
     Disabled,
     /// State management is active.
-    Active,
+    Active: StateInfoActiveOutput,
     /// State management is inactive due to an error.
     /// 
     /// State is stored in memory and will fail to persist even if declared.
     Error,
 }
 
-record StateOutput {
-    status: StateManagementStatus,
+/// Information about the state management mechanism, if state management is active.
+record StateInfoActiveOutput {
+    /// Device backing the data partition, if any.
+    data_partition?: string,
 }
 
-record SlotStateOutput {
+/// Information about a slot.
+record SlotInfoOutput {
+    /// Indicates whether the slot is active, i.e., in use.
     active?: bool,
+    /// Hashes of the slot data according to the slot database.
     hashes?: [string: string],
+    /// Size of the slot data according to the slot database.
     size?: u64,
+    /// Last time the slot has been updated according to the slot database.
     updated_at?: string,
 }
 
-record BootStateOutput {
+/// Information about the boot flow.
+record BootInfoOutput {
+    /// Name of the boot flow.
     boot_flow: string,
+    /// Active boot group.
     active_group?: string,
+    /// Default boot group.
     default_group?: string,
-    groups: [string: BootGroupStateOutput],
+    /// Information about the boot groups.
+    groups: [string: BootGroupInfoOutput],
 }
 
-record BootGroupStateOutput {}
+/// Information about a boot group.
+record BootGroupInfoOutput {}
+
+/// Information about a block device.
+record BlockDeviceInfo {
+    /// Path of the block device in `/dev`.
+    device: string,
+    /// Parent of the block device, if any.
+    parent?: string,
+    /// Partition number, if the block device is a partition.
+    partition?: u32,
+}

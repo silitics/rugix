@@ -1,4 +1,5 @@
 use std::ffi::OsStr;
+use std::os::linux::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 
 use reportify::{Report, ResultExt};
@@ -7,6 +8,28 @@ use xscript::{run, Run};
 
 reportify::new_whatever_type! {
     MountError
+}
+
+pub fn is_mount_point<P: AsRef<Path>>(path: P) -> bool {
+    fn is_mount_point(path: &Path) -> bool {
+        let Ok(path) = path.canonicalize() else {
+            return false;
+        };
+        if let Some(parent) = path.parent() {
+            let Ok(path_metadata) = path.symlink_metadata() else {
+                return false;
+            };
+            let Ok(parent_metadata) = parent.symlink_metadata() else {
+                return false;
+            };
+            // The path is a mount point, if it resides on a different device than its parent.
+            path_metadata.st_dev() != parent_metadata.st_dev()
+        } else {
+            // Path is canonical but has no parent, so it must be a mount point.
+            true
+        }
+    }
+    is_mount_point(path.as_ref())
 }
 
 pub struct Mounted {
