@@ -84,8 +84,15 @@ fn mender_boot_flow(
 
 const MENDER_GRUB_ENV1: &str = "grub-mender-grubenv/mender_grubenv1/env";
 const MENDER_GRUB_LOCK1: &str = "grub-mender-grubenv/mender_grubenv1/lock";
+const MENDER_GRUB_LOCK1_SHA256: &str = "grub-mender-grubenv/mender_grubenv1/lock.sha256sum";
 const MENDER_GRUB_ENV2: &str = "grub-mender-grubenv/mender_grubenv2/env";
 const MENDER_GRUB_LOCK2: &str = "grub-mender-grubenv/mender_grubenv2/lock";
+const MENDER_GRUB_LOCK2_SHA256: &str = "grub-mender-grubenv/mender_grubenv2/lock.sha256sum";
+
+// We only write the sum after writing the unlocking. This is fine as a locked environment
+// must be considered corrupted anyway, so the hash does not have to match.
+const MENDER_LOCK_SHA256: &str =
+    "181eaea8e394c79982e4d61d58aeb7ffb5a4e75f0c62bd5f30ec2d839aa4e12c  lock\n";
 
 fn mender_save_grub_env(boot_root: &Path, env: &GrubEnv) -> BootFlowResult<()> {
     let mut locked = std::collections::HashMap::new();
@@ -97,22 +104,24 @@ fn mender_save_grub_env(boot_root: &Path, env: &GrubEnv) -> BootFlowResult<()> {
     save_grub_env(boot_root.join(MENDER_GRUB_ENV1), env)
         .whatever("unable to save Grub environment")?;
     save_grub_env(boot_root.join(MENDER_GRUB_LOCK1), &unlocked).ok();
+    std::fs::write(boot_root.join(MENDER_GRUB_LOCK1_SHA256), MENDER_LOCK_SHA256).ok();
     // Secondary environment file.
     save_grub_env(boot_root.join(MENDER_GRUB_LOCK2), &locked).ok();
     save_grub_env(boot_root.join(MENDER_GRUB_ENV2), &env)
         .whatever("unable to save Grub environment")?;
-    save_grub_env(&boot_root.join(MENDER_GRUB_LOCK2), &locked).ok();
+    save_grub_env(&boot_root.join(MENDER_GRUB_LOCK2), &unlocked).ok();
+    std::fs::write(boot_root.join(MENDER_GRUB_LOCK2_SHA256), MENDER_LOCK_SHA256).ok();
     Ok(())
 }
 
 fn mender_load_grub_env(system: &System, boot_root: &Path) -> BootFlowResult<GrubEnv> {
-    let primary_ok = load_grub_env(boot_root.join(MENDER_GRUB_ENV1))
+    let primary_ok = load_grub_env(boot_root.join(MENDER_GRUB_LOCK1))
         .map(|env| match env.get("editing").as_deref() {
             Some(value) if value == "0" => true,
             _ => false,
         })
         .unwrap_or(false);
-    let secondary_ok = load_grub_env(boot_root.join(MENDER_GRUB_ENV1))
+    let secondary_ok = load_grub_env(boot_root.join(MENDER_GRUB_LOCK2))
         .map(|env| match env.get("editing").as_deref() {
             Some(value) if value == "0" => true,
             _ => false,
@@ -147,11 +156,13 @@ fn mender_load_grub_env(system: &System, boot_root: &Path) -> BootFlowResult<Gru
             save_grub_env(boot_root.join(MENDER_GRUB_LOCK1), &locked).ok();
             save_grub_env(boot_root.join(MENDER_GRUB_ENV1), &boot_env).ok();
             save_grub_env(boot_root.join(MENDER_GRUB_LOCK1), &unlocked).ok();
+            std::fs::write(boot_root.join(MENDER_GRUB_LOCK1_SHA256), MENDER_LOCK_SHA256).ok();
         }
         if !secondary_ok {
             save_grub_env(boot_root.join(MENDER_GRUB_LOCK2), &locked).ok();
             save_grub_env(boot_root.join(MENDER_GRUB_ENV2), &boot_env).ok();
-            save_grub_env(&boot_root.join(MENDER_GRUB_LOCK2), &locked).ok();
+            save_grub_env(&boot_root.join(MENDER_GRUB_LOCK2), &unlocked).ok();
+            std::fs::write(boot_root.join(MENDER_GRUB_LOCK2_SHA256), MENDER_LOCK_SHA256).ok();
         }
     }
     Ok(boot_env)
