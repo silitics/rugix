@@ -6,7 +6,7 @@ use byte_calc::{ByteLen, NumBytes};
 use reportify::{bail, whatever, ResultExt};
 use rugix_compression::{ByteProcessor, CompressionFormat};
 use si_crypto_hashes::{HashAlgorithm, HashDigest};
-use tracing::{error, trace};
+use tracing::{error, trace, warn};
 
 use crate::block_encoding::block_index::{BlockId, RawBlockIndex};
 use crate::block_encoding::block_table::BlockTable;
@@ -227,6 +227,7 @@ impl<'r, S: BundleSource> PayloadReader<'r, S> {
                         .unwrap() as u64)
                         .min(self.remaining_data.raw);
                     next_size_idx += 1;
+                    let mut block_available = false;
                     if let Some(stored_block) = provider.and_then(|p| p.query(block_hash)) {
                         trace!(
                             block_idx = idx,
@@ -236,9 +237,6 @@ impl<'r, S: BundleSource> PayloadReader<'r, S> {
                             stored_block_size = stored_block.size.raw,
                             "using stored block from provider"
                         );
-                        // We already have the block, let's skip it.
-                        self.reader.source.skip(block_size.into())?;
-                        self.remaining_data -= block_size;
                         buffer.resize(stored_block.size.unwrap_usize(), 0);
                         let mut source_file = std::fs::File::open(&stored_block.file)
                             .whatever("unable to open file")?;
@@ -248,7 +246,23 @@ impl<'r, S: BundleSource> PayloadReader<'r, S> {
                         source_file
                             .read_exact(&mut buffer)
                             .whatever("unable to read block")?;
-                    } else {
+                        // At this point, we have the uncompressed block in the buffer.
+                        let hash_found = block_encoding.hash_algorithm.hash::<Box<[u8]>>(&buffer);
+                        if hash_found.raw() != block_hash {
+                            warn!(
+                                block_idx = idx,
+                                hash_expected = block_hash,
+                                hash_found = hash_found.raw(),
+                                "invalid block hash, reading from source instead"
+                            );
+                        } else {
+                            // We already have the block, let's skip it.
+                            self.reader.source.skip(block_size.into())?;
+                            self.remaining_data -= block_size;
+                            block_available = true;
+                        }
+                    }
+                    if !block_available {
                         buffer.resize(block_size.try_into().unwrap(), 0);
                         self.reader.source.read_exact(&mut buffer)?;
                         self.remaining_data -= buffer.byte_len();
@@ -261,6 +275,17 @@ impl<'r, S: BundleSource> PayloadReader<'r, S> {
                             block_size_bundle = block_size,
                             "using block from bundle"
                         );
+                        // At this point, we have the uncompressed block in the buffer.
+                        let hash_found = block_encoding.hash_algorithm.hash::<Box<[u8]>>(&buffer);
+                        if hash_found.raw() != block_hash {
+                            error!(
+                                block_idx = idx,
+                                hash_expected = block_hash,
+                                hash_found = hash_found.raw(),
+                                "invalid block hash"
+                            );
+                            bail!("invalid block hash of block {idx} of size {}", buffer.len());
+                        }
                     }
                 } else {
                     // The block has been deduplicated, read from target.
@@ -274,17 +299,17 @@ impl<'r, S: BundleSource> PayloadReader<'r, S> {
                         "using deduplicated block from target"
                     );
                     target.read_block(offset, size, &mut buffer)?;
-                }
-                // At this point, we have the uncompressed block in the buffer.
-                let hash_found = block_encoding.hash_algorithm.hash::<Box<[u8]>>(&buffer);
-                if hash_found.raw() != block_hash {
-                    error!(
-                        block_idx = idx,
-                        hash_expected = block_hash,
-                        hash_found = hash_found.raw(),
-                        "invalid block hash"
-                    );
-                    bail!("invalid block hash of block {idx} of size {}", buffer.len());
+                    // At this point, we have the uncompressed block in the buffer.
+                    let hash_found = block_encoding.hash_algorithm.hash::<Box<[u8]>>(&buffer);
+                    if hash_found.raw() != block_hash {
+                        error!(
+                            block_idx = idx,
+                            hash_expected = block_hash,
+                            hash_found = hash_found.raw(),
+                            "invalid block hash"
+                        );
+                        bail!("invalid block hash of block {idx} of size {}", buffer.len());
+                    }
                 }
                 target_offsets.push(current_target_offset);
                 target_sizes.push(buffer.byte_len());
