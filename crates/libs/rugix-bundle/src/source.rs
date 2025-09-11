@@ -27,6 +27,10 @@ pub trait BundleSource {
     /// Skip the given number of bytes.
     fn skip(&mut self, length: NumBytes) -> BundleResult<()>;
 
+    /// Hint the size of the next chunk we are going to read to the source.
+    #[expect(unused_variables)]
+    fn hint_next_chunk(&mut self, length: NumBytes) {}
+
     /// Read an exact number of bytes into the provided slice.
     fn read_exact(&mut self, mut slice: &mut [u8]) -> BundleResult<()> {
         while slice.len() > 0 {

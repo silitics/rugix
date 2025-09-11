@@ -209,6 +209,7 @@ impl<'r, S: BundleSource> PayloadReader<'r, S> {
             let mut target_offsets = Vec::<NumBytes>::with_capacity(num_blocks);
             let mut target_sizes = Vec::<NumBytes>::with_capacity(num_blocks);
             let mut next_size_idx = 0;
+
             for (idx, block_hash) in block_index_raw
                 .chunks_exact(block_encoding.hash_algorithm.hash_size())
                 .enumerate()
@@ -264,6 +265,7 @@ impl<'r, S: BundleSource> PayloadReader<'r, S> {
                     }
                     if !block_available {
                         buffer.resize(block_size.try_into().unwrap(), 0);
+                        self.reader.source.hint_next_chunk(block_size.into());
                         self.reader.source.read_exact(&mut buffer)?;
                         self.remaining_data -= buffer.byte_len();
                         if let Some(format) = block_encoding.compression {
@@ -320,6 +322,8 @@ impl<'r, S: BundleSource> PayloadReader<'r, S> {
                 progress(&self.reader.source);
             }
         } else {
+            // The next chunk is the whole payload.
+            self.reader.source.hint_next_chunk(self.remaining_data);
             loop {
                 let read = self.read(&mut buffer)?;
                 if read == 0 {
@@ -402,6 +406,7 @@ pub fn read_into_vec(
     match head {
         AtomHead::Value { length, .. } => {
             if output.byte_len() + length < limit {
+                source.hint_next_chunk(length);
                 let offset = output.len();
                 output.resize(offset + length.raw as usize, 0);
                 source

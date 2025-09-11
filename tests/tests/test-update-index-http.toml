@@ -1,5 +1,5 @@
 [[systems]]
-system  = "customized-arm64"
+system = "customized-arm64"
 ssh = { private-key = "./keys/id_rsa" }
 
 [[steps]]
@@ -28,7 +28,7 @@ rugix-system-assert ".boot.activeGroup" "a"
 [[steps]]
 action = "run"
 description = "install a system update"
-stdin-file = "./build/customized-arm64/system.rugixb"
+stdin-file = "./build/customized-arm64-delta/system.rugixb"
 # Rebooting may cause the SSH client to disconnect while executing the script.
 may-disconnect = true
 script = """

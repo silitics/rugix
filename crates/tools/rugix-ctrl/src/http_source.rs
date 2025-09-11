@@ -4,13 +4,16 @@ use crate::system::SystemResult;
 use byte_calc::NumBytes;
 use reportify::{bail, ResultExt};
 use rugix_bundle::source::BundleSource;
+use tracing::error;
 use ureq::http::Response;
 use ureq::Body;
 
 pub struct HttpSource {
     url: String,
     supports_range: bool,
-    current_response: Response<Body>,
+    current_response: Option<Response<Body>>,
+    current_end: Option<u64>,
+    next_chunk_end: Option<u64>,
     current_position: u64,
     current_skipped: u64,
     skip_buffer: Vec<u8>,
@@ -35,9 +38,11 @@ impl DownloadStats {
     }
 }
 
+const DEFAULT_CHUNK_SIZE: NumBytes = NumBytes::kibibytes(64);
+
 impl HttpSource {
     pub fn new(url: &str) -> SystemResult<Self> {
-        let response = ureq::get(url)
+        let response = ureq::head(url)
             .call()
             .whatever("unable to get bundle from URL")?;
         let content_length = response.headers().get("Content-Length").and_then(|length| {
@@ -49,14 +54,36 @@ impl HttpSource {
                 .ok()
                 .map(NumBytes::new)
         });
+        let supports_range = response
+            .headers()
+            .get("Accept-Ranges")
+            .map(|value| value.as_bytes() == b"bytes")
+            .unwrap_or(false);
+
+        let (current_response, current_end) = if !supports_range {
+            // Fetch the whole bundle.
+            (
+                ureq::get(url)
+                    .call()
+                    .whatever("unable to get bundle from URL")?,
+                None,
+            )
+        } else {
+            // Fetch a first chunk.
+            (
+                ureq::get(url)
+                    .header("Range", format!("bytes=0-{}", DEFAULT_CHUNK_SIZE.raw))
+                    .call()
+                    .whatever("unable to get bundle from URL")?,
+                Some(DEFAULT_CHUNK_SIZE.raw),
+            )
+        };
         Ok(Self {
             url: url.to_owned(),
-            supports_range: response
-                .headers()
-                .get("Accept-Ranges")
-                .map(|value| value.as_bytes() == b"bytes")
-                .unwrap_or(false),
-            current_response: response,
+            supports_range,
+            current_response: Some(current_response),
+            current_end,
+            next_chunk_end: None,
             current_skipped: 0,
             current_position: 0,
             skip_buffer: Vec::new(),
@@ -80,40 +107,88 @@ impl BundleSource for HttpSource {
     fn read(&mut self, slice: &mut [u8]) -> rugix_bundle::BundleResult<usize> {
         if self.current_skipped > 0 {
             self.current_position += self.current_skipped;
-            if self.current_skipped > NumBytes::kibibytes(32) && self.supports_range {
-                self.current_response = ureq::get(&self.url)
-                    .header("Range", format!("bytes={}-", self.current_position))
-                    .call()
-                    .whatever("unable to get bundle from URL")?;
-                self.bytes_skipped += self.current_skipped;
+            // Check whether we exceeded the chunk that we are currently reading.
+            let chunk_exceeded = self
+                .current_end
+                .map(|end| self.current_position > end)
+                .unwrap_or(false);
+            if chunk_exceeded {
+                // We have exceeded the chunk, we need to fetch a new one.
+                self.current_response = None;
+                let actually_skipped = self.current_position - self.current_end.unwrap();
+                // Count the bytes that were still in the pending request as read.
+                self.bytes_skipped += actually_skipped;
+                self.bytes_read += self.current_skipped - actually_skipped;
             } else {
-                self.bytes_read += self.current_skipped;
-                let mut remaining = self.current_skipped;
-                while remaining > 0 {
-                    self.skip_buffer.resize(remaining.min(8192) as usize, 0);
-                    let read = self
-                        .current_response
-                        .body_mut()
-                        .as_reader()
-                        .read(&mut self.skip_buffer)
-                        .whatever("unable to read from HTTP source")?;
-                    if read == 0 {
-                        bail!("unexpected end of HTTP stream")
+                // We are still within the chunk and need to skip the bytes by reading.
+                if let Some(current_response) = self.current_response.as_mut() {
+                    // Read the bytes that we skip from the current response.
+                    let mut remaining = self.current_skipped;
+                    while remaining > 0 {
+                        self.skip_buffer.resize(remaining.min(8192) as usize, 0);
+                        let read = current_response
+                            .body_mut()
+                            .as_reader()
+                            .read(&mut self.skip_buffer)
+                            .whatever("unable to read from HTTP source")?;
+                        if read == 0 {
+                            error!("unexpected end of HTTP stream");
+                            self.current_response = None;
+                            break;
+                        }
+                        remaining -= read as u64;
                     }
-                    remaining -= read as u64;
+                    self.bytes_read += self.current_skipped;
+                } else {
+                    self.bytes_skipped += self.current_skipped;
                 }
             }
             self.current_skipped = 0;
         }
-        let read = self
-            .current_response
-            .body_mut()
-            .as_reader()
-            .read(slice)
-            .whatever("unable to read from HTTP source")?;
-        self.bytes_read += read as u64;
-        self.current_position += read as u64;
-        Ok(read)
+        loop {
+            let current_response = match self.current_response.as_mut() {
+                Some(current_response) => current_response,
+                None => {
+                    if !self.supports_range {
+                        bail!("response is not available but range queries are not supported");
+                    }
+                    let next_end = (self.current_position
+                        + DEFAULT_CHUNK_SIZE.raw.max(slice.len() as u64))
+                    .max(self.next_chunk_end.unwrap_or(0));
+                    self.next_chunk_end = None;
+                    assert!(next_end - self.current_position >= DEFAULT_CHUNK_SIZE.raw);
+                    self.current_response = Some(
+                        ureq::get(&self.url)
+                            .header(
+                                "Range",
+                                format!("bytes={}-{}", self.current_position, next_end),
+                            )
+                            .call()
+                            .whatever("unable to get bundle from URL")?,
+                    );
+                    self.current_end = Some(next_end);
+                    self.current_response.as_mut().unwrap()
+                }
+            };
+            // We should now be able to read some bytes from the current response.
+            let read = current_response
+                .body_mut()
+                .as_reader()
+                .read(slice)
+                .whatever("unable to read from HTTP source")?;
+            if read == 0 {
+                // We reached the end of the response. Do a followup request.
+                self.current_response = None;
+                continue;
+            }
+            self.bytes_read += read as u64;
+            self.current_position += read as u64;
+            break Ok(read);
+        }
+    }
+
+    fn hint_next_chunk(&mut self, length: NumBytes) {
+        self.next_chunk_end = Some(self.current_position + length.raw);
     }
 
     fn skip(&mut self, length: byte_calc::NumBytes) -> rugix_bundle::BundleResult<()> {
