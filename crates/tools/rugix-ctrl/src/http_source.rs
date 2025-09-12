@@ -4,14 +4,13 @@ use crate::system::SystemResult;
 use byte_calc::NumBytes;
 use reportify::{bail, ResultExt};
 use rugix_bundle::source::BundleSource;
-use sidex_serde::de::content;
 use tracing::{error, warn};
 use ureq::http::Response;
 use ureq::Body;
 
 pub struct HttpSource {
     url: String,
-    supports_range: bool,
+    use_range_queries: bool,
     current_response: Option<Response<Body>>,
     content_length: Option<u64>,
     current_end: Option<u64>,
@@ -40,10 +39,12 @@ impl DownloadStats {
     }
 }
 
-const DEFAULT_CHUNK_SIZE: NumBytes = NumBytes::kibibytes(64);
+/// Minimal size of chunks to be fetched individually via range queries.
+const MIN_CHUNK_SIZE: NumBytes = NumBytes::kibibytes(64);
 
 impl HttpSource {
     pub fn new(url: &str) -> SystemResult<Self> {
+        // Do an initial `HEAD` request to obtain some headers for the update bundle.
         let response = ureq::head(url)
             .call()
             .whatever("unable to get bundle from URL")?;
@@ -51,14 +52,17 @@ impl HttpSource {
             .headers()
             .get("Content-Length")
             .and_then(|length| length.to_str().ok()?.trim().parse::<u64>().ok());
-        let mut supports_range = response
+        // We are going to use range queries, if they are supported by the server.
+        let mut use_range_queries = response
             .headers()
             .get("Accept-Ranges")
             .map(|value| value.as_bytes() == b"bytes")
             .unwrap_or(false);
-
-        if supports_range && (content_length.is_none() || content_length == Some(0)) {
-            // Obtain the content length from the `Content-Range` header.
+        if use_range_queries && (content_length.is_none() || content_length == Some(0)) {
+            // The `Content-Length` header is optional and some implementations may return `0`
+            // despite the HTTP spec saying that this should be the length of the document that
+            // a GET would return (https://datatracker.ietf.org/doc/html/rfc2616#section-14.13).
+            // In those cases, we use a range request to determine the content length.
             content_length = ureq::head(url)
                 .header("Range", "bytes=0-0")
                 .call()
@@ -78,11 +82,11 @@ impl HttpSource {
             if content_length.is_none() {
                 warn!("unknown content length, cannot use range queries");
             }
-            supports_range = false;
+            use_range_queries = false;
         }
 
-        let (current_response, current_end) = if !supports_range {
-            // Fetch the whole bundle.
+        let (current_response, current_end) = if !use_range_queries {
+            // Fetch the whole bundle all at once.
             (
                 ureq::get(url)
                     .call()
@@ -90,18 +94,19 @@ impl HttpSource {
                 None,
             )
         } else {
-            // Fetch a first chunk.
+            // Fetch a first chunk of the bundle.
+            let first_chunk_size = MIN_CHUNK_SIZE.raw.min(content_length.unwrap());
             (
                 ureq::get(url)
-                    .header("Range", format!("bytes=0-{}", DEFAULT_CHUNK_SIZE.raw))
+                    .header("Range", format!("bytes=0-{}", first_chunk_size - 1))
                     .call()
                     .whatever("unable to get bundle from URL")?,
-                Some(DEFAULT_CHUNK_SIZE.raw),
+                Some(first_chunk_size),
             )
         };
         Ok(Self {
             url: url.to_owned(),
-            supports_range,
+            use_range_queries,
             content_length,
             current_response: Some(current_response),
             current_end,
@@ -127,15 +132,17 @@ impl HttpSource {
 
 impl BundleSource for HttpSource {
     fn read(&mut self, slice: &mut [u8]) -> rugix_bundle::BundleResult<usize> {
+        assert_ne!(slice.len(), 0, "slice must not be empty");
         if self.current_skipped > 0 {
             self.current_position += self.current_skipped;
-            // Check whether we exceeded the chunk that we are currently reading.
+            // Check whether we exceeded the chunk that we are currently reading. Note
+            // that the end position is itself not included in the chunk.
             let chunk_exceeded = self
                 .current_end
-                .map(|end| self.current_position > end)
+                .map(|end| self.current_position >= end)
                 .unwrap_or(false);
             if chunk_exceeded {
-                // We have exceeded the chunk, we need to fetch a new one.
+                // We have exceeded the chunk and need to fetch a new one.
                 self.current_response = None;
                 let actually_skipped = self.current_position - self.current_end.unwrap();
                 // Count the bytes that were still in the pending request as read.
@@ -168,33 +175,35 @@ impl BundleSource for HttpSource {
             self.current_skipped = 0;
         }
         loop {
-            let current_response = match self.current_response.as_mut() {
-                Some(current_response) => current_response,
-                None => {
-                    if !self.supports_range {
-                        bail!("response is not available but range queries are not supported");
-                    }
-                    // Range queries are inclusive, so we subtract 1 from the end.
-                    let next_end = (self.current_position
-                        + DEFAULT_CHUNK_SIZE.raw.max(slice.len() as u64))
-                    .max(self.next_chunk_end.unwrap_or(0))
-                    .min(self.content_length.unwrap())
-                        - 1;
-                    self.next_chunk_end = None;
-                    assert!(next_end > self.current_position);
-                    self.current_response = Some(
-                        ureq::get(&self.url)
-                            .header(
-                                "Range",
-                                format!("bytes={}-{}", self.current_position, next_end),
-                            )
-                            .call()
-                            .whatever("unable to get bundle from URL")?,
-                    );
-                    self.current_end = Some(next_end);
-                    self.current_response.as_mut().unwrap()
+            if self.current_response.is_none() {
+                // We need to issue a new request for a new chunk.
+                if !self.use_range_queries {
+                    bail!("response is not available but range queries are not supported");
                 }
-            };
+                // Compute the end of the next chunk using the provided hint, if any.
+                let next_end = (self.current_position + MIN_CHUNK_SIZE.raw.max(slice.len() as u64))
+                    .max(self.next_chunk_end.unwrap_or(0))
+                    .min(self.content_length.unwrap());
+                self.next_chunk_end = None;
+                if self.current_position == next_end {
+                    assert_eq!(self.current_position, self.content_length.unwrap());
+                    // We reached the end of the update bundle, return `0`.
+                    return Ok(0);
+                }
+                assert!(self.current_position < next_end);
+                self.current_response = Some(
+                    // HTTP range headers are inclusive, hence, we need to subtract one.
+                    ureq::get(&self.url)
+                        .header(
+                            "Range",
+                            format!("bytes={}-{}", self.current_position, next_end - 1),
+                        )
+                        .call()
+                        .whatever("unable to get bundle from URL")?,
+                );
+                self.current_end = Some(next_end);
+            }
+            let current_response = self.current_response.as_mut().unwrap();
             // We should now be able to read some bytes from the current response.
             let read = current_response
                 .body_mut()
