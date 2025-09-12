@@ -4,7 +4,8 @@ use crate::system::SystemResult;
 use byte_calc::NumBytes;
 use reportify::{bail, ResultExt};
 use rugix_bundle::source::BundleSource;
-use tracing::error;
+use sidex_serde::de::content;
+use tracing::{error, warn};
 use ureq::http::Response;
 use ureq::Body;
 
@@ -46,7 +47,7 @@ impl HttpSource {
         let response = ureq::head(url)
             .call()
             .whatever("unable to get bundle from URL")?;
-        let content_length = response.headers().get("Content-Length").and_then(|length| {
+        let mut content_length = response.headers().get("Content-Length").and_then(|length| {
             length
                 .to_str()
                 .ok()?
@@ -55,11 +56,36 @@ impl HttpSource {
                 .ok()
                 .map(NumBytes::new)
         });
-        let supports_range = response
+        let mut supports_range = response
             .headers()
             .get("Accept-Ranges")
             .map(|value| value.as_bytes() == b"bytes")
             .unwrap_or(false);
+
+        if supports_range && content_length.is_none() {
+            // Obtain the content length from the `Content-Range` header.
+            content_length = ureq::head(url)
+                .header("Range", "bytes=0-0")
+                .call()
+                .whatever("unable to get bundle from URL")?
+                .headers()
+                .get("Content-Range")
+                .and_then(|range| {
+                    range
+                        .to_str()
+                        .ok()?
+                        .rsplit_once("/")?
+                        .1
+                        .trim()
+                        .parse::<u64>()
+                        .ok()
+                        .map(NumBytes::new)
+                });
+            if content_length.is_none() {
+                warn!("unknown content length, cannot use range queries");
+            }
+            supports_range = false;
+        }
 
         let (current_response, current_end) = if !supports_range {
             // Fetch the whole bundle.
@@ -154,10 +180,12 @@ impl BundleSource for HttpSource {
                     if !self.supports_range {
                         bail!("response is not available but range queries are not supported");
                     }
+                    // Range queries are inclusive, so we subtract 1 from the end.
                     let next_end = (self.current_position
                         + DEFAULT_CHUNK_SIZE.raw.max(slice.len() as u64))
                     .max(self.next_chunk_end.unwrap_or(0))
-                    .min(self.content_length.unwrap());
+                    .min(self.content_length.unwrap())
+                        - 1;
                     self.next_chunk_end = None;
                     assert!(next_end > self.current_position);
                     self.current_response = Some(
