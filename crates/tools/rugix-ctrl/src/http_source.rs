@@ -47,22 +47,17 @@ impl HttpSource {
         let response = ureq::head(url)
             .call()
             .whatever("unable to get bundle from URL")?;
-        let mut content_length = response.headers().get("Content-Length").and_then(|length| {
-            length
-                .to_str()
-                .ok()?
-                .trim()
-                .parse::<u64>()
-                .ok()
-                .map(NumBytes::new)
-        });
+        let mut content_length = response
+            .headers()
+            .get("Content-Length")
+            .and_then(|length| length.to_str().ok()?.trim().parse::<u64>().ok());
         let mut supports_range = response
             .headers()
             .get("Accept-Ranges")
             .map(|value| value.as_bytes() == b"bytes")
             .unwrap_or(false);
 
-        if supports_range && content_length.is_none() {
+        if supports_range && (content_length.is_none() || content_length == Some(0)) {
             // Obtain the content length from the `Content-Range` header.
             content_length = ureq::head(url)
                 .header("Range", "bytes=0-0")
@@ -79,7 +74,6 @@ impl HttpSource {
                         .trim()
                         .parse::<u64>()
                         .ok()
-                        .map(NumBytes::new)
                 });
             if content_length.is_none() {
                 warn!("unknown content length, cannot use range queries");
@@ -108,7 +102,7 @@ impl HttpSource {
         Ok(Self {
             url: url.to_owned(),
             supports_range,
-            content_length: content_length.map(|length| length.raw),
+            content_length,
             current_response: Some(current_response),
             current_end,
             next_chunk_end: None,
@@ -117,7 +111,7 @@ impl HttpSource {
             skip_buffer: Vec::new(),
             bytes_read: 0,
             bytes_skipped: 0,
-            total_bytes: content_length,
+            total_bytes: content_length.map(|l| l.into()),
         })
     }
 }
@@ -219,7 +213,9 @@ impl BundleSource for HttpSource {
     }
 
     fn hint_next_chunk(&mut self, length: NumBytes) {
-        self.next_chunk_end = Some(self.current_position + length.raw);
+        if length.raw != 0 {
+            self.next_chunk_end = Some(self.current_position + length.raw);
+        }
     }
 
     fn skip(&mut self, length: byte_calc::NumBytes) -> rugix_bundle::BundleResult<()> {
