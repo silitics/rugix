@@ -12,6 +12,7 @@ pub struct HttpSource {
     url: String,
     supports_range: bool,
     current_response: Option<Response<Body>>,
+    content_length: Option<u64>,
     current_end: Option<u64>,
     next_chunk_end: Option<u64>,
     current_position: u64,
@@ -81,6 +82,7 @@ impl HttpSource {
         Ok(Self {
             url: url.to_owned(),
             supports_range,
+            content_length: content_length.map(|length| length.raw),
             current_response: Some(current_response),
             current_end,
             next_chunk_end: None,
@@ -154,9 +156,10 @@ impl BundleSource for HttpSource {
                     }
                     let next_end = (self.current_position
                         + DEFAULT_CHUNK_SIZE.raw.max(slice.len() as u64))
-                    .max(self.next_chunk_end.unwrap_or(0));
+                    .max(self.next_chunk_end.unwrap_or(0))
+                    .min(self.content_length.unwrap());
                     self.next_chunk_end = None;
-                    assert!(next_end - self.current_position >= DEFAULT_CHUNK_SIZE.raw);
+                    assert!(next_end > self.current_position);
                     self.current_response = Some(
                         ureq::get(&self.url)
                             .header(
