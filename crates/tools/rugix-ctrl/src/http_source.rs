@@ -4,7 +4,7 @@ use crate::system::SystemResult;
 use byte_calc::NumBytes;
 use reportify::{bail, ResultExt};
 use rugix_bundle::source::BundleSource;
-use tracing::{error, warn};
+use tracing::error;
 use ureq::http::Response;
 use ureq::Body;
 
@@ -44,32 +44,14 @@ const MIN_CHUNK_SIZE: NumBytes = NumBytes::kibibytes(64);
 
 impl HttpSource {
     pub fn new(url: &str) -> SystemResult<Self> {
-        // Do an initial `HEAD` request to obtain some headers for the update bundle.
-        let response = ureq::head(url)
+        // Try a request with a `Range` header and look at the response to determine the
+        // content length and whether range requests are supported by the server.
+        let (mut content_length, use_range_queries) = ureq::get(url)
+            .header("Range", "bytes=0-0")
             .call()
-            .whatever("unable to get bundle from URL")?;
-        let mut content_length = response
-            .headers()
-            .get("Content-Length")
-            .and_then(|length| length.to_str().ok()?.trim().parse::<u64>().ok());
-        // We are going to use range queries, if they are supported by the server.
-        let mut use_range_queries = response
-            .headers()
-            .get("Accept-Ranges")
-            .map(|value| value.as_bytes() == b"bytes")
-            .unwrap_or(false);
-        if use_range_queries && (content_length.is_none() || content_length == Some(0)) {
-            // The `Content-Length` header is optional and some implementations may return `0`
-            // despite the HTTP spec saying that this should be the length of the document that
-            // a GET would return (https://datatracker.ietf.org/doc/html/rfc2616#section-14.13).
-            // In those cases, we use a range request to determine the content length.
-            content_length = ureq::head(url)
-                .header("Range", "bytes=0-0")
-                .call()
-                .whatever("unable to get bundle from URL")?
-                .headers()
-                .get("Content-Range")
-                .and_then(|range| {
+            .ok()
+            .and_then(|response| {
+                response.headers().get("Content-Range").and_then(|range| {
                     range
                         .to_str()
                         .ok()?
@@ -78,21 +60,21 @@ impl HttpSource {
                         .trim()
                         .parse::<u64>()
                         .ok()
-                });
-            if content_length.is_none() {
-                warn!("unknown content length, cannot use range queries");
-            }
-            use_range_queries = false;
-        }
+                })
+            })
+            .map(|length| (Some(length), true))
+            .unwrap_or_default();
 
         let (current_response, current_end) = if !use_range_queries {
             // Fetch the whole bundle all at once.
-            (
-                ureq::get(url)
-                    .call()
-                    .whatever("unable to get bundle from URL")?,
-                None,
-            )
+            let response = ureq::get(url)
+                .call()
+                .whatever("unable to get bundle from URL")?;
+            content_length = response
+                .headers()
+                .get("Content-Length")
+                .and_then(|length| length.to_str().ok()?.trim().parse::<u64>().ok());
+            (response, None)
         } else {
             // Fetch a first chunk of the bundle.
             let first_chunk_size = MIN_CHUNK_SIZE.raw.min(content_length.unwrap());
