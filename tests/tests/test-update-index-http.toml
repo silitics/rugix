@@ -36,7 +36,18 @@ script = """
 set -euo pipefail
 cp /dev/stdin /var/www/html/system.rugixb
 chmod 777 /var/www/html/system.rugixb
-/usr/bin/time -v rugix-ctrl update install http://localhost/system.rugixb
+rx_before=$(< /sys/class/net/lo/statistics/rx_bytes)
+tx_before=$(< /sys/class/net/lo/statistics/tx_bytes)
+/usr/bin/time -v rugix-ctrl update install --reboot no http://localhost/system.rugixb
+rx_after=$(< /sys/class/net/lo/statistics/rx_bytes)
+tx_after=$(< /sys/class/net/lo/statistics/tx_bytes)
+rx_delta=$((rx_after - rx_before))
+tx_delta=$((tx_after - tx_before))
+echo "=== Network usage on loopback (lo) ==="
+echo "Received:    $rx_delta bytes"
+echo "Transmitted: $tx_delta bytes"
+echo "Total:       $((rx_delta + tx_delta)) bytes"
+rugix-ctrl system reboot --spare
 """
 
 [[steps]]
