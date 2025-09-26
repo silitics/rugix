@@ -34,7 +34,7 @@ pub fn allocate_file(path: &Path, size: u64) -> Result<(), Report<FsError>> {
         file.as_raw_fd(),
         nix::fcntl::FallocateFlags::empty(),
         0,
-        size as i64,
+        size.try_into().unwrap(),
     )
     .whatever("unable to fallocate a file")?;
     Ok(())
@@ -44,8 +44,8 @@ pub fn punch_hole(fd: RawFd, offset: off64_t, size: off64_t) -> Result<(), Repor
     nix::fcntl::fallocate(
         fd,
         FallocateFlags::FALLOC_FL_PUNCH_HOLE | FallocateFlags::FALLOC_FL_KEEP_SIZE,
-        offset,
-        size,
+        offset.try_into().unwrap(),
+        size.try_into().unwrap(),
     )
     .whatever("unable to punch hole into file")?;
     Ok(())
