@@ -3,12 +3,12 @@ name: Build
 on:
   schedule:
     # This builds the nightly version of Rugix.
-    - cron: '0 0 * * *'
+    - cron: "0 0 * * *"
   push:
     branches:
-      - '*'
+      - "*"
     tags:
-      - 'v*'
+      - "v*"
   pull_request:
   workflow_dispatch:
 
@@ -25,10 +25,15 @@ jobs:
       matrix:
         target:
           - aarch64-unknown-linux-musl
+          - aarch64-unknown-linux-gnu
           - armv7-unknown-linux-musleabihf
+          - armv7-unknown-linux-gnueabihf
           - arm-unknown-linux-musleabihf
+          - arm-unknown-linux-gnueabihf
           - arm-unknown-linux-musleabi
+          - arm-unknown-linux-gnueabi
           - x86_64-unknown-linux-musl
+          - x86_64-unknown-linux-gnu
           - i686-unknown-linux-musl
           - riscv64gc-unknown-linux-gnu
     env:
@@ -57,7 +62,7 @@ jobs:
           name: binaries-${{ matrix.target }}
           path: ${{ matrix.target }}.tar
           if-no-files-found: error
-  
+
   build_binaries_mac:
     name: "Build Binaries (${{ matrix.target }})"
     runs-on: macos-latest
@@ -76,7 +81,7 @@ jobs:
       - name: Install Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-            target: ${{ matrix.target }}
+          target: ${{ matrix.target }}
       - name: Build Binaries
         run: |
           export RUGIX_GIT_VERSION=$(git describe --tags --always)
@@ -118,7 +123,7 @@ jobs:
           labels: |
             org.opencontainers.image.title=Rugix Bakery
             org.opencontainers.image.vendor=Silitics GmbH
-  
+
   build_bakery_images:
     name: "Build Bakery Image (${{ matrix.arch }})"
     runs-on: ${{ matrix.runner }}
@@ -193,7 +198,7 @@ jobs:
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 2
-  
+
   test_bakery_image:
     name: Test Bakery Image
     runs-on: ubuntu-latest
