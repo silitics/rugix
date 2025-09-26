@@ -216,8 +216,14 @@ impl File {
                     self.file.as_raw_fd(),
                     nix::fcntl::FallocateFlags::FALLOC_FL_PUNCH_HOLE
                         | nix::fcntl::FallocateFlags::FALLOC_FL_KEEP_SIZE,
-                    i64::try_from(start_hole.raw).expect("offset must not overflow `i64`"),
-                    i64::try_from(hole_size.raw).expect("offset must not overflow `i64`"),
+                    start_hole
+                        .raw
+                        .try_into()
+                        .expect("offset must not overflow `i64`"),
+                    hole_size
+                        .raw
+                        .try_into()
+                        .expect("offset must not overflow `i64`"),
                 ) {
                     if error == nix::errno::Errno::ENOTSUP {
                         trace!("fallocate not supported, falling back to writing zeros");
@@ -246,8 +252,11 @@ impl File {
         match nix::fcntl::fallocate(
             self.file.as_raw_fd(),
             nix::fcntl::FallocateFlags::empty(),
-            i64::try_from(offset.raw).expect("offset must not overflow `i64`"),
-            i64::try_from(size.raw).expect("size must not overflow `i64`"),
+            offset
+                .raw
+                .try_into()
+                .expect("offset must not overflow `i64`"),
+            size.raw.try_into().expect("size must not overflow `i64`"),
         ) {
             Err(nix::errno::Errno::ENOTSUP) => {
                 trace!("fallocate not supported, falling back to `set_len`");
