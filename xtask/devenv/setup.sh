@@ -49,4 +49,6 @@ apt-get -y clean && rm -rf /var/lib/apt/lists/*
 
 rustup target add arm-unknown-linux-musleabihf
 rustup target add aarch64-unknown-linux-musl
+rustup target add aarch64-unknown-linux-gnu
 rustup target add x86_64-unknown-linux-musl
+rustup target add x86_64-unknown-linux-gnu
