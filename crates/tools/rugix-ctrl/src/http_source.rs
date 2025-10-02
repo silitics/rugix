@@ -43,27 +43,31 @@ impl DownloadStats {
 const MIN_CHUNK_SIZE: NumBytes = NumBytes::kibibytes(64);
 
 impl HttpSource {
-    pub fn new(url: &str) -> SystemResult<Self> {
+    pub fn new(url: &str, use_range_queries: bool) -> SystemResult<Self> {
         // Try a request with a `Range` header and look at the response to determine the
         // content length and whether range requests are supported by the server.
-        let (mut content_length, use_range_queries) = ureq::get(url)
-            .header("Range", "bytes=0-0")
-            .call()
-            .ok()
-            .and_then(|response| {
-                response.headers().get("Content-Range").and_then(|range| {
-                    range
-                        .to_str()
-                        .ok()?
-                        .rsplit_once("/")?
-                        .1
-                        .trim()
-                        .parse::<u64>()
-                        .ok()
+        let (mut content_length, use_range_queries) = if use_range_queries {
+            ureq::get(url)
+                .header("Range", "bytes=0-0")
+                .call()
+                .ok()
+                .and_then(|response| {
+                    response.headers().get("Content-Range").and_then(|range| {
+                        range
+                            .to_str()
+                            .ok()?
+                            .rsplit_once("/")?
+                            .1
+                            .trim()
+                            .parse::<u64>()
+                            .ok()
+                    })
                 })
-            })
-            .map(|length| (Some(length), true))
-            .unwrap_or_default();
+                .map(|length| (Some(length), true))
+                .unwrap_or_default()
+        } else {
+            (None, false)
+        };
 
         let (current_response, current_end) = if !use_range_queries {
             // Fetch the whole bundle all at once.

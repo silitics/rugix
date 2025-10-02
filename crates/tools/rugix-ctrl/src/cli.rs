@@ -122,6 +122,7 @@ pub fn main() -> SystemResult<()> {
                     boot_group,
                     verify_signature,
                     root_cert,
+                    disable_range_queries,
                 } => {
                     let check_hash = check_hash.as_deref()
                             .map(|encoded_hash| -> SystemResult<ImageHash> {
@@ -194,6 +195,7 @@ pub fn main() -> SystemResult<()> {
                         boot_group.as_ref(),
                         *verify_signature,
                         root_cert,
+                        *disable_range_queries,
                     )?;
 
                     hooks
@@ -536,12 +538,13 @@ fn install_update_stream(
     boot_group: Option<&(BootGroupIdx, &BootGroup)>,
     verify_signature: bool,
     root_cert: &[PathBuf],
+    disable_range_queries: bool,
 ) -> SystemResult<UpdateRebootType> {
     if image.starts_with("http") {
         if check_hash.is_some() {
             bail!("--check-hash is not supported for update bundles, use --verify-bundle");
         }
-        let mut bundle_source = HttpSource::new(image)?;
+        let mut bundle_source = HttpSource::new(image, !disable_range_queries)?;
         let should_reboot = install_update_bundle(
             system,
             &mut bundle_source,
@@ -1275,6 +1278,9 @@ pub enum UpdateCommand {
         /// Boot group to install the update to.
         #[clap(long)]
         boot_group: Option<String>,
+        /// Disable the use of range queries for HTTP sources.
+        #[clap(long)]
+        disable_range_queries: bool,
     },
 }
 
