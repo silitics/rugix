@@ -1,5 +1,5 @@
 //! Common functionality shared between Rugix Bakery and Rugix Ctrl.
-#![cfg_attr(feature = "nightly", feature(doc_auto_cfg))]
+#![cfg_attr(feature = "nightly", feature(doc_cfg))]
 
 use std::collections::HashMap;
 use std::fs;
