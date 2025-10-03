@@ -13,7 +13,7 @@
   <a href="https://github.com/silitics/rugix/actions"><img alt="Pipeline Status Badge" src="https://img.shields.io/github/actions/workflow/status/silitics/rugix/check-and-lint.yml"></a>
 </p>
 
-💡 **TL;DR**: Rugix (formerly Rugpi) is a suite of open-source tools to **build and deploy reliable embedded Linux devices at scale with efficient and secure over-the-air (OTA) update capabilities**.
+💡 **TL;DR**: Rugix is a suite of open-source tools to **build and deploy reliable embedded Linux devices at scale with efficient and secure over-the-air (OTA) update capabilities**.
 Companies around the world use Rugix as a basis for their connected products.
 Currently, the tool suite consists of two main tools:
 
@@ -33,7 +33,7 @@ Rugix Ctrl has all features you would expect from a state-of-the-art update solu
 
 - **Atomic A/B system updates** with popular bootloaders out of the box.
 - **Streaming updates** as well as [**best-in-class delta updates**](https://rugix.org/blog/efficient-delta-updates) out of the box.
-- Builtin **cryptographic integrity checks** _before_ installing anything anywhere.
+- Builtin **cryptographic integrity verification** _before_ installing anything anywhere.
 - Supports **any update scenario**, including **non-A/B updates and incremental updates**.
 - Supports **any bootloader and boot process** through [custom _boot flows_](https://rugix.org/docs/ctrl/advanced/boot-flows).
 - **Robust state management mechanism** inspired by container-based architectures.

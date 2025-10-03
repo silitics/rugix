@@ -233,7 +233,7 @@ export default function Home(): JSX.Element {
               out of the box.
             </li>
             <li>
-              ✅ Builtin <strong>cryptographic integrity checks</strong>{" "}
+              ✅ Builtin <strong>cryptographic integrity verification</strong>{" "}
               <em>before</em> installing anything anywhere.
             </li>
             <li>

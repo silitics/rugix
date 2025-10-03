@@ -9,7 +9,12 @@ const config: Config = {
   baseUrl: "/rugix/",
 
   onBrokenLinks: "warn",
-  onBrokenMarkdownLinks: "warn",
+
+  markdown: {
+    hooks: {
+      onBrokenMarkdownLinks: "warn",
+    },
+  },
 
   // We do not care about old browsers not supporting SVG.
   favicon: "/img/logo.svg",
@@ -39,6 +44,8 @@ const config: Config = {
         blog: {
           showReadingTime: true,
           editUrl: "https://github.com/silitics/rugix/tree/main/www/",
+          blogSidebarCount: "ALL",
+          blogSidebarTitle: "All Posts",
         },
         theme: {
           customCss: require.resolve("./src/css/custom.css"),
