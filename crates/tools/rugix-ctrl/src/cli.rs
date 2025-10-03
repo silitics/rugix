@@ -544,7 +544,18 @@ fn install_update_stream(
         if check_hash.is_some() {
             bail!("--check-hash is not supported for update bundles, use --verify-bundle");
         }
-        let mut bundle_source = HttpSource::new(image, !disable_range_queries)?;
+
+        let mut has_indices = false;
+        for (_, slot) in system.slots().iter() {
+            has_indices |= slot_db::get_stored_indices(slot.name())
+                .map(|indices| !indices.is_empty())
+                .unwrap_or_default();
+            if has_indices {
+                break;
+            }
+        }
+
+        let mut bundle_source = HttpSource::new(image, !disable_range_queries && has_indices)?;
         let should_reboot = install_update_bundle(
             system,
             &mut bundle_source,
