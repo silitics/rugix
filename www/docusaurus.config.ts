@@ -10,12 +10,6 @@ const config: Config = {
 
   onBrokenLinks: "warn",
 
-  markdown: {
-    hooks: {
-      onBrokenMarkdownLinks: "warn",
-    },
-  },
-
   // We do not care about old browsers not supporting SVG.
   favicon: "/img/logo.svg",
 
@@ -29,6 +23,9 @@ const config: Config = {
 
   markdown: {
     mermaid: true,
+    hooks: {
+      onBrokenMarkdownLinks: "warn",
+    },
   },
 
   presets: [
@@ -38,7 +35,7 @@ const config: Config = {
         docs: {
           sidebarPath: require.resolve("./sidebars.js"),
           // lastVersion: "current",
-          lastVersion: "0.8.13",
+          lastVersion: "0.8.14",
           editUrl: "https://github.com/silitics/rugix/tree/main/www/",
         },
         blog: {
