@@ -11,7 +11,7 @@ use std::io::{self, BufRead, BufReader, Read, Seek};
 use std::marker::PhantomData;
 
 use byte_calc::{ByteLen, NumBytes};
-use reportify::{bail, ResultExt};
+use reportify::{ResultExt, bail};
 use si_crypto_hashes::{HashAlgorithm, HashDigest, Hasher};
 
 use crate::BundleResult;

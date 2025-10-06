@@ -2,7 +2,7 @@
 
 use std::hash::BuildHasher;
 
-use hashbrown::{hash_table, DefaultHashBuilder, HashTable};
+use hashbrown::{DefaultHashBuilder, HashTable, hash_table};
 
 use super::block_index::{BlockId, BlockIndex, RawBlockIndex};
 

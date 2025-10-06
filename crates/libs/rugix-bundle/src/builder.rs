@@ -5,11 +5,11 @@ use byte_calc::NumBytes;
 use reportify::ResultExt;
 use si_crypto_hashes::HashDigest;
 
+use crate::BundleResult;
 use crate::block_encoding::encode_payload_file;
 use crate::format::stlv::{write_atom_head, write_segment_end, write_segment_start};
 use crate::format::{self, Bytes, PayloadEntry, PayloadHeader};
 use crate::manifest::{self, BundleManifest, HashAlgorithm, UpdateType};
-use crate::BundleResult;
 
 pub fn pack(path: &Path, dst: &Path) -> BundleResult<()> {
     let manifest = toml::from_str::<BundleManifest>(

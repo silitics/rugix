@@ -703,7 +703,7 @@ pub mod manifest {
                     const __IDENTIFIERS: &'static [&'static str] =
                         &["delivery", "filename", "block-encoding", "delta-encoding"];
                     #[doc(hidden)]
-                    const __EXPECTING_IDENTIFIERS : & 'static str = "an identifier in [\"delivery\", \"filename\", \"block-encoding\", \"delta-encoding\"]" ;
+                    const __EXPECTING_IDENTIFIERS: &'static str = "an identifier in [\"delivery\", \"filename\", \"block-encoding\", \"delta-encoding\"]";
                     #[derive(:: core :: clone :: Clone, :: core :: marker :: Copy)]
                     #[doc(hidden)]
                     enum __Identifier {
@@ -2407,7 +2407,7 @@ pub mod manifest {
                     const __IDENTIFIERS: &'static [&'static str] =
                         &["chunker", "hash-algorithm", "deduplicate", "compression"];
                     #[doc(hidden)]
-                    const __EXPECTING_IDENTIFIERS : & 'static str = "an identifier in [\"chunker\", \"hash-algorithm\", \"deduplicate\", \"compression\"]" ;
+                    const __EXPECTING_IDENTIFIERS: &'static str = "an identifier in [\"chunker\", \"hash-algorithm\", \"deduplicate\", \"compression\"]";
                     #[derive(:: core :: clone :: Clone, :: core :: marker :: Copy)]
                     #[doc(hidden)]
                     enum __Identifier {

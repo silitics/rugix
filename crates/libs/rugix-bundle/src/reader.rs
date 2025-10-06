@@ -3,7 +3,7 @@ use std::io::{Read, Seek, Write};
 
 use block_provider::StoredBlockProvider;
 use byte_calc::{ByteLen, NumBytes};
-use reportify::{bail, whatever, ResultExt};
+use reportify::{ResultExt, bail, whatever};
 use rugix_compression::{ByteProcessor, CompressionFormat};
 use si_crypto_hashes::{HashAlgorithm, HashDigest};
 use tracing::{error, trace, warn};
@@ -11,11 +11,11 @@ use tracing::{error, trace, warn};
 use crate::block_encoding::block_index::{BlockId, RawBlockIndex};
 use crate::block_encoding::block_table::BlockTable;
 use crate::format::decode::decode_slice;
-use crate::format::stlv::{read_atom_head, skip, write_atom_head, AtomHead, Tag};
-use crate::format::{self, tags, Signatures};
+use crate::format::stlv::{AtomHead, Tag, read_atom_head, skip, write_atom_head};
+use crate::format::{self, Signatures, tags};
 use crate::source::BundleSource;
 use crate::{
-    BundleResult, BUNDLE_HEADER_SIZE_LIMIT, PAYLOAD_HEADER_SIZE_LIMIT, SIGNATURES_SIZE_LIMIT,
+    BUNDLE_HEADER_SIZE_LIMIT, BundleResult, PAYLOAD_HEADER_SIZE_LIMIT, SIGNATURES_SIZE_LIMIT,
 };
 
 pub mod block_provider;

@@ -146,8 +146,8 @@ use console::style;
 use byte_calc::{ByteLen, NumBytes};
 use reportify::bail;
 
-use crate::source::BundleSource;
 use crate::BundleResult;
+use crate::source::BundleSource;
 
 /// Tag size (4 bytes).
 pub const TAG_SIZE: usize = 4;
@@ -590,11 +590,7 @@ fn write_varint(writer: &mut dyn Write, integer: u64) -> io::Result<()> {
 const fn compute_varint_size(integer: u64) -> usize {
     // This is at most 64 and should therefore fit into `usize`.
     let bits = (64 - integer.leading_zeros()) as usize;
-    if bits == 0 {
-        1
-    } else {
-        (bits + 6) / 7
-    }
+    if bits == 0 { 1 } else { (bits + 6) / 7 }
 }
 
 #[cfg(test)]

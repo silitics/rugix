@@ -2,8 +2,8 @@ use std::io::{Read, Write};
 use std::path::Path;
 use std::process::{Command, Stdio};
 
-use reportify::{bail, ResultExt};
-use tracing::{trace, Level};
+use reportify::{ResultExt, bail};
+use tracing::{Level, trace};
 
 use crate::BundleResult;
 

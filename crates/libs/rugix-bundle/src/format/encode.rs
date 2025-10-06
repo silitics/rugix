@@ -4,7 +4,7 @@ use std::io::{self, Write};
 
 use byte_calc::NumBytes;
 
-use super::stlv::{write_value, Tag};
+use super::stlv::{Tag, write_value};
 
 /// A data structure that can be encoded into an STLV stream.
 pub trait Encode {

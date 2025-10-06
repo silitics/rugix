@@ -5,20 +5,20 @@
 
 use std::io::{self, Write};
 
-use reportify::{bail, ResultExt};
+use reportify::{ResultExt, bail};
 
 use rugix_chunker::ChunkerAlgorithm;
 use rugix_compression::CompressionFormat;
 use si_crypto_hashes::{HashAlgorithm, HashDigest};
 
+use crate::BundleResult;
 use crate::manifest::DeltaEncodingFormat;
 use crate::source::BundleSource;
-use crate::BundleResult;
 
 use self::decode::{Decode, Decoder};
 use self::encode::Encode;
 use self::macros::define_struct;
-use self::stlv::{write_atom_head, write_value, AtomHead, Tag};
+use self::stlv::{AtomHead, Tag, write_atom_head, write_value};
 
 mod macros;
 

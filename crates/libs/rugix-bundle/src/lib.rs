@@ -6,8 +6,8 @@ use std::io::{BufReader, BufWriter, Write};
 use std::path::Path;
 
 use byte_calc::NumBytes;
-use format::decode::decode_slice;
 use format::BundleHeader;
+use format::decode::decode_slice;
 use reader::{expect_start, read_into_vec};
 use reportify::{Report, ResultExt};
 use si_crypto_hashes::HashDigest;

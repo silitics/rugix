@@ -12,7 +12,7 @@ use si_crypto_hashes::{HashAlgorithm, Hasher};
 
 use crate::format::encode::Encode;
 use crate::manifest::BlockEncoding;
-use crate::{format, BundleResult};
+use crate::{BundleResult, format};
 
 pub struct RawBlockIndex<'hashes> {
     hashes: Cow<'hashes, [u8]>,

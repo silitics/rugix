@@ -2,14 +2,14 @@
 
 use std::u64;
 
-use reportify::{bail, ErrorExt};
+use reportify::{ErrorExt, bail};
 
 use byte_calc::NumBytes;
 
-use crate::source::{BundleSource, ReaderSource, SkipRead};
 use crate::BundleResult;
+use crate::source::{BundleSource, ReaderSource, SkipRead};
 
-use super::stlv::{read_atom_head, AtomHead, Tag};
+use super::stlv::{AtomHead, Tag, read_atom_head};
 
 /// Decoder for data structures from STLV streams.
 ///
