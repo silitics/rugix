@@ -1,6 +1,6 @@
 [package]
 name = "rugix-bundle"
-edition = "2021"
+edition = "2024"
 authors.workspace = true
 version.workspace = true
 license.workspace = true
@@ -25,6 +25,7 @@ toml.workspace = true
 rugix-chunker.workspace = true
 rugix-compression.workspace = true
 serde_json.workspace = true
+flume.workspace = true
 
 [lints]
 workspace = true
