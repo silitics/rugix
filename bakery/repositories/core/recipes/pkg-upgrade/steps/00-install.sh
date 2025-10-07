@@ -9,3 +9,7 @@ fi
 if command -v apk; then
     apk upgrade
 fi
+
+if command -v pacman; then
+    pacman -Syu --noconfirm
+fi
