@@ -1,5 +1,4 @@
-parent = "core/debian-bookworm"
-
+parent = "core/debian-trixie"
 recipes = [
     # Setup Debian for booting via Grub.
     "core/debian-grub-setup",
