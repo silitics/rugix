@@ -186,6 +186,41 @@
         }
       ]
     },
+    "rugix_ctrl.events.Event": {
+      "$id": "rugix_ctrl.events.Event",
+      "description": "Events emitted by CLI tools.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "event": {
+              "const": "UpdateProgress"
+            },
+            "progress": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "event",
+            "progress"
+          ]
+        }
+      ]
+    },
+    "rugix_ctrl.events.UpdateProgressEvent": {
+      "$id": "rugix_ctrl.events.UpdateProgressEvent",
+      "type": "object",
+      "description": "Event emitted when the update progress changes.",
+      "properties": {
+        "progress": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "progress"
+      ],
+      "unevaluatedProperties": false
+    },
     "rugix_ctrl.output.BlockDeviceInfo": {
       "$id": "rugix_ctrl.output.BlockDeviceInfo",
       "type": "object",

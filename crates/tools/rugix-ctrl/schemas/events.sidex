@@ -1,0 +1,12 @@
+/// Events emitted by CLI tools.
+#[json(tag = "event")]
+variant Event {
+    /// Emitted when the update progress changes.
+    UpdateProgress: UpdateProgressEvent,
+}
+
+/// Event emitted when the update progress changes.
+record UpdateProgressEvent {
+    /// The update progress.
+    progress: f64,
+}

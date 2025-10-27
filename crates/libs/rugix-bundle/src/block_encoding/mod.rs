@@ -7,7 +7,7 @@ use std::path::Path;
 use block_index::index_for_block_encoding;
 use block_table::BlockTable;
 use byte_calc::{ByteLen, NumBytes};
-use reportify::{ResultExt, bail};
+use reportify::ResultExt;
 use rugix_compression::ByteProcessor;
 use tracing::{debug, trace};
 

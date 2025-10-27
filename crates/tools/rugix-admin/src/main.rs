@@ -152,6 +152,3 @@ struct SystemBootInfo {
     active_group: Option<String>,
     default_group: Option<String>,
 }
-
-#[derive(Debug, Deserialize)]
-struct BootGroupInfo {}

@@ -4,6 +4,7 @@ use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Child;
+use std::sync::Mutex;
 
 use rugix_bundle::format::decode::decode_slice;
 use rugix_bundle::manifest::ChunkerAlgorithm;
@@ -12,6 +13,8 @@ use rugix_bundle::reader::{DecodedPayloadInfo, PayloadTarget};
 use rugix_bundle::source::{BundleSource, ReaderSource, SkipRead};
 use rugix_bundle::xdelta::xdelta_decompress;
 use rugix_bundle::{format, BUNDLE_MAGIC};
+use rugix_cli::widgets::{ProgressBar, ProgressSpinner, Widget};
+use rugix_cli::StatusSegment;
 use rugix_common::disk::blkdev::{find_block_device, BlockDevice};
 use rugix_common::mount::is_mount_point;
 use rugix_common::pipe::{buffered_pipe, PipeWriter};
@@ -20,6 +23,7 @@ use rugix_hooks::{HooksLoader, RunOptions};
 use si_crypto_hashes::{HashAlgorithm, HashDigest, Hasher};
 use tracing::{debug, error, info, trace, warn};
 
+use crate::config::events::{Event, UpdateProgressEvent};
 use crate::system::boot_groups::{BootGroup, BootGroupIdx};
 use crate::system::slots::SlotKind;
 use crate::system::{System, SystemResult};
@@ -729,6 +733,26 @@ fn install_update_stream(
     Ok(UpdateRebootType::Yes)
 }
 
+pub struct UpdateState {
+    bytes_read: u64,
+    bytes_total: u64,
+}
+
+pub struct UpdateStatus {
+    state: Mutex<UpdateState>,
+}
+
+impl StatusSegment for UpdateStatus {
+    fn draw(&self, ctx: &mut rugix_cli::DrawCtx) {
+        let state = self.state.lock().unwrap();
+        if state.bytes_total > 0 {
+            ProgressBar::new(state.bytes_read, state.bytes_total).draw(ctx);
+        } else {
+            ProgressSpinner::new().draw(ctx);
+        }
+    }
+}
+
 fn install_update_bundle<R: BundleSource>(
     system: &System,
     bundle_source: R,
@@ -817,6 +841,13 @@ fn install_update_bundle<R: BundleSource>(
             .whatever("error executing pre-install step")?;
     }
 
+    let update_status = rugix_cli::add_status(UpdateStatus {
+        state: Mutex::new(UpdateState {
+            bytes_read: 0,
+            bytes_total: 0,
+        }),
+    });
+
     let mut progress = {
         let hooks = HooksLoader::default()
             .load_hooks("update-install")
@@ -831,6 +862,11 @@ fn install_update_bundle<R: BundleSource>(
                 return;
             };
             let current_progress = (bytes_read.raw as f64) / (bytes_total.raw as f64) * 100.0;
+            {
+                let mut update_state = update_status.state.lock().unwrap();
+                update_state.bytes_read = bytes_read.raw;
+                update_state.bytes_total = bytes_total.raw;
+            }
             if current_progress - last_progress > 0.9 {
                 let hook_vars = vars! {
                     RUGIX_UPDATE_PROGRESS = format!("{current_progress:.2}")
@@ -843,6 +879,18 @@ fn install_update_bundle<R: BundleSource>(
                     warn!("error running 'update-install/progress' hooks: {error:?}");
                 }
                 last_progress = current_progress;
+            }
+            if current_progress - last_progress > 0.4 && rugix_cli::stdout_is_piped() {
+                let mut stdout = std::io::stdout();
+                stdout
+                    .write_all(
+                        &serde_json::to_vec(&Event::UpdateProgress(UpdateProgressEvent {
+                            progress: current_progress,
+                        }))
+                        .unwrap(),
+                    )
+                    .ok();
+                stdout.write(b"\n").ok();
             }
         }
     };
@@ -858,8 +906,8 @@ fn install_update_bundle<R: BundleSource>(
                 .or_else(|| system.slots().find_by_name(&slot_type.slot).map(|e| e.0));
             if let Some(slot) = slot {
                 let slot = &system.slots()[slot];
-                eprintln!(
-                    "Installing bundle payload {} to slot {}",
+                info!(
+                    "installing bundle payload {} to slot {}",
                     payload.idx(),
                     slot.name()
                 );

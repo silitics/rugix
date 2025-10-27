@@ -7,7 +7,7 @@
 //! HTTP using range queries for efficient skipping.
 
 use std::fs::File;
-use std::io::{self, BufRead, BufReader, Read, Seek};
+use std::io::{self, BufRead, BufReader, Read, Seek, SeekFrom};
 use std::marker::PhantomData;
 
 use byte_calc::{ByteLen, NumBytes};
@@ -100,15 +100,22 @@ impl<S: BundleSource + ?Sized> BundleSource for Box<S> {
 pub struct ReaderSource<R, S> {
     /// Underlying reader.
     reader: R,
+    /// Bytes read.
+    bytes_read: NumBytes,
+    /// Total bytes.
+    bytes_total: Option<NumBytes>,
     /// [`Skip`] implementation to use.
     _phantom_skip: PhantomData<S>,
 }
 
-impl<R, S> ReaderSource<R, S> {
+impl<R, S: Skip<R>> ReaderSource<R, S> {
     /// Create a source from the provided reader.
-    pub fn new(reader: R) -> Self {
+    pub fn new(mut reader: R) -> Self {
+        let total_bytes = S::bytes_total(&mut reader);
         Self {
             reader,
+            bytes_read: NumBytes::ZERO,
+            bytes_total: total_bytes,
             _phantom_skip: PhantomData,
         }
     }
@@ -119,7 +126,7 @@ impl<R, S> ReaderSource<R, S> {
     }
 }
 
-impl<R: Read, S> ReaderSource<BufReader<R>, S> {
+impl<R: Read, S: Skip<BufReader<R>>> ReaderSource<BufReader<R>, S> {
     /// Create a source from the provided unbuffered reader.
     pub fn from_unbuffered(reader: R) -> Self {
         Self::new(BufReader::new(reader))
@@ -127,19 +134,35 @@ impl<R: Read, S> ReaderSource<BufReader<R>, S> {
 }
 
 impl<R: BufRead, S: Skip<R>> BundleSource for ReaderSource<R, S> {
+    fn bytes_read(&self) -> Option<NumBytes> {
+        Some(self.bytes_read)
+    }
+
+    fn bytes_total(&self) -> Option<NumBytes> {
+        self.bytes_total
+    }
+
     fn read(&mut self, slice: &mut [u8]) -> BundleResult<usize> {
-        self.reader
+        let read = self
+            .reader
             .read(slice)
-            .whatever("unable to read from bundle")
+            .whatever("unable to read from bundle")?;
+        self.bytes_read += read as u64;
+        Ok(read)
     }
 
     fn skip(&mut self, length: NumBytes) -> BundleResult<()> {
-        S::skip(&mut self.reader, length).whatever("unable to skip bytes in reader")
+        S::skip(&mut self.reader, length).whatever("unable to skip bytes in reader")?;
+        self.bytes_read += length.raw;
+        Ok(())
     }
 }
 
 /// Trait for skipping bytes from a reader.
 pub trait Skip<R> {
+    /// Total number of bytes.
+    fn bytes_total(reader: &mut R) -> Option<NumBytes>;
+
     /// Skip the given number of bytes.
     fn skip(reader: &mut R, skip: NumBytes) -> io::Result<()>;
 }
@@ -148,6 +171,10 @@ pub trait Skip<R> {
 pub struct SkipRead(());
 
 impl<R: BufRead> Skip<R> for SkipRead {
+    fn bytes_total(_: &mut R) -> Option<NumBytes> {
+        None
+    }
+
     fn skip(reader: &mut R, mut skip: NumBytes) -> io::Result<()> {
         while skip > 0 {
             let buffer = reader.fill_buf()?;
@@ -166,6 +193,14 @@ impl<R: BufRead> Skip<R> for SkipRead {
 pub struct SkipSeek(());
 
 impl<R: Seek> Skip<R> for SkipSeek {
+    fn bytes_total(reader: &mut R) -> Option<NumBytes> {
+        let current_position = reader.stream_position().unwrap();
+        reader.seek(SeekFrom::End(0)).unwrap();
+        let end_position = reader.stream_position().unwrap();
+        reader.seek(SeekFrom::Start(current_position)).unwrap();
+        Some(NumBytes::from(end_position - current_position))
+    }
+
     fn skip(reader: &mut R, skip: NumBytes) -> io::Result<()> {
         let skip = i64::try_from(skip.raw).expect("should fit");
         reader.seek_relative(skip)

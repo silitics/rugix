@@ -1,5 +1,7 @@
 /* GENERATED WITH SIDEX. DO NOT MODIFY! */
 
+#![allow(warnings)]
+
 pub mod bootstrapping {
     #![doc = "Bootstrapping configuration.\n"]
     #[allow(unused)]
@@ -1777,6 +1779,394 @@ pub mod bootstrapping {
             __serde::Deserializer::deserialize_struct(
                 __deserializer,
                 "DefaultLayoutConfig",
+                __FIELDS,
+                __Visitor {
+                    __phantom_vars: ::core::marker::PhantomData,
+                },
+            )
+        }
+    }
+}
+pub mod events {
+    #![doc = ""]
+    #[allow(unused)]
+    use :: serde as __serde;
+    #[allow(unused)]
+    use :: sidex_serde as __sidex_serde;
+    #[doc = "Events emitted by CLI tools.\n"]
+    #[derive(Clone, Debug)]
+    pub enum Event {
+        #[doc = "Emitted when the update progress changes.\n"]
+        UpdateProgress(UpdateProgressEvent),
+    }
+    #[automatically_derived]
+    impl __serde::Serialize for Event {
+        fn serialize<__S: __serde::Serializer>(
+            &self,
+            __serializer: __S,
+        ) -> ::std::result::Result<__S::Ok, __S::Error> {
+            let __serializer = __sidex_serde::ser::VariantSerializer::new(__serializer, "Event");
+            match self {
+                Self::UpdateProgress(__value) => __serializer.serialize_internally_tagged(
+                    "event",
+                    "UpdateProgress",
+                    0u32,
+                    __value,
+                ),
+            }
+        }
+    }
+    #[automatically_derived]
+    impl<'de> __serde::Deserialize<'de> for Event {
+        fn deserialize<__D: __serde::Deserializer<'de>>(
+            __deserializer: __D,
+        ) -> ::std::result::Result<Self, __D::Error> {
+            #[doc(hidden)]
+            const __IDENTIFIERS: &'static [&'static str] = &["UpdateProgress"];
+            #[doc(hidden)]
+            const __EXPECTING_IDENTIFIERS: &'static str = "an identifier in [\"UpdateProgress\"]";
+            #[derive(:: core :: clone :: Clone, :: core :: marker :: Copy)]
+            #[doc(hidden)]
+            enum __Identifier {
+                __Identifier0,
+            }
+            #[doc(hidden)]
+            struct __IdentifierVisitor;
+            impl<'de> __serde::de::Visitor<'de> for __IdentifierVisitor {
+                type Value = __Identifier;
+                fn expecting(
+                    &self,
+                    __formatter: &mut ::core::fmt::Formatter,
+                ) -> ::core::fmt::Result {
+                    ::core::fmt::Formatter::write_str(__formatter, __EXPECTING_IDENTIFIERS)
+                }
+                fn visit_u64<__E>(self, __value: u64) -> ::core::result::Result<Self::Value, __E>
+                where
+                    __E: __serde::de::Error,
+                {
+                    match __value {
+                        0u64 => ::core::result::Result::Ok(__Identifier::__Identifier0),
+                        __variant => {
+                            ::core::result::Result::Err(__serde::de::Error::invalid_value(
+                                __serde::de::Unexpected::Unsigned(__variant),
+                                &__EXPECTING_IDENTIFIERS,
+                            ))
+                        }
+                    }
+                }
+                fn visit_str<__E>(self, __value: &str) -> ::core::result::Result<Self::Value, __E>
+                where
+                    __E: __serde::de::Error,
+                {
+                    match __value {
+                        "UpdateProgress" => ::core::result::Result::Ok(__Identifier::__Identifier0),
+                        __variant => ::core::result::Result::Err(
+                            __serde::de::Error::unknown_variant(__variant, __IDENTIFIERS),
+                        ),
+                    }
+                }
+                fn visit_bytes<__E>(
+                    self,
+                    __value: &[u8],
+                ) -> ::core::result::Result<Self::Value, __E>
+                where
+                    __E: __serde::de::Error,
+                {
+                    match __value {
+                        b"UpdateProgress" => {
+                            ::core::result::Result::Ok(__Identifier::__Identifier0)
+                        }
+                        __variant => {
+                            ::core::result::Result::Err(__serde::de::Error::invalid_value(
+                                __serde::de::Unexpected::Bytes(__variant),
+                                &__EXPECTING_IDENTIFIERS,
+                            ))
+                        }
+                    }
+                }
+            }
+            impl<'de> __serde::Deserialize<'de> for __Identifier {
+                #[inline]
+                fn deserialize<__D>(__deserializer: __D) -> ::core::result::Result<Self, __D::Error>
+                where
+                    __D: __serde::Deserializer<'de>,
+                {
+                    __serde::Deserializer::deserialize_identifier(
+                        __deserializer,
+                        __IdentifierVisitor,
+                    )
+                }
+            }
+            #[doc(hidden)]
+            const __VARIANTS: &'static [&'static str] = &["UpdateProgress"];
+            if __serde::Deserializer::is_human_readable(&__deserializer) {
+                let __tagged = __sidex_serde::de::tagged::deserialize_tagged_variant::<
+                    __Identifier,
+                    __D,
+                >(__deserializer, "event")?;
+                match __tagged.tag {
+                    __Identifier::__Identifier0 => {
+                        ::core::result::Result::Ok(Event::UpdateProgress(
+                            __tagged
+                                .deserialize_internally_tagged::<UpdateProgressEvent, __D::Error>(
+                                )?,
+                        ))
+                    }
+                }
+            } else {
+                #[doc(hidden)]
+                struct __Visitor {
+                    __phantom_vars: ::core::marker::PhantomData<fn(&())>,
+                }
+                impl<'de> __serde::de::Visitor<'de> for __Visitor {
+                    type Value = Event;
+                    fn expecting(
+                        &self,
+                        __formatter: &mut ::core::fmt::Formatter,
+                    ) -> ::core::fmt::Result {
+                        ::core::fmt::Formatter::write_str(__formatter, "enum Event")
+                    }
+                    #[inline]
+                    fn visit_str<__E>(
+                        self,
+                        __value: &str,
+                    ) -> ::core::result::Result<Self::Value, __E>
+                    where
+                        __E: __serde::de::Error,
+                    {
+                        let __identifier = __IdentifierVisitor.visit_str(__value)?;
+                        #[allow(unreachable_patterns)]
+                        match __identifier {
+                            _ => Err(__E::invalid_value(
+                                __serde::de::Unexpected::Str(__value),
+                                &self,
+                            )),
+                        }
+                    }
+                    #[inline]
+                    fn visit_enum<__A>(
+                        self,
+                        __data: __A,
+                    ) -> ::core::result::Result<Self::Value, __A::Error>
+                    where
+                        __A: __serde::de::EnumAccess<'de>,
+                    {
+                        match __serde::de::EnumAccess::variant::<__Identifier>(__data)? {
+                            (__Identifier::__Identifier0, __variant) => {
+                                let __value = __serde::de::VariantAccess::newtype_variant::<
+                                    UpdateProgressEvent,
+                                >(__variant)?;
+                                ::core::result::Result::Ok(Event::UpdateProgress(__value))
+                            }
+                        }
+                    }
+                }
+                __serde::Deserializer::deserialize_enum(
+                    __deserializer,
+                    "Event",
+                    __VARIANTS,
+                    __Visitor {
+                        __phantom_vars: ::core::marker::PhantomData,
+                    },
+                )
+            }
+        }
+    }
+    #[doc = "Event emitted when the update progress changes.\n"]
+    #[derive(Clone, Debug)]
+    pub struct UpdateProgressEvent {
+        #[doc = "The update progress.\n"]
+        pub progress: f64,
+    }
+    impl UpdateProgressEvent {
+        #[doc = "Creates a new [`UpdateProgressEvent`]."]
+        pub fn new(progress: f64) -> Self {
+            Self { progress }
+        }
+        #[doc = "Sets the value of `progress`."]
+        pub fn set_progress(&mut self, progress: f64) -> &mut Self {
+            self.progress = progress;
+            self
+        }
+        #[doc = "Sets the value of `progress`."]
+        pub fn with_progress(mut self, progress: f64) -> Self {
+            self.progress = progress;
+            self
+        }
+    }
+    #[automatically_derived]
+    impl __serde::Serialize for UpdateProgressEvent {
+        fn serialize<__S: __serde::Serializer>(
+            &self,
+            __serializer: __S,
+        ) -> ::std::result::Result<__S::Ok, __S::Error> {
+            let mut __record = __sidex_serde::ser::RecordSerializer::new(
+                __serializer,
+                "UpdateProgressEvent",
+                1usize,
+            )?;
+            __record.serialize_field("progress", &self.progress)?;
+            __record.end()
+        }
+    }
+    #[automatically_derived]
+    impl<'de> __serde::Deserialize<'de> for UpdateProgressEvent {
+        fn deserialize<__D: __serde::Deserializer<'de>>(
+            __deserializer: __D,
+        ) -> ::std::result::Result<Self, __D::Error> {
+            #[doc(hidden)]
+            struct __Visitor {
+                __phantom_vars: ::core::marker::PhantomData<fn(&())>,
+            }
+            impl<'de> __serde::de::Visitor<'de> for __Visitor {
+                type Value = UpdateProgressEvent;
+                fn expecting(
+                    &self,
+                    __formatter: &mut ::core::fmt::Formatter,
+                ) -> ::core::fmt::Result {
+                    ::core::fmt::Formatter::write_str(__formatter, "record UpdateProgressEvent")
+                }
+                #[inline]
+                fn visit_seq<__A>(
+                    self,
+                    mut __seq: __A,
+                ) -> ::core::result::Result<Self::Value, __A::Error>
+                where
+                    __A: __serde::de::SeqAccess<'de>,
+                {
+                    let __field0 = match __serde::de::SeqAccess::next_element::<f64>(&mut __seq)? {
+                        ::core::option::Option::Some(__value) => __value,
+                        ::core::option::Option::None => {
+                            return ::core::result::Result::Err(
+                                __serde::de::Error::invalid_length(0usize, &"record with 1 fields"),
+                            );
+                        }
+                    };
+                    ::core::result::Result::Ok(UpdateProgressEvent { progress: __field0 })
+                }
+                #[inline]
+                fn visit_map<__A>(
+                    self,
+                    mut __map: __A,
+                ) -> ::core::result::Result<Self::Value, __A::Error>
+                where
+                    __A: __serde::de::MapAccess<'de>,
+                {
+                    #[doc(hidden)]
+                    const __IDENTIFIERS: &'static [&'static str] = &["progress"];
+                    #[doc(hidden)]
+                    const __EXPECTING_IDENTIFIERS: &'static str = "an identifier in [\"progress\"]";
+                    #[derive(:: core :: clone :: Clone, :: core :: marker :: Copy)]
+                    #[doc(hidden)]
+                    enum __Identifier {
+                        __Identifier0,
+                        __Unknown,
+                    }
+                    #[doc(hidden)]
+                    struct __IdentifierVisitor;
+                    impl<'de> __serde::de::Visitor<'de> for __IdentifierVisitor {
+                        type Value = __Identifier;
+                        fn expecting(
+                            &self,
+                            __formatter: &mut ::core::fmt::Formatter,
+                        ) -> ::core::fmt::Result {
+                            ::core::fmt::Formatter::write_str(__formatter, __EXPECTING_IDENTIFIERS)
+                        }
+                        fn visit_u64<__E>(
+                            self,
+                            __value: u64,
+                        ) -> ::core::result::Result<Self::Value, __E>
+                        where
+                            __E: __serde::de::Error,
+                        {
+                            match __value {
+                                0u64 => ::core::result::Result::Ok(__Identifier::__Identifier0),
+                                _ => ::core::result::Result::Ok(__Identifier::__Unknown),
+                            }
+                        }
+                        fn visit_str<__E>(
+                            self,
+                            __value: &str,
+                        ) -> ::core::result::Result<Self::Value, __E>
+                        where
+                            __E: __serde::de::Error,
+                        {
+                            match __value {
+                                "progress" => {
+                                    ::core::result::Result::Ok(__Identifier::__Identifier0)
+                                }
+                                _ => ::core::result::Result::Ok(__Identifier::__Unknown),
+                            }
+                        }
+                        fn visit_bytes<__E>(
+                            self,
+                            __value: &[u8],
+                        ) -> ::core::result::Result<Self::Value, __E>
+                        where
+                            __E: __serde::de::Error,
+                        {
+                            match __value {
+                                b"progress" => {
+                                    ::core::result::Result::Ok(__Identifier::__Identifier0)
+                                }
+                                _ => ::core::result::Result::Ok(__Identifier::__Unknown),
+                            }
+                        }
+                    }
+                    impl<'de> __serde::Deserialize<'de> for __Identifier {
+                        #[inline]
+                        fn deserialize<__D>(
+                            __deserializer: __D,
+                        ) -> ::core::result::Result<Self, __D::Error>
+                        where
+                            __D: __serde::Deserializer<'de>,
+                        {
+                            __serde::Deserializer::deserialize_identifier(
+                                __deserializer,
+                                __IdentifierVisitor,
+                            )
+                        }
+                    }
+                    let mut __field0: ::core::option::Option<f64> = ::core::option::Option::None;
+                    while let ::core::option::Option::Some(__key) =
+                        __serde::de::MapAccess::next_key::<__Identifier>(&mut __map)?
+                    {
+                        match __key {
+                            __Identifier::__Identifier0 => {
+                                if ::core::option::Option::is_some(&__field0) {
+                                    return ::core::result::Result::Err(
+                                        <__A::Error as __serde::de::Error>::duplicate_field(
+                                            "progress",
+                                        ),
+                                    );
+                                }
+                                __field0 = ::core::option::Option::Some(
+                                    __serde::de::MapAccess::next_value::<f64>(&mut __map)?,
+                                );
+                            }
+                            _ => {
+                                __serde::de::MapAccess::next_value::<__serde::de::IgnoredAny>(
+                                    &mut __map,
+                                )?;
+                            }
+                        }
+                    }
+                    let __field0 = match __field0 {
+                        ::core::option::Option::Some(__value) => __value,
+                        ::core::option::Option::None => {
+                            return ::core::result::Result::Err(
+                                <__A::Error as __serde::de::Error>::missing_field("progress"),
+                            );
+                        }
+                    };
+                    ::core::result::Result::Ok(UpdateProgressEvent { progress: __field0 })
+                }
+            }
+            #[doc(hidden)]
+            const __FIELDS: &'static [&'static str] = &["progress"];
+            __serde::Deserializer::deserialize_struct(
+                __deserializer,
+                "UpdateProgressEvent",
                 __FIELDS,
                 __Visitor {
                     __phantom_vars: ::core::marker::PhantomData,
