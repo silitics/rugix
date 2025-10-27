@@ -2380,6 +2380,7 @@ dependencies = [
  "rugix-common",
  "rugix-fs",
  "rugix-hooks",
+ "rugix-tasks",
  "rugix-version",
  "serde",
  "serde_json",

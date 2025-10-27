@@ -92,11 +92,11 @@ fn throw_canceled() -> () {
     tracing::warn!("task has been canceled but will keep running")
 }
 
-/// Log an error in case the task context is missing.
+/// Log a warning in case the task context is missing.
 #[inline(never)]
 #[cold]
 fn log_missing_context() -> () {
-    tracing::error!("task context is required but not available");
+    tracing::warn!("task context is required but not available");
 }
 
 /// Spawn an asynchronous task.
@@ -129,6 +129,18 @@ where
         shared_state,
         detached: false,
     }
+}
+
+/// Run a blocking task in the current thread.
+pub fn run<F, T>(closure: F) -> T
+where
+    F: FnOnce() -> T,
+{
+    let shared_state = Arc::new(SharedTaskState::default());
+    let context = TaskContext {
+        shared_state: shared_state.clone(),
+    };
+    TASK_CONTEXT.set(&context, closure)
 }
 
 /// Spawn a blocking task.

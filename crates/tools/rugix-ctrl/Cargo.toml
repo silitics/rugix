@@ -40,6 +40,7 @@ hashbrown.workspace = true
 ureq = { version = "3.0.3", default-features = false, features = ["rustls"] }
 rugix-version.workspace = true
 jiff = { version = "0.2.14", default-features = false, features = ["std", "serde"] }
+rugix-tasks.workspace = true
 
 [lints]
 workspace = true

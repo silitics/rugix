@@ -11,11 +11,13 @@ pub mod system_state;
 pub mod utils;
 
 pub fn main() {
-    let result = if utils::is_init_process() {
-        init::main()
-    } else {
-        cli::main()
-    };
+    let result = rugix_tasks::run(|| {
+        if utils::is_init_process() {
+            init::main()
+        } else {
+            cli::main()
+        }
+    });
     if let Err(report) = result {
         eprintln!("{report:?}");
         std::process::exit(1);
