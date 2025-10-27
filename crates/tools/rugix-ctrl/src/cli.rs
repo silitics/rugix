@@ -890,7 +890,7 @@ fn install_update_bundle<R: BundleSource>(
                         .unwrap(),
                     )
                     .ok();
-                stdout.write(b"\n").ok();
+                stdout.write_all(b"\n").ok();
             }
         }
     };
