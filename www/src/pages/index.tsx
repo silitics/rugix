@@ -85,17 +85,17 @@ function HomepageHeader() {
         </h1>
         <p className="mx-auto max-w-[80ch] text-lg my-6">
           <em>Rugix</em> is the open-source tool suite for secure and reliable
-          embedded Linux. It consists of two powerful, modular tools: Use{" "}
+          embedded Linux. It consists of two powerful and modular tools:{" "}
           <em>Rugix Ctrl</em> to <strong>manage system state</strong> and{" "}
           <strong>securely and reliably install OTA updates at scale</strong>{" "}
-          without ever bricking a device. Rugix Ctrl{" "}
-          <strong>works with Yocto or any other Linux build system</strong>. Use{" "}
+          without ever bricking a device,{" "}
+          <strong>compatible with Yocto or other Linux build systems</strong>.{" "}
           <em>Rugix Bakery</em> to{" "}
           <strong>streamline and speed up the development process</strong> of
           your custom OS based on Debian or Alpine Linux.{" "}
           <strong>
             Stop wasting time reinventing the foundations and focus on your
-            product!
+            product instead!
           </strong>
         </p>
         <div className={styles.buttons}>
