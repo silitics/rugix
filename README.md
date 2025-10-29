@@ -5,8 +5,7 @@
     Rugix
 </h1>
 <h4 align="center">
-    An open-source tool suite to build <em>reliable</em> embedded Linux devices
-    <br>with <em>efficient and secure</em> over-the-air update capabilities.
+    The open-source tool suite to build <em>secure</em> and <em>reliable</em> embedded Linux<br> devices with <em>efficient and secure</em> over-the-air update capabilities.
 </h4>
 <p align="center">
   <a href="https://github.com/silitics/rugix/releases"><img alt="Rugix Version Badge" src="https://img.shields.io/github/v/tag/silitics/rugix?label=version"></a>
@@ -14,8 +13,7 @@
 </p>
 
 💡 **TL;DR**: Rugix is a suite of open-source tools to **build and deploy reliable embedded Linux devices at scale with efficient and secure over-the-air (OTA) update capabilities**.
-Companies around the world use Rugix as a basis for their connected products.
-Currently, the tool suite consists of two main tools:
+The tool suite consists of two powerful and modular tools:
 
 - **Rugix Ctrl**: On-device tool for installing over-the-air updates and managing state.
 - **Rugix Bakery**: Flexible, user-friendly build system for bespoke Linux distributions.

@@ -79,37 +79,30 @@ function HomepageHeader() {
     <header
       className={clsx("hero hero--primary", styles.heroBanner, styles.hero)}
     >
-      <div className="container">
-        <h1 className="hero__title">
-          Robust Building Blocks for Embedded Linux Devices
+      <div className="mx-auto">
+        <h1 className="text-5xl">
+          Secure, Reliable Embedded Linux. Simplified!
         </h1>
-        <p className="text-xl">
-          Rugix is an open-source tool suite to build <em>reliable</em> embedded
-          Linux devices with <em>efficient and secure over-the-air</em> update
-          capabilities.
-        </p>
-        <p style={{ maxWidth: "80ch", margin: "1.5em auto" }}>
+        <p className="mx-auto max-w-[80ch] text-lg my-6">
+          <em>Rugix</em> is the open-source tool suite for secure and reliable
+          embedded Linux consisting of two powerful, modular tools: Use{" "}
+          <em>Rugix Ctrl</em> to <strong>manage system state</strong> and{" "}
+          <strong>securely and reliably install OTA updates at scale</strong>{" "}
+          without ever bricking a device. Rugix Ctrl{" "}
+          <strong>works with Yocto or any other Linux build system</strong>. Use{" "}
+          <em>Rugix Bakery</em> to{" "}
+          <strong>streamline and speed up the development process</strong> for
+          your custom OS based on Debian and Alpine Linux.{" "}
           <strong>
-            Companies around the world use Rugix as a basis for their connected
-            products.
-          </strong>{" "}
-          Currently, the tool suite consists of two main tools:{" "}
-          <em>Rugix Ctrl</em>, a tool for installing over-the-air updates and
-          managing state, and <em>Rugix Bakery</em>, a flexible, user-friendly
-          build system for bespoke Linux distributions. Rugix simplifies the
-          development of embedded Linux devices,{" "}
-          <strong>
-            enabling you to focus on what provides value to your users instead
-            of system-level details
+            Stop spending time building your OS and focus on your product!
           </strong>
-          . With Rugix, you get better results faster and at a lower cost.
         </p>
         <div className={styles.buttons}>
           <Link
             className="button button--secondary button--lg"
             to="/docs/getting-started"
           >
-            Get Started 🚀
+            From Zero to OTA Update in 20 Minutes 🚀
           </Link>
         </div>
       </div>
@@ -124,7 +117,7 @@ export default function Home(): JSX.Element {
       <HomepageHeader />
       <main className="py-16 space-y-16">
         <section>
-          <h2 className="text-center mb-8">Trusted By</h2>
+          <h2 className="text-center text-3xl mb-8">Trusted By</h2>
           <div className="px-4 flex-wrap  gap-y-8 flex items-center justify-center gap-x-12 opacity-85">
             <a href="https://goaqa.com/" target="_blank" className="flex">
               <img
