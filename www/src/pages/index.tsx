@@ -91,10 +91,11 @@ function HomepageHeader() {
           without ever bricking a device. Rugix Ctrl{" "}
           <strong>works with Yocto or any other Linux build system</strong>. Use{" "}
           <em>Rugix Bakery</em> to{" "}
-          <strong>streamline and speed up the development process</strong> for
-          your custom OS based on Debian and Alpine Linux.{" "}
+          <strong>streamline and speed up the development process</strong> of
+          your custom OS based on Debian or Alpine Linux.{" "}
           <strong>
-            Stop spending time building your OS and focus on your product!
+            Stop wasting time reinventing the foundations and focus on your
+            product!
           </strong>
         </p>
         <div className={styles.buttons}>
