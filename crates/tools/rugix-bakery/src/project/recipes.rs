@@ -147,6 +147,7 @@ impl RecipeStep {
                 let manager = match kind.rsplit_once('.') {
                     Some((_, "apt")) => Some(PackageManager::Apt),
                     Some((_, "apk")) => Some(PackageManager::Apk),
+                    Some((_, "pacman")) => Some(PackageManager::Pacman),
                     _ => None,
                 };
                 StepKind::Packages { packages, manager }
@@ -181,4 +182,5 @@ pub enum StepKind {
 pub enum PackageManager {
     Apt,
     Apk,
+    Pacman,
 }
