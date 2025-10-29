@@ -81,7 +81,7 @@ function HomepageHeader() {
     >
       <div className="mx-auto">
         <h1 className="text-5xl">
-          Secure, Reliable Embedded Linux. Simplified!
+          Secure, Reliable Embedded Linux. Made Easy!
         </h1>
         <p className="mx-auto max-w-[80ch] text-lg my-6">
           <em>Rugix</em> is the open-source tool suite for secure and reliable
