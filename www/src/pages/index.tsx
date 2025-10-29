@@ -85,7 +85,7 @@ function HomepageHeader() {
         </h1>
         <p className="mx-auto max-w-[80ch] text-lg my-6">
           <em>Rugix</em> is the open-source tool suite for secure and reliable
-          embedded Linux consisting of two powerful, modular tools: Use{" "}
+          embedded Linux. It consists of two powerful, modular tools: Use{" "}
           <em>Rugix Ctrl</em> to <strong>manage system state</strong> and{" "}
           <strong>securely and reliably install OTA updates at scale</strong>{" "}
           without ever bricking a device. Rugix Ctrl{" "}
