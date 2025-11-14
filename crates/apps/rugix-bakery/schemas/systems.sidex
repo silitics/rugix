@@ -48,6 +48,8 @@ variant Target {
     RpiTryboot,
     /// Raspberry Pi-specific target using U-Boot.
     RpiUboot,
+    /// Armbian-specific target using U-Boot.
+    ArmbianUboot,
     /// Target for unsupported devices.
     Unknown,
 }

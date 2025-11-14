@@ -157,6 +157,10 @@ pub fn make_system(
             Target::GenericGrubEfi => {
                 initialize_grub(&config, &config_dir)?;
             }
+            Target::ArmbianUboot => {
+                // Armbian images come with their own U-Boot setup.
+                // We don't initialize U-Boot for Armbian targets.
+            }
             Target::Unknown => { /* nothing to do */ }
         }
 

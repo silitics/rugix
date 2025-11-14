@@ -183,10 +183,25 @@ fn extract(project: &ProjectRef, image_url: &str, layer_path: &Path) -> BakeryRe
     } else {
         info!("creating `.tar` archive with system files");
         let loop_dev = LoopDevice::attach(image_path).whatever("unable to setup loop device")?;
-        let _mounted_root = Mounted::mount(loop_dev.partition(2), &system_dir)
-            .whatever("unable to mount system partition")?;
-        let _mounted_boot = Mounted::mount(loop_dev.partition(1), temp_dir_path.join("roots/boot"))
-            .whatever("unable to mount boot partition")?;
+
+        // Try to mount the second partition first (two-partition layout)
+        let mounted_root = Mounted::mount(loop_dev.partition(2), &system_dir);
+        let mounted_boot = Mounted::mount(loop_dev.partition(1), temp_dir_path.join("roots/boot"));
+
+        match (mounted_root, mounted_boot) {
+            (Ok(_mounted_root), Ok(_mounted_boot)) => {
+                // Two-partition image (e.g., Raspberry Pi)
+                info!("detected two-partition image layout");
+            }
+            _ => {
+                // Single-partition image (e.g., Armbian)
+                info!("detected single-partition image layout");
+                let _mounted_root = Mounted::mount(loop_dev.partition(1), &system_dir)
+                    .whatever("unable to mount system partition")?;
+                // For single-partition images, boot directory remains empty
+            }
+        }
+
         run!(["tar", "-c", "-f", &layer_path, "-C", temp_dir_path, "."])
             .whatever("unable to create layer tar file")?;
     }
@@ -235,6 +250,7 @@ pub fn bake_bundle(
         Target::GenericGrubEfi => efi_bundle_config(opts),
         Target::RpiTryboot => rpi_bundle_config(opts, is_gpt),
         Target::RpiUboot => rpi_bundle_config(opts, is_gpt),
+        Target::ArmbianUboot => rpi_bundle_config(opts, is_gpt),
         Target::Unknown => bail!("cannot bake bundles for unknown targets"),
     };
     std::fs::write(

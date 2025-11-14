@@ -5992,6 +5992,8 @@ pub mod systems {
         RpiTryboot,
         #[doc = "Raspberry Pi-specific target using U-Boot.\n"]
         RpiUboot,
+        #[doc = "Armbian-specific target using U-Boot.\n"]
+        ArmbianUboot,
         #[doc = "Target for unsupported devices.\n"]
         Unknown,
     }
@@ -6006,7 +6008,8 @@ pub mod systems {
                 Self::GenericGrubEfi => __serializer.serialize_tag("generic-grub-efi", 0u32),
                 Self::RpiTryboot => __serializer.serialize_tag("rpi-tryboot", 1u32),
                 Self::RpiUboot => __serializer.serialize_tag("rpi-uboot", 2u32),
-                Self::Unknown => __serializer.serialize_tag("unknown", 3u32),
+                Self::ArmbianUboot => __serializer.serialize_tag("armbian-uboot", 3u32),
+                Self::Unknown => __serializer.serialize_tag("unknown", 4u32),
             }
         }
     }
@@ -6016,10 +6019,15 @@ pub mod systems {
             __deserializer: __D,
         ) -> ::std::result::Result<Self, __D::Error> {
             #[doc(hidden)]
-            const __IDENTIFIERS: &'static [&'static str] =
-                &["generic-grub-efi", "rpi-tryboot", "rpi-uboot", "unknown"];
+            const __IDENTIFIERS: &'static [&'static str] = &[
+                "generic-grub-efi",
+                "rpi-tryboot",
+                "rpi-uboot",
+                "armbian-uboot",
+                "unknown",
+            ];
             #[doc(hidden)]
-            const __EXPECTING_IDENTIFIERS : & 'static str = "an identifier in [\"generic-grub-efi\", \"rpi-tryboot\", \"rpi-uboot\", \"unknown\"]" ;
+            const __EXPECTING_IDENTIFIERS : & 'static str = "an identifier in [\"generic-grub-efi\", \"rpi-tryboot\", \"rpi-uboot\", \"armbian-uboot\", \"unknown\"]" ;
             #[derive(:: core :: clone :: Clone, :: core :: marker :: Copy)]
             #[doc(hidden)]
             enum __Identifier {
@@ -6027,6 +6035,7 @@ pub mod systems {
                 __Identifier1,
                 __Identifier2,
                 __Identifier3,
+                __Identifier4,
             }
             #[doc(hidden)]
             struct __IdentifierVisitor;
@@ -6047,6 +6056,7 @@ pub mod systems {
                         1u64 => ::core::result::Result::Ok(__Identifier::__Identifier1),
                         2u64 => ::core::result::Result::Ok(__Identifier::__Identifier2),
                         3u64 => ::core::result::Result::Ok(__Identifier::__Identifier3),
+                        4u64 => ::core::result::Result::Ok(__Identifier::__Identifier4),
                         __variant => {
                             ::core::result::Result::Err(__serde::de::Error::invalid_value(
                                 __serde::de::Unexpected::Unsigned(__variant),
@@ -6065,7 +6075,8 @@ pub mod systems {
                         }
                         "rpi-tryboot" => ::core::result::Result::Ok(__Identifier::__Identifier1),
                         "rpi-uboot" => ::core::result::Result::Ok(__Identifier::__Identifier2),
-                        "unknown" => ::core::result::Result::Ok(__Identifier::__Identifier3),
+                        "armbian-uboot" => ::core::result::Result::Ok(__Identifier::__Identifier3),
+                        "unknown" => ::core::result::Result::Ok(__Identifier::__Identifier4),
                         __variant => ::core::result::Result::Err(
                             __serde::de::Error::unknown_variant(__variant, __IDENTIFIERS),
                         ),
@@ -6084,7 +6095,8 @@ pub mod systems {
                         }
                         b"rpi-tryboot" => ::core::result::Result::Ok(__Identifier::__Identifier1),
                         b"rpi-uboot" => ::core::result::Result::Ok(__Identifier::__Identifier2),
-                        b"unknown" => ::core::result::Result::Ok(__Identifier::__Identifier3),
+                        b"armbian-uboot" => ::core::result::Result::Ok(__Identifier::__Identifier3),
+                        b"unknown" => ::core::result::Result::Ok(__Identifier::__Identifier4),
                         __variant => {
                             ::core::result::Result::Err(__serde::de::Error::invalid_value(
                                 __serde::de::Unexpected::Bytes(__variant),
@@ -6107,8 +6119,13 @@ pub mod systems {
                 }
             }
             #[doc(hidden)]
-            const __VARIANTS: &'static [&'static str] =
-                &["generic-grub-efi", "rpi-tryboot", "rpi-uboot", "unknown"];
+            const __VARIANTS: &'static [&'static str] = &[
+                "generic-grub-efi",
+                "rpi-tryboot",
+                "rpi-uboot",
+                "armbian-uboot",
+                "unknown",
+            ];
             #[doc(hidden)]
             struct __Visitor {
                 __phantom_vars: ::core::marker::PhantomData<fn(&())>,
@@ -6136,7 +6153,10 @@ pub mod systems {
                             ::core::result::Result::Ok(Target::RpiTryboot)
                         }
                         __Identifier::__Identifier2 => ::core::result::Result::Ok(Target::RpiUboot),
-                        __Identifier::__Identifier3 => ::core::result::Result::Ok(Target::Unknown),
+                        __Identifier::__Identifier3 => {
+                            ::core::result::Result::Ok(Target::ArmbianUboot)
+                        }
+                        __Identifier::__Identifier4 => ::core::result::Result::Ok(Target::Unknown),
                         _ => Err(__E::invalid_value(
                             __serde::de::Unexpected::Str(__value),
                             &self,
@@ -6165,6 +6185,10 @@ pub mod systems {
                             ::core::result::Result::Ok(Target::RpiUboot)
                         }
                         (__Identifier::__Identifier3, __variant) => {
+                            __serde::de::VariantAccess::unit_variant(__variant)?;
+                            ::core::result::Result::Ok(Target::ArmbianUboot)
+                        }
+                        (__Identifier::__Identifier4, __variant) => {
                             __serde::de::VariantAccess::unit_variant(__variant)?;
                             ::core::result::Result::Ok(Target::Unknown)
                         }
