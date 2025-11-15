@@ -333,6 +333,20 @@ fn apply_recipes(
         root_dir_path: &Path,
         stack: &mut MountStack,
     ) -> BakeryResult<()> {
+        // Ensure mount point directories exist (needed for single-partition images like Armbian)
+        fs::create_dir_all(root_dir_path.join("dev"))
+            .whatever("unable to create /dev directory")?;
+        fs::create_dir_all(root_dir_path.join("dev/pts"))
+            .whatever("unable to create /dev/pts directory")?;
+        fs::create_dir_all(root_dir_path.join("sys"))
+            .whatever("unable to create /sys directory")?;
+        fs::create_dir_all(root_dir_path.join("proc"))
+            .whatever("unable to create /proc directory")?;
+        fs::create_dir_all(root_dir_path.join("run"))
+            .whatever("unable to create /run directory")?;
+        fs::create_dir_all(root_dir_path.join("tmp"))
+            .whatever("unable to create /tmp directory")?;
+
         stack.push(
             Mounted::bind("/dev", root_dir_path.join("dev")).whatever("unable to mount /dev")?,
         );
