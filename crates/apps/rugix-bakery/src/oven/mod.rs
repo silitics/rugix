@@ -136,6 +136,56 @@ impl<'p> LayerBakery<'p> {
     }
 }
 
+/// Save bootloader area from an image if present.
+fn save_bootloader_area(image_path: &Path, temp_dir_path: &Path) -> BakeryResult<()> {
+    use std::io::{Read as IoRead, Seek as IoSeek, Write as IoWrite};
+    
+    // Check for bootloader offset
+    let partition_table = rugix_common::disk::PartitionTable::read(image_path)
+        .whatever("unable to read partition table from source image")?;
+    let bootloader_offset = partition_table.partitions.first()
+        .map(|p| p.start)
+        .unwrap_or(rugix_common::disk::NumBlocks::from_raw(0));
+    
+    // Save bootloader area if offset > 0
+    if bootloader_offset.into_raw() > 0 {
+        info!("detected bootloader area at offset {} blocks", bootloader_offset.into_raw());
+        let pt_type = match partition_table.ty() {
+            rugix_common::disk::PartitionTableType::Mbr => "mbr",
+            rugix_common::disk::PartitionTableType::Gpt => "gpt",
+        };
+        let pt_dir = temp_dir_path.join("roots/pt");
+        fs::create_dir_all(&pt_dir).whatever("unable to create pt directory")?;
+        let bootloader_file = pt_dir.join(pt_type);
+        
+        // Extract bootloader area (excluding partition table sectors)
+        let mut src = fs::File::open(image_path).whatever("unable to open source image")?;
+        let mut dst = fs::File::create(&bootloader_file).whatever("unable to create bootloader file")?;
+        
+        match partition_table.ty() {
+            rugix_common::disk::PartitionTableType::Mbr => {
+                // Skip sector 0, copy rest
+                src.seek(std::io::SeekFrom::Start(512)).whatever("unable to seek")?;
+                let bytes_to_copy = (bootloader_offset.into_raw() * 512) - 512;
+                let mut buffer = vec![0u8; bytes_to_copy as usize];
+                src.read_exact(&mut buffer).whatever("unable to read bootloader")?;
+                dst.write_all(&buffer).whatever("unable to write bootloader")?;
+            }
+            rugix_common::disk::PartitionTableType::Gpt => {
+                // Skip sectors 0-33, copy rest
+                src.seek(std::io::SeekFrom::Start(34 * 512)).whatever("unable to seek")?;
+                let bytes_to_copy = (bootloader_offset.into_raw() * 512) - (34 * 512);
+                let mut buffer = vec![0u8; bytes_to_copy as usize];
+                src.read_exact(&mut buffer).whatever("unable to read bootloader")?;
+                dst.write_all(&buffer).whatever("unable to write bootloader")?;
+            }
+        }
+        info!("saved bootloader area to roots/pt/{}", pt_type);
+    }
+    
+    Ok(())
+}
+
 fn extract(project: &ProjectRef, image_url: &str, layer_path: &Path) -> BakeryResult<()> {
     let image_url = image_url
         .parse::<Url>()
@@ -183,7 +233,10 @@ fn extract(project: &ProjectRef, image_url: &str, layer_path: &Path) -> BakeryRe
             .whatever("unable to create layer tar file")?;
     } else {
         info!("creating `.tar` archive with system files");
-        let loop_dev = LoopDevice::attach(image_path).whatever("unable to setup loop device")?;
+        let loop_dev = LoopDevice::attach(&image_path).whatever("unable to setup loop device")?;
+        
+        // Save bootloader area if present
+        save_bootloader_area(&image_path, temp_dir_path)?;
         
         // Count partitions to determine the layout
         let partition_count = loop_dev.partition_count().whatever("unable to count partitions")?;
