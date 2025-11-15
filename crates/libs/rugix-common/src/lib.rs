@@ -87,6 +87,62 @@ pub fn rpi_patch_boot(
     _patch_cmdline(path.as_ref(), root.as_ref())
 }
 
+/// Patches Armbian boot configuration and fstab for split boot partition.
+/// Updates `armbianEnv.txt` with the correct root device and modifies fstab to mount boot partition.
+pub fn armbian_patch_boot(
+    boot_dir: impl AsRef<Path>,
+    system_dir: impl AsRef<Path>,
+    root_partuuid: impl AsRef<str>,
+    boot_partuuid: impl AsRef<str>,
+) -> Result<(), Report<BootPatchError>> {
+    fn _patch_armbian(
+        boot_dir: &Path,
+        system_dir: &Path,
+        root_partuuid: &str,
+        boot_partuuid: &str,
+    ) -> Result<(), Report<BootPatchError>> {
+        // Update armbianEnv.txt with correct rootDev
+        let armbian_env_path = boot_dir.join("armbianEnv.txt");
+        if armbian_env_path.exists() {
+            let env_content = fs::read_to_string(&armbian_env_path)
+                .whatever("unable to read `armbianEnv.txt` from boot partition")?;
+            
+            let mut new_lines = Vec::new();
+            let mut found_rootdev = false;
+            
+            for line in env_content.lines() {
+                if line.starts_with("rootdev=") {
+                    new_lines.push(format!("rootdev={}", root_partuuid));
+                    found_rootdev = true;
+                } else {
+                    new_lines.push(line.to_owned());
+                }
+            }
+            
+            // If rootdev was not found, add it
+            if !found_rootdev {
+                new_lines.push(format!("rootdev={}", root_partuuid));
+            }
+            
+            let new_content = new_lines.join("\n") + "\n";
+            fs::write(&armbian_env_path, &new_content)
+                .whatever("unable to write `armbianEnv.txt` to boot partition")?;
+        }
+        
+        // Create fstab with root and boot partitions
+        let fstab_path = system_dir.join("etc/fstab");
+        let fstab_content = format!(
+            "{}\t/\text4\tdefaults,noatime\t0\t1\n{}\t/boot\tvfat\tdefaults\t0\t2\n",
+            root_partuuid, boot_partuuid
+        );
+        fs::write(&fstab_path, fstab_content)
+            .whatever("unable to write fstab")?;
+        
+        Ok(())
+    }
+    _patch_armbian(boot_dir.as_ref(), system_dir.as_ref(), root_partuuid.as_ref(), boot_partuuid.as_ref())
+}
+
 /// Runs a closure on drop.
 pub struct DropGuard<F: FnOnce()>(Option<F>);
 

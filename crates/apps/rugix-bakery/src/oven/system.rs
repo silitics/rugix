@@ -18,7 +18,7 @@ use rugix_common::disk::{
 use rugix_common::fsutils::allocate_file;
 use rugix_common::utils::ascii_numbers;
 use rugix_common::utils::units::NumBytes;
-use rugix_common::{grub_patch_env, rpi_patch_boot};
+use rugix_common::{armbian_patch_boot, grub_patch_env, rpi_patch_boot};
 
 use crate::config::images::{Filesystem, ImageLayout};
 use crate::config::load_json;
@@ -126,7 +126,7 @@ pub fn make_system(
     info!("Generating SBOM");
     run!([
         "syft",
-        system_dir,
+        &system_dir,
         "--source-name",
         system_name,
         "--source-version",
@@ -228,6 +228,35 @@ pub fn make_system(
             };
             info!("Patching boot configuration.");
             rpi_patch_boot(&boot_dir, disk_id).whatever("unable to patch boot configuration")?;
+        }
+        if matches!(target, Target::ArmbianUboot) {
+            let root_partuuid = match table.disk_id {
+                DiskId::Mbr(mbr_id) => {
+                    format!("PARTUUID={:08X}-05", mbr_id.into_raw())
+                }
+                DiskId::Gpt(_) => {
+                    let Some(gpt_id) = table.partitions[3].gpt_id else {
+                        bail!("unable to determine GPT partition ID");
+                    };
+                    format!("PARTUUID={gpt_id}")
+                }
+                _ => bail!("unsupported partition layout"),
+            };
+            let boot_partuuid = match table.disk_id {
+                DiskId::Mbr(mbr_id) => {
+                    format!("PARTUUID={:08X}-02", mbr_id.into_raw())
+                }
+                DiskId::Gpt(_) => {
+                    let Some(gpt_id) = table.partitions[1].gpt_id else {
+                        bail!("unable to determine boot partition GPT partition ID");
+                    };
+                    format!("PARTUUID={gpt_id}")
+                }
+                _ => bail!("unsupported partition layout"),
+            };
+            info!("Patching Armbian boot configuration.");
+            armbian_patch_boot(&boot_dir, &system_dir, root_partuuid, boot_partuuid)
+                .whatever("unable to patch Armbian boot configuration")?;
         }
         if matches!(target, Target::GenericGrubEfi) {
             let root_part = &table.partitions[3];
