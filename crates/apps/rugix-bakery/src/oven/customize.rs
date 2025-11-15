@@ -328,24 +328,77 @@ fn apply_recipes(
 ) -> BakeryResult<()> {
     let mut mount_stack = MountStack::new();
 
+    fn check_required_directories(root_dir_path: &Path) -> BakeryResult<()> {
+        let required_dirs = vec!["dev", "dev/pts", "sys", "proc", "run", "tmp"];
+        let mut missing_dirs = Vec::new();
+
+        for dir in &required_dirs {
+            let full_path = root_dir_path.join(dir);
+            if !full_path.exists() {
+                missing_dirs.push(dir.to_string());
+            }
+        }
+
+        if !missing_dirs.is_empty() {
+            error!(
+                "Missing required directories in root filesystem: {:?}",
+                missing_dirs
+            );
+            error!("Root filesystem structure at {:?}:", root_dir_path);
+
+            // Print directory tree
+            fn print_tree(path: &Path, prefix: &str, max_depth: usize) {
+                if max_depth == 0 {
+                    return;
+                }
+                if let Ok(entries) = fs::read_dir(path) {
+                    let mut entries: Vec<_> = entries.filter_map(|e| e.ok()).collect();
+                    entries.sort_by_key(|e| e.path());
+
+                    for (i, entry) in entries.iter().enumerate() {
+                        let is_last = i == entries.len() - 1;
+                        let connector = if is_last { "└── " } else { "├── " };
+                        let name = entry.file_name();
+
+                        if let Ok(metadata) = entry.metadata() {
+                            let type_char = if metadata.is_dir() { "d" } else { "f" };
+                            error!(
+                                "{}{}{} [{}]",
+                                prefix,
+                                connector,
+                                name.to_string_lossy(),
+                                type_char
+                            );
+
+                            if metadata.is_dir() {
+                                let new_prefix =
+                                    format!("{}{}   ", prefix, if is_last { " " } else { "│" });
+                                print_tree(&entry.path(), &new_prefix, max_depth - 1);
+                            }
+                        }
+                    }
+                }
+            }
+
+            print_tree(root_dir_path, "", 3);
+
+            bail!(
+                "Root filesystem is missing required directories: {:?}. \
+                This usually indicates the image extraction failed or the image has an unexpected structure.",
+                missing_dirs
+            );
+        }
+
+        Ok(())
+    }
+
     fn mount_all(
         project: &ProjectRef,
         root_dir_path: &Path,
         stack: &mut MountStack,
     ) -> BakeryResult<()> {
-        // Ensure mount point directories exist (needed for single-partition images like Armbian)
-        fs::create_dir_all(root_dir_path.join("dev"))
-            .whatever("unable to create /dev directory")?;
-        fs::create_dir_all(root_dir_path.join("dev/pts"))
-            .whatever("unable to create /dev/pts directory")?;
-        fs::create_dir_all(root_dir_path.join("sys"))
-            .whatever("unable to create /sys directory")?;
-        fs::create_dir_all(root_dir_path.join("proc"))
-            .whatever("unable to create /proc directory")?;
-        fs::create_dir_all(root_dir_path.join("run"))
-            .whatever("unable to create /run directory")?;
-        fs::create_dir_all(root_dir_path.join("tmp"))
-            .whatever("unable to create /tmp directory")?;
+        // Check that required directories exist before attempting to mount
+        check_required_directories(root_dir_path)?;
 
         stack.push(
             Mounted::bind("/dev", root_dir_path.join("dev")).whatever("unable to mount /dev")?,
