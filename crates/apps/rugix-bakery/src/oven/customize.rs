@@ -13,7 +13,7 @@ use reportify::{bail, ResultExt};
 use rugix_cli::{cli_msg, StatusSegmentRef};
 use rugix_common::mount::{MountStack, Mounted};
 use tempfile::tempdir;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 use xscript::{cmd, run, vars, Cmd, ParentEnv, Run};
 
 use crate::cli::status::CliLog;
@@ -340,11 +340,11 @@ fn apply_recipes(
         }
 
         if !missing_dirs.is_empty() {
-            error!(
-                "Missing required directories in root filesystem: {:?}",
+            warn!(
+                "Warning: Missing required directories in root filesystem: {:?}",
                 missing_dirs
             );
-            error!("Root filesystem structure at {:?}:", root_dir_path);
+            warn!("Root filesystem structure at {:?}:", root_dir_path);
 
             // Print directory tree
             fn print_tree(path: &Path, prefix: &str, max_depth: usize) {
@@ -362,7 +362,7 @@ fn apply_recipes(
 
                         if let Ok(metadata) = entry.metadata() {
                             let type_char = if metadata.is_dir() { "d" } else { "f" };
-                            error!(
+                            warn!(
                                 "{}{}{} [{}]",
                                 prefix,
                                 connector,
@@ -382,11 +382,13 @@ fn apply_recipes(
 
             print_tree(root_dir_path, "", 3);
 
-            bail!(
-                "Root filesystem is missing required directories: {:?}. \
-                This usually indicates the image extraction failed or the image has an unexpected structure.",
-                missing_dirs
-            );
+            warn!("Creating missing directories...");
+            for dir in &missing_dirs {
+                let full_path = root_dir_path.join(dir);
+                fs::create_dir_all(&full_path)
+                    .whatever_with(|_| format!("unable to create directory: {}", dir))?;
+                info!("Created directory: {}", dir);
+            }
         }
 
         Ok(())
