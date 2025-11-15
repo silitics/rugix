@@ -9,6 +9,7 @@ use reportify::{bail, whatever, ResultExt};
 use rugix_bundle::manifest::{self, BundleManifest, ChunkerAlgorithm};
 use rugix_common::loop_dev::LoopDevice;
 use rugix_common::mount::Mounted;
+use rugix_common::fsutils::copy_recursive;
 use system::ReleaseInfo;
 use tempfile::tempdir;
 use tracing::info;
@@ -183,25 +184,64 @@ fn extract(project: &ProjectRef, image_url: &str, layer_path: &Path) -> BakeryRe
     } else {
         info!("creating `.tar` archive with system files");
         let loop_dev = LoopDevice::attach(image_path).whatever("unable to setup loop device")?;
-
-        // Try to mount the second partition first (two-partition layout)
-        let mounted_root = Mounted::mount(loop_dev.partition(2), &system_dir);
-        let mounted_boot = Mounted::mount(loop_dev.partition(1), temp_dir_path.join("roots/boot"));
-
-        match (mounted_root, mounted_boot) {
-            (Ok(_mounted_root), Ok(_mounted_boot)) => {
-                // Two-partition image (e.g., Raspberry Pi)
+        
+        // Count partitions to determine the layout
+        let partition_count = loop_dev.partition_count().whatever("unable to count partitions")?;
+        
+        // Declare mount variables outside match to keep them alive until after tar
+        let _mounted_root;
+        let _mounted_boot;
+        
+        match partition_count {
+            1 => {
+                // Single-partition image (e.g., Armbian) - unified layout
+                info!("detected single-partition image layout");
+                _mounted_root = Mounted::mount(loop_dev.partition(1), &system_dir)
+                    .whatever("unable to mount system partition")?;
+                
+                // Copy boot files from /boot to roots/boot
+                let boot_src = system_dir.join("boot");
+                if !boot_src.exists() {
+                    bail!("boot directory not found in single-partition image at {:?}", boot_src);
+                }
+                
+                // Check if boot directory is empty
+                let boot_entries = fs::read_dir(&boot_src)
+                    .whatever("unable to read boot directory")?
+                    .count();
+                if boot_entries == 0 {
+                    bail!("boot directory is empty at {:?}", boot_src);
+                }
+                
+                info!("copying boot files from /boot to roots/boot");
+                copy_recursive(&boot_src, &boot_dir)
+                    .whatever("unable to copy boot files")?;
+            }
+            2 => {
+                // Two-partition image (e.g., Raspberry Pi) - boot and system partitions
                 info!("detected two-partition image layout");
+                _mounted_root = Mounted::mount(loop_dev.partition(2), &system_dir)
+                    .whatever("unable to mount system partition")?;
+                _mounted_boot = Mounted::mount(loop_dev.partition(1), &boot_dir)
+                    .whatever("unable to mount boot partition")?;
             }
             _ => {
-                // Single-partition image (e.g., Armbian)
-                info!("detected single-partition image layout");
-                let _mounted_root = Mounted::mount(loop_dev.partition(1), &system_dir)
-                    .whatever("unable to mount system partition")?;
-                // For single-partition images, boot directory remains empty
+                bail!(
+                    "unsupported partition layout: found {} partitions (expected 1 or 2)",
+                    partition_count
+                );
             }
         }
-
+        
+        // Verify that we have files to archive
+        let file_count = fs::read_dir(temp_dir_path)
+            .whatever("unable to read temporary directory")?
+            .filter_map(|e| e.ok())
+            .count();
+        if file_count == 0 {
+            bail!("no files extracted from image - temporary directory doesn't contain any files");
+        }
+        
         run!(["tar", "-c", "-f", &layer_path, "-C", temp_dir_path, "."])
             .whatever("unable to create layer tar file")?;
     }
