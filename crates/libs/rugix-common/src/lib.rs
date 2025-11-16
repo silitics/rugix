@@ -101,7 +101,7 @@ pub fn armbian_patch_boot(
         root_partuuid: &str,
         boot_partuuid: &str,
     ) -> Result<(), Report<BootPatchError>> {
-        // Update armbianEnv.txt with correct rootDev
+        // Update armbianEnv.txt with correct rootDev and init
         let armbian_env_path = boot_dir.join("armbianEnv.txt");
         if armbian_env_path.exists() {
             let env_content = fs::read_to_string(&armbian_env_path)
@@ -109,11 +109,23 @@ pub fn armbian_patch_boot(
             
             let mut new_lines = Vec::new();
             let mut found_rootdev = false;
+            let mut found_extraargs = false;
             
             for line in env_content.lines() {
                 if line.starts_with("rootdev=") {
                     new_lines.push(format!("rootdev={}", root_partuuid));
                     found_rootdev = true;
+                } else if line.starts_with("extraargs=") {
+                    // Append init to existing extraargs
+                    let existing_args = line.strip_prefix("extraargs=").unwrap_or("");
+                    let mut args_parts = existing_args
+                        .split_ascii_whitespace()
+                        .filter(|part| !part.starts_with("init="))
+                        .map(str::to_owned)
+                        .collect::<Vec<_>>();
+                    args_parts.push("init=/usr/bin/rugix-ctrl".to_owned());
+                    new_lines.push(format!("extraargs={}", args_parts.join(" ")));
+                    found_extraargs = true;
                 } else {
                     new_lines.push(line.to_owned());
                 }
@@ -122,6 +134,11 @@ pub fn armbian_patch_boot(
             // If rootdev was not found, add it
             if !found_rootdev {
                 new_lines.push(format!("rootdev={}", root_partuuid));
+            }
+            
+            // If extraargs was not found, add it
+            if !found_extraargs {
+                new_lines.push("extraargs=init=/usr/bin/rugix-ctrl".to_owned());
             }
             
             let new_content = new_lines.join("\n") + "\n";
