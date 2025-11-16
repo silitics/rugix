@@ -8,6 +8,7 @@ use crate::config::images::{
 };
 use crate::config::systems::Target;
 
+pub mod armbian_uboot;
 pub mod generic_grub_efi;
 pub mod rpi_tryboot;
 pub mod rpi_uboot;

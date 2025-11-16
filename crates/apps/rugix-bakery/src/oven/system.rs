@@ -24,6 +24,7 @@ use crate::config::images::{Filesystem, ImageLayout};
 use crate::config::load_json;
 use crate::config::systems::{SystemConfig, Target};
 use crate::oven::targets;
+use crate::oven::targets::armbian_uboot::initialize_armbian_uboot;
 use crate::oven::targets::generic_grub_efi::initialize_grub;
 use crate::oven::targets::rpi_tryboot::initialize_tryboot;
 use crate::oven::targets::rpi_uboot::initialize_uboot;
@@ -158,8 +159,7 @@ pub fn make_system(
                 initialize_grub(&config, &config_dir)?;
             }
             Target::ArmbianUboot => {
-                // Armbian images come with their own U-Boot setup.
-                // We don't initialize U-Boot for Armbian targets.
+                initialize_armbian_uboot(&layer_path, &config_dir)?;
             }
             Target::Unknown => { /* nothing to do */ }
         }
