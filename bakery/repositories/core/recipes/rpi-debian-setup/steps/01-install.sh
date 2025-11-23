@@ -11,8 +11,10 @@ fi
 
 mkdir -p "${BOOT_DIR}"
 
+RELEASE="$(. /etc/os-release && echo "$VERSION_CODENAME")"
+
 install -m 644 "${RECIPE_DIR}/files/raspberrypi.list" "/etc/apt/sources.list.d/"
-sed -i "s/RELEASE/bookworm/g" "/etc/apt/sources.list.d/raspberrypi.list"
+sed -i "s/RELEASE/$RELEASE/g" "/etc/apt/sources.list.d/raspberrypi.list"
 
 apt-get update -y
 apt-get install -y raspberrypi-archive-keyring
