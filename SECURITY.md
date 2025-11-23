@@ -1,8 +1,11 @@
 # Security Policy
 
-We take the security of Rugix very seriously and aim to keep our users informed about resolved vulnerabilities. When a security issue is fixed, we publish a **GitHub Security Advisory** describing the issue, the affected versions, and necessary mitigations. Where appropriate, we request or assign a **CVE ID** for tracking.
+> [!CAUTION]
+> **Do not report security vulnerabilities through GitHub issues or any other public medium.**
 
-**Do not report security vulnerabilities through GitHub issues or any other public medium.** See the section on *Responsible Disclosure* below for reporting security vulnerabilities in Rugix.
+We take the security of Rugix and our users very seriously.
+If you have found a potential security vulnerability, please report it according to the process outlined in the *Responsible Disclosure* section below.
+Once a security vulnerability has been confirmed and fixed, we publish a *GitHub Security Advisory* describing the issue, the affected versions, and the necessary mitigations.
 
 
 ## Supported Versions
@@ -21,16 +24,17 @@ If you are using an unsupported version, please upgrade to the latest release se
 
 ## Responsible Disclosure
 
-If you believe you have found a vulnerability in Rugix or any related tooling, please send an email to **security@silitics.com**. The email should include a detailed technical description of the potential vulnerability such that we can validate it.
+If you have found a potentially vulnerability in Rugix or any related tooling and dependencies, please send an email to **security@silitics.com** OR use use [GitHub's responsible disclosure functionality](https://github.com/silitics/rugix/security/advisories/new).
+Please include a detailed technical description in your report, such that we can validate and asses the potential vulnerability.
 
 ### What to Expect
 
 - **Acknowledgement:** We will confirm receipt of your report within **3 business days**.
 - **Initial Assessment:** We aim to provide an initial assessment within **7 business days**.
-- **Coordinated Fix:** If the issue is validated, we will work with you on a coordinated disclosure timeline and keep you informed about progress.
+- **Coordinated Fix:** If the vulnerability is validated, we will work with you on a coordinated disclosure timeline and keep you informed about progress.
 - **Disclosure:** After a fix is released, we will publicly document the vulnerability, crediting you (if you wish) for the discovery.
 
-### Encrypted Disclosure
+### Encrypted Emails
 
 Consider encrypting your email using the following PGP key:
 
