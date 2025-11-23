@@ -16,6 +16,7 @@ use tracing_subscriber::EnvFilter;
 
 use crate::rate_limiter::RateLimiter;
 
+pub mod progress;
 pub mod style;
 pub mod widgets;
 

@@ -27,7 +27,6 @@ allow = [
     "Unicode-3.0",
     "CC0-1.0",
     "Zlib",
-    "NCSA",
     "CDLA-Permissive-2.0",
 ]
 confidence-threshold = 0.96
@@ -36,9 +35,7 @@ confidence-threshold = 0.96
 ignore = false
 
 [sources]
-allow-git = [
-    "git+https://github.com/silitics/sidex.git"
-]
+allow-git = ["git+https://github.com/silitics/sidex.git"]
 
 [bans]
 multiple-versions = "allow"

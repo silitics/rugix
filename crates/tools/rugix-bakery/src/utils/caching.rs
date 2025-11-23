@@ -5,8 +5,8 @@ use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use indicatif::{ProgressBar, ProgressStyle};
 use reportify::{bail, ResultExt};
+use rugix_cli::progress::ProgressBarSegment;
 use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};
 use tracing::info;
@@ -36,15 +36,11 @@ pub fn download(url: &Url) -> BakeryResult<PathBuf> {
             let Some(size) = response.content_length() else {
                 bail!("server did not send `Content-Length` header");
             };
-            let progress = ProgressBar::new(size).with_style(
-                ProgressStyle::with_template(
-                    "[{elapsed_precise}] {bar:40.cyan/blue} {bytes}/{total_bytes} [{bytes_per_sec}] {msg}",
-                )
-                .unwrap(),
-            );
+            let progress = ProgressBarSegment::new(size);
             let mut file =
                 fs::File::create(&cache_file_path).whatever("error creating hash file")?;
             let mut buffer = vec![0u8; 8096];
+            let mut downloaded_size = 0;
             loop {
                 let chunk_size = response
                     .read(&mut buffer)
@@ -52,7 +48,8 @@ pub fn download(url: &Url) -> BakeryResult<PathBuf> {
                 if chunk_size > 0 {
                     file.write_all(&buffer[..chunk_size])
                         .whatever("error writing to cache file")?;
-                    progress.inc(chunk_size as u64);
+                    downloaded_size += chunk_size as u64;
+                    progress.set_step(downloaded_size);
                 } else {
                     break;
                 }
