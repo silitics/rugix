@@ -40,10 +40,13 @@ jobs:
       CROSS_VERSION: "0.2.5"
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-tags: true
           fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
       - name: Install Cross
         run: |
           wget "https://github.com/cross-rs/cross/releases/download/v${{ env.CROSS_VERSION }}/cross-x86_64-unknown-linux-musl.tar.gz"
@@ -51,11 +54,20 @@ jobs:
       - name: Build Binaries
         run: |
           export RUGIX_GIT_VERSION=$(git describe --tags --always)
-          ./cross build --release --target ${{ matrix.target }}
+          ./cross build --frozen --release --target ${{ matrix.target }}
+      - name: Generate SBOMs
+        run: |
+          wget "https://github.com/CycloneDX/cyclonedx-rust-cargo/releases/download/cargo-cyclonedx-0.5.7/cargo-cyclonedx-x86_64-unknown-linux-musl.tar.xz"
+          tar -xvf cargo-cyclonedx-x86_64-unknown-linux-musl.tar.xz
+          mv cargo-cyclonedx-x86_64-unknown-linux-musl/cargo-cyclonedx /usr/local/bin/
+          cargo cyclonedx -f json --target ${{ matrix.target }}
       - name: Create Artifact
         run: |
           cd target/${{ matrix.target }}/release
-          tar -cf ../../../${{ matrix.target }}.tar rugix-*[!d] rugix-*[!d]
+          for binary in rugix-*[!d]; do
+            cp ../../../crates/apps/$binary/$binary.cdx.json $binary.cdx.json
+          done
+          tar -cf ../../../${{ matrix.target }}.tar rugix-*[!d] *.cdx.json
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
