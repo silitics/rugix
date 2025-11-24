@@ -6,6 +6,8 @@
 We take the security of Rugix and our users very seriously.
 If you have found a potential security vulnerability, please report it according to the process outlined in the *Responsible Disclosure* section below.
 Once a security vulnerability has been confirmed and fixed, we publish a *GitHub Security Advisory* describing the issue, the affected versions, and the necessary mitigations.
+For vulnerability monitoring and license compliance purposes, we distribute CycloneDX SBOMs with the pre-built binaries.
+If you are using Rugix in an enterprise setting, we recommend you add those to your internal vulnerability monitoring to get notifications about vulnerabilities within Rugix itself as well as any of its (transitive) dependencies.
 
 
 ## Supported Versions
