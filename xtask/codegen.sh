@@ -2,12 +2,12 @@
 
 set -euo pipefail
 
-pushd crates/tools/rugix-bakery
+pushd crates/apps/rugix-bakery
 sidex generate rust src/config/generated
 ./generate-json-schema.sh
 popd
 
-pushd crates/tools/rugix-ctrl
+pushd crates/apps/rugix-ctrl
 sidex generate rust src/config/generated
 ./generate-json-schema.sh
 popd
