@@ -215,12 +215,6 @@ pub fn make_system(
         .write(&image_file)
         .whatever("error writing image partition table")?;
 
-    // Copy bootloader area for Armbian
-    if let (Some(_), Some(bootloader_file)) = (bootloader_offset, source_image.as_ref()) {
-        info!("Copying bootloader area from saved file.");
-        copy_bootloader_area(bootloader_file, &image_file, table.ty())?;
-    }
-
     let table =
         PartitionTable::read(&image_file).whatever("error reading image partition table")?;
 
@@ -421,6 +415,12 @@ pub fn make_system(
         &serde_json::to_string_pretty(&system_info).unwrap(),
     )
     .whatever("unable to write `system-build-info.json`")?;
+
+    // Copy bootloader area for Armbian
+    if let (Some(_), Some(bootloader_file)) = (bootloader_offset, source_image.as_ref()) {
+        info!("Copying bootloader area from saved file.");
+        copy_bootloader_area(bootloader_file, &image_file, table.ty())?;
+    }
 
     Ok(())
 }
