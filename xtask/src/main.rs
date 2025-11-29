@@ -117,7 +117,9 @@ fn main() -> anyhow::Result<()> {
         Task::Build => {
             build_binaries("aarch64-unknown-linux-musl")?;
             build_binaries("x86_64-unknown-linux-musl")?;
+            build_binaries("armv7-unknown-linux-musleabihf")?;
             build_binaries("arm-unknown-linux-musleabihf")?;
+            build_binaries("arm-unknown-linux-musleabi")?;
             build_image()?;
         }
     }

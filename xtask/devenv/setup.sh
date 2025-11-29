@@ -43,11 +43,16 @@ esac
 # Add `armhf` toolchain regardless of host architecture.
 apt-get install -y gcc-arm-linux-gnueabihf libc6-dev-armhf-cross
 
+# Add `armel` toolchain regardless of host architecture.
+apt-get install -y gcc-arm-linux-gnueabi libc6-dev-armel-cross
+
 apt-get install -y musl-tools clang pkg-config docker.io
 
 apt-get -y clean && rm -rf /var/lib/apt/lists/*
 
 rustup target add arm-unknown-linux-musleabihf
+rustup target add armv7-unknown-linux-musleabihf
+rustup target add arm-unknown-linux-musleabi
 rustup target add aarch64-unknown-linux-musl
 rustup target add aarch64-unknown-linux-gnu
 rustup target add x86_64-unknown-linux-musl
