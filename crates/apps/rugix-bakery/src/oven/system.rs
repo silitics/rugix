@@ -649,15 +649,27 @@ fn copy_bootloader_area(
     
     match table_type {
         PartitionTableType::Mbr => {
-            // Write bootloader starting at sector 1 (after MBR)
+            // Copy sector 0 boot code (0-445)
+            let mut boot_code = [0u8; 446];
+            src.read_exact(&mut boot_code)
+                .whatever("unable to read MBR boot code from bootloader file")?;
+
+            dst.seek(std::io::SeekFrom::Start(0))
+                .whatever("unable to seek to start of destination image")?;
+            dst.write_all(&boot_code)
+                .whatever("unable to write MBR boot code")?;
+
+            // Skip partition table (446-511) and copy the rest
+            src.seek(std::io::SeekFrom::Start(512))
+                .whatever("unable to seek in bootloader file")?;
             dst.seek(std::io::SeekFrom::Start(512))
                 .whatever("unable to seek in destination image")?;
-            
+
             let mut buffer = Vec::new();
             src.read_to_end(&mut buffer)
-                .whatever("unable to read bootloader file")?;
+                .whatever("unable to read remaining bootloader data")?;
             dst.write_all(&buffer)
-                .whatever("unable to write bootloader")?;
+                .whatever("unable to write remaining bootloader data")?;
         }
         PartitionTableType::Gpt => {
             // Write bootloader starting at sector 34 (after GPT headers)

@@ -164,9 +164,9 @@ fn save_bootloader_area(image_path: &Path, temp_dir_path: &Path) -> BakeryResult
         
         match partition_table.ty() {
             rugix_common::disk::PartitionTableType::Mbr => {
-                // Skip sector 0, copy rest
-                src.seek(std::io::SeekFrom::Start(512)).whatever("unable to seek")?;
-                let bytes_to_copy = (bootloader_offset.into_raw() * 512) - 512;
+                // Copy everything up to the first partition
+                src.seek(std::io::SeekFrom::Start(0)).whatever("unable to seek")?;
+                let bytes_to_copy = bootloader_offset.into_raw() * 512;
                 let mut buffer = vec![0u8; bytes_to_copy as usize];
                 src.read_exact(&mut buffer).whatever("unable to read bootloader")?;
                 dst.write_all(&buffer).whatever("unable to write bootloader")?;
