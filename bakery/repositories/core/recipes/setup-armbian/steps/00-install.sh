@@ -37,7 +37,7 @@ bootloader_variant="${RECIPE_PARAM_BOOTLOADER_VARIANT}"
 echo "[armbian-setup] Using bootloader variant: ${bootloader_variant}"
 
 # Create U-Boot script for first stage bootloader
-mkimage -C none -A arm -T script -d "${RECIPE_DIR}/files/first-stage.bootloader.sh" /boot/first-stage.boot.scr
+mkimage -C none -A arm -T script -d "${RECIPE_DIR}/files/${bootloader_variant}/first-stage.bootloader.sh" /boot/first-stage.boot.scr
 cp /boot/first-stage.boot.scr "/${BOOT_DIR}/first-stage.boot.scr"
 
 # Create U-Boot script for second stage bootloader
