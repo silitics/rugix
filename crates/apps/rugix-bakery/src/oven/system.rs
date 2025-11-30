@@ -649,8 +649,10 @@ fn copy_bootloader_area(
     
     match table_type {
         PartitionTableType::Mbr => {
-            // Copy sector 0 boot code (0-445)
-            let mut boot_code = [0u8; 446];
+            // Copy sector 0 boot code (0-440).
+            // We stop at 440 to preserve the MBR Disk Signature (440-444) and
+            // the partition table (446-510) which we just generated.
+            let mut boot_code = [0u8; 440];
             src.read_exact(&mut boot_code)
                 .whatever("unable to read MBR boot code from bootloader file")?;
 
