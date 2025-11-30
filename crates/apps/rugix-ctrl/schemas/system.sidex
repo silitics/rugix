@@ -76,6 +76,9 @@ variant BootFlowConfig {
     /// U-Boot boot flow.
     #[json(name="rpi-uboot")]
     RpiUboot,
+    /// Armbian U-Boot boot flow.
+    #[json(name="armbian-uboot")]
+    ArmbianUboot,
     /// Generic U-boot boot flow.
     #[json(name="uboot")]
     Uboot,

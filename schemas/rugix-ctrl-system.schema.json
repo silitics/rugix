@@ -549,6 +549,17 @@
           "type": "object",
           "properties": {
             "type": {
+              "const": "armbian-uboot"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
               "const": "uboot"
             }
           },

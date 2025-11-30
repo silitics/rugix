@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 use std::fs::{self, File};
-use std::io::Seek;
+use std::io::{Read, Seek, Write};
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 
@@ -18,12 +18,13 @@ use rugix_common::disk::{
 use rugix_common::fsutils::allocate_file;
 use rugix_common::utils::ascii_numbers;
 use rugix_common::utils::units::NumBytes;
-use rugix_common::{grub_patch_env, rpi_patch_boot};
+use rugix_common::{armbian_patch_boot, grub_patch_env, rpi_patch_boot};
 
 use crate::config::images::{Filesystem, ImageLayout};
 use crate::config::load_json;
 use crate::config::systems::{SystemConfig, Target};
 use crate::oven::targets;
+use crate::oven::targets::armbian_uboot::initialize_armbian_uboot;
 use crate::oven::targets::generic_grub_efi::initialize_grub;
 use crate::oven::targets::rpi_tryboot::initialize_tryboot;
 use crate::oven::targets::rpi_uboot::initialize_uboot;
@@ -126,7 +127,7 @@ pub fn make_system(
     info!("Generating SBOM");
     run!([
         "syft",
-        system_dir,
+        &system_dir,
         "--source-name",
         system_name,
         "--source-version",
@@ -156,6 +157,9 @@ pub fn make_system(
             }
             Target::GenericGrubEfi => {
                 initialize_grub(&config, &config_dir)?;
+            }
+            Target::ArmbianUboot => {
+                initialize_armbian_uboot(&layer_path, &config_dir)?;
             }
             Target::Unknown => { /* nothing to do */ }
         }
@@ -188,7 +192,13 @@ pub fn make_system(
     let image_file = out.join("system.img");
 
     info!("Computing partition table.");
-    let table = compute_partition_table(&layout, &layer_path.join("roots"))?;
+    
+    // For Armbian, we need to offset partitions to preserve bootloader area
+    let (table, bootloader_offset, source_image) = if matches!(config.target, Some(Target::ArmbianUboot)) {
+        compute_partition_table_with_offset(&layout, &layer_path)?
+    } else {
+        (compute_partition_table(&layout, &layer_path.join("roots"))?, None, None)
+    };
 
     let size_bytes = table.blocks_to_bytes(table.disk_size);
 
@@ -224,6 +234,35 @@ pub fn make_system(
             };
             info!("Patching boot configuration.");
             rpi_patch_boot(&boot_dir, disk_id).whatever("unable to patch boot configuration")?;
+        }
+        if matches!(target, Target::ArmbianUboot) {
+            let root_partuuid = match table.disk_id {
+                DiskId::Mbr(mbr_id) => {
+                    format!("PARTUUID={:08x}-05", mbr_id.into_raw())
+                }
+                DiskId::Gpt(_) => {
+                    let Some(gpt_id) = table.partitions[3].gpt_id else {
+                        bail!("unable to determine GPT partition ID");
+                    };
+                    format!("PARTUUID={gpt_id}")
+                }
+                _ => bail!("unsupported partition layout"),
+            };
+            let boot_partuuid = match table.disk_id {
+                DiskId::Mbr(mbr_id) => {
+                    format!("PARTUUID={:08x}-02", mbr_id.into_raw())
+                }
+                DiskId::Gpt(_) => {
+                    let Some(gpt_id) = table.partitions[1].gpt_id else {
+                        bail!("unable to determine boot partition GPT partition ID");
+                    };
+                    format!("PARTUUID={gpt_id}")
+                }
+                _ => bail!("unsupported partition layout"),
+            };
+            info!("Patching Armbian boot configuration.");
+            armbian_patch_boot(&boot_dir, &system_dir, root_partuuid, boot_partuuid)
+                .whatever("unable to patch Armbian boot configuration")?;
         }
         if matches!(target, Target::GenericGrubEfi) {
             let root_part = &table.partitions[3];
@@ -377,6 +416,12 @@ pub fn make_system(
     )
     .whatever("unable to write `system-build-info.json`")?;
 
+    // Copy bootloader area for Armbian
+    if let (Some(_), Some(bootloader_file)) = (bootloader_offset, source_image.as_ref()) {
+        info!("Copying bootloader area from saved file.");
+        copy_bootloader_area(bootloader_file, &image_file, table.ty())?;
+    }
+
     Ok(())
 }
 
@@ -406,6 +451,67 @@ const ALIGNMENT: NumBlocks = NumBlocks::from_raw(2048);
 /// Convert number of bytes to number of blocks.
 fn bytes_to_blocks(bytes: NumBytes) -> NumBlocks {
     NumBlocks::from_raw(bytes.into_raw().div_ceil(BLOCK_SIZE.into_raw()))
+}
+
+/// Compute the partition table with bootloader offset for Armbian images.
+fn compute_partition_table_with_offset(
+    layout: &ImageLayout,
+    layer_path: &Path,
+) -> BakeryResult<(PartitionTable, Option<NumBlocks>, Option<PathBuf>)> {
+    // Check for saved partition table type
+    let pt_dir = layer_path.join("roots/pt");
+    let mbr_bootloader = pt_dir.join("mbr");
+    let gpt_bootloader = pt_dir.join("gpt");
+    
+    let (bootloader_file, source_pt_type) = if mbr_bootloader.exists() {
+        (mbr_bootloader, PartitionTableType::Mbr)
+    } else if gpt_bootloader.exists() {
+        (gpt_bootloader, PartitionTableType::Gpt)
+    } else {
+        bail!("Armbian bootloader area not found in layer (expected roots/pt/mbr or roots/pt/gpt)");
+    };
+    
+    // Compute target partition table
+    let table = compute_partition_table(layout, &layer_path.join("roots"))?;
+    let target_pt_type = table.ty();
+    
+    // Check if partition table types match
+    if source_pt_type != target_pt_type {
+        bail!(
+            "Partition table type mismatch: source image uses {:?} but target layout requires {:?}. \
+            Cannot transplant bootloader across different partition table types.",
+            source_pt_type,
+            target_pt_type
+        );
+    }
+    
+    // Calculate offset from bootloader file size
+    let bootloader_size = fs::metadata(&bootloader_file)
+        .whatever("unable to get bootloader file size")?
+        .len();
+    let offset = match source_pt_type {
+        PartitionTableType::Mbr => {
+            // Add sector 0 back to the size
+            NumBlocks::from_raw((bootloader_size + 512) / 512)
+        }
+        PartitionTableType::Gpt => {
+            // Add sectors 0-33 back to the size
+            NumBlocks::from_raw((bootloader_size + (34 * 512)) / 512)
+        }
+    };
+    
+    info!("Using saved bootloader from {:?}, offset: {} blocks ({} MB)", 
+          bootloader_file, offset.into_raw(), offset.into_raw() / 2048);
+    
+    let mut table = table;
+    
+    // Shift all partitions by the bootloader offset
+    for partition in &mut table.partitions {
+        partition.start += offset;
+    }
+    table.disk_size += offset;
+    
+    Ok((table, Some(offset), Some(bootloader_file)))
 }
 
 /// Compute the partition table for an image based on the provided layout.
@@ -527,4 +633,58 @@ fn compute_fs_size(root: PathBuf) -> BakeryResult<NumBlocks> {
     // Add an overhead of 20% for filesystem metadata.
     size += NumBytes::from_raw(size.into_raw().div_ceil(5));
     Ok(bytes_to_blocks(size))
+}
+
+/// Copy bootloader area from source file to destination image.
+fn copy_bootloader_area(
+    bootloader_file: &Path,
+    dst_image: &Path,
+    table_type: PartitionTableType,
+) -> BakeryResult<()> {
+    let mut src = File::open(bootloader_file).whatever("unable to open bootloader file")?;
+    let mut dst = File::options()
+        .write(true)
+        .open(dst_image)
+        .whatever("unable to open destination image")?;
+    
+    match table_type {
+        PartitionTableType::Mbr => {
+            // Copy sector 0 boot code (0-440).
+            // We stop at 440 to preserve the MBR Disk Signature (440-444) and
+            // the partition table (446-510) which we just generated.
+            let mut boot_code = [0u8; 440];
+            src.read_exact(&mut boot_code)
+                .whatever("unable to read MBR boot code from bootloader file")?;
+
+            dst.seek(std::io::SeekFrom::Start(0))
+                .whatever("unable to seek to start of destination image")?;
+            dst.write_all(&boot_code)
+                .whatever("unable to write MBR boot code")?;
+
+            // Skip partition table (446-511) and copy the rest
+            src.seek(std::io::SeekFrom::Start(512))
+                .whatever("unable to seek in bootloader file")?;
+            dst.seek(std::io::SeekFrom::Start(512))
+                .whatever("unable to seek in destination image")?;
+
+            let mut buffer = Vec::new();
+            src.read_to_end(&mut buffer)
+                .whatever("unable to read remaining bootloader data")?;
+            dst.write_all(&buffer)
+                .whatever("unable to write remaining bootloader data")?;
+        }
+        PartitionTableType::Gpt => {
+            // Write bootloader starting at sector 34 (after GPT headers)
+            dst.seek(std::io::SeekFrom::Start(34 * 512))
+                .whatever("unable to seek in destination image")?;
+            
+            let mut buffer = Vec::new();
+            src.read_to_end(&mut buffer)
+                .whatever("unable to read bootloader file")?;
+            dst.write_all(&buffer)
+                .whatever("unable to write bootloader")?;
+        }
+    }
+    
+    Ok(())
 }

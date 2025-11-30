@@ -9,6 +9,7 @@ use reportify::{bail, whatever, ResultExt};
 use rugix_bundle::manifest::{self, BundleManifest, ChunkerAlgorithm};
 use rugix_common::loop_dev::LoopDevice;
 use rugix_common::mount::Mounted;
+use rugix_common::fsutils::copy_recursive;
 use system::ReleaseInfo;
 use tempfile::tempdir;
 use tracing::info;
@@ -135,6 +136,56 @@ impl<'p> LayerBakery<'p> {
     }
 }
 
+/// Save bootloader area from an image if present.
+fn save_bootloader_area(image_path: &Path, temp_dir_path: &Path) -> BakeryResult<()> {
+    use std::io::{Read as IoRead, Seek as IoSeek, Write as IoWrite};
+    
+    // Check for bootloader offset
+    let partition_table = rugix_common::disk::PartitionTable::read(image_path)
+        .whatever("unable to read partition table from source image")?;
+    let bootloader_offset = partition_table.partitions.first()
+        .map(|p| p.start)
+        .unwrap_or(rugix_common::disk::NumBlocks::from_raw(0));
+    
+    // Save bootloader area if offset > 0
+    if bootloader_offset.into_raw() > 0 {
+        info!("detected bootloader area at offset {} blocks", bootloader_offset.into_raw());
+        let pt_type = match partition_table.ty() {
+            rugix_common::disk::PartitionTableType::Mbr => "mbr",
+            rugix_common::disk::PartitionTableType::Gpt => "gpt",
+        };
+        let pt_dir = temp_dir_path.join("roots/pt");
+        fs::create_dir_all(&pt_dir).whatever("unable to create pt directory")?;
+        let bootloader_file = pt_dir.join(pt_type);
+        
+        // Extract bootloader area (excluding partition table sectors)
+        let mut src = fs::File::open(image_path).whatever("unable to open source image")?;
+        let mut dst = fs::File::create(&bootloader_file).whatever("unable to create bootloader file")?;
+        
+        match partition_table.ty() {
+            rugix_common::disk::PartitionTableType::Mbr => {
+                // Copy everything up to the first partition
+                src.seek(std::io::SeekFrom::Start(0)).whatever("unable to seek")?;
+                let bytes_to_copy = bootloader_offset.into_raw() * 512;
+                let mut buffer = vec![0u8; bytes_to_copy as usize];
+                src.read_exact(&mut buffer).whatever("unable to read bootloader")?;
+                dst.write_all(&buffer).whatever("unable to write bootloader")?;
+            }
+            rugix_common::disk::PartitionTableType::Gpt => {
+                // Skip sectors 0-33, copy rest
+                src.seek(std::io::SeekFrom::Start(34 * 512)).whatever("unable to seek")?;
+                let bytes_to_copy = (bootloader_offset.into_raw() * 512) - (34 * 512);
+                let mut buffer = vec![0u8; bytes_to_copy as usize];
+                src.read_exact(&mut buffer).whatever("unable to read bootloader")?;
+                dst.write_all(&buffer).whatever("unable to write bootloader")?;
+            }
+        }
+        info!("saved bootloader area to roots/pt/{}", pt_type);
+    }
+    
+    Ok(())
+}
+
 fn extract(project: &ProjectRef, image_url: &str, layer_path: &Path) -> BakeryResult<()> {
     let image_url = image_url
         .parse::<Url>()
@@ -182,11 +233,68 @@ fn extract(project: &ProjectRef, image_url: &str, layer_path: &Path) -> BakeryRe
             .whatever("unable to create layer tar file")?;
     } else {
         info!("creating `.tar` archive with system files");
-        let loop_dev = LoopDevice::attach(image_path).whatever("unable to setup loop device")?;
-        let _mounted_root = Mounted::mount(loop_dev.partition(2), &system_dir)
-            .whatever("unable to mount system partition")?;
-        let _mounted_boot = Mounted::mount(loop_dev.partition(1), temp_dir_path.join("roots/boot"))
-            .whatever("unable to mount boot partition")?;
+        let loop_dev = LoopDevice::attach(&image_path).whatever("unable to setup loop device")?;
+        
+        // Save bootloader area if present
+        save_bootloader_area(&image_path, temp_dir_path)?;
+        
+        // Count partitions to determine the layout
+        let partition_count = loop_dev.partition_count().whatever("unable to count partitions")?;
+        
+        // Declare mount variables outside match to keep them alive until after tar
+        let _mounted_root;
+        let _mounted_boot;
+        
+        match partition_count {
+            1 => {
+                // Single-partition image (e.g., Armbian) - unified layout
+                info!("detected single-partition image layout");
+                _mounted_root = Mounted::mount(loop_dev.partition(1), &system_dir)
+                    .whatever("unable to mount system partition")?;
+                
+                // Copy boot files from /boot to roots/boot
+                let boot_src = system_dir.join("boot");
+                if !boot_src.exists() {
+                    bail!("boot directory not found in single-partition image at {:?}", boot_src);
+                }
+                
+                // Check if boot directory is empty
+                let boot_entries = fs::read_dir(&boot_src)
+                    .whatever("unable to read boot directory")?
+                    .count();
+                if boot_entries == 0 {
+                    bail!("boot directory is empty at {:?}", boot_src);
+                }
+                
+                info!("copying boot files from /boot to roots/boot");
+                copy_recursive(&boot_src, &boot_dir)
+                    .whatever("unable to copy boot files")?;
+            }
+            2 => {
+                // Two-partition image (e.g., Raspberry Pi) - boot and system partitions
+                info!("detected two-partition image layout");
+                _mounted_root = Mounted::mount(loop_dev.partition(2), &system_dir)
+                    .whatever("unable to mount system partition")?;
+                _mounted_boot = Mounted::mount(loop_dev.partition(1), &boot_dir)
+                    .whatever("unable to mount boot partition")?;
+            }
+            _ => {
+                bail!(
+                    "unsupported partition layout: found {} partitions (expected 1 or 2)",
+                    partition_count
+                );
+            }
+        }
+        
+        // Verify that we have files to archive
+        let file_count = fs::read_dir(temp_dir_path)
+            .whatever("unable to read temporary directory")?
+            .filter_map(|e| e.ok())
+            .count();
+        if file_count == 0 {
+            bail!("no files extracted from image - temporary directory doesn't contain any files");
+        }
+        
         run!(["tar", "-c", "-f", &layer_path, "-C", temp_dir_path, "."])
             .whatever("unable to create layer tar file")?;
     }
@@ -235,6 +343,7 @@ pub fn bake_bundle(
         Target::GenericGrubEfi => efi_bundle_config(opts),
         Target::RpiTryboot => rpi_bundle_config(opts, is_gpt),
         Target::RpiUboot => rpi_bundle_config(opts, is_gpt),
+        Target::ArmbianUboot => rpi_bundle_config(opts, is_gpt),
         Target::Unknown => bail!("cannot bake bundles for unknown targets"),
     };
     std::fs::write(

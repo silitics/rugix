@@ -29,6 +29,20 @@ impl LoopDevice {
         path.into()
     }
 
+    /// Count the number of partitions available.
+    pub fn partition_count(&self) -> Result<usize, Report<LoopDeviceError>> {
+        let mut count = 0;
+        for i in 1..=16 {
+            let partition_path = self.partition(i);
+            if partition_path.exists() {
+                count = i;
+            } else {
+                break;
+            }
+        }
+        Ok(count)
+    }
+
     pub fn path(&self) -> &Path {
         &self.path
     }

@@ -26,8 +26,8 @@
     "rugix_bakery.foreign.NumBytes": {
       "$id": "rugix_bakery.foreign.NumBytes",
       "type": [
-        "number",
-        "string"
+        "string",
+        "number"
       ],
       "description": "Number of bytes."
     },
@@ -497,6 +497,7 @@
         "generic-grub-efi",
         "rpi-tryboot",
         "rpi-uboot",
+        "armbian-uboot",
         "unknown"
       ],
       "description": "Target."

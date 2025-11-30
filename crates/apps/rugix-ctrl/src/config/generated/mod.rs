@@ -3,9 +3,9 @@
 pub mod bootstrapping {
     #![doc = "Bootstrapping configuration.\n"]
     #[allow(unused)]
-    use :: serde as __serde;
+    use serde as __serde;
     #[allow(unused)]
-    use :: sidex_serde as __sidex_serde;
+    use sidex_serde as __sidex_serde;
     #[doc = ""]
     pub type NumBytes = byte_calc::NumBytes;
     #[doc = ""]
@@ -1788,9 +1788,9 @@ pub mod bootstrapping {
 pub mod events {
     #![doc = ""]
     #[allow(unused)]
-    use :: serde as __serde;
+    use serde as __serde;
     #[allow(unused)]
-    use :: sidex_serde as __sidex_serde;
+    use sidex_serde as __sidex_serde;
     #[doc = "Events emitted by CLI tools.\n"]
     #[derive(Clone, Debug)]
     pub enum Event {
@@ -2176,9 +2176,9 @@ pub mod events {
 pub mod output {
     #![doc = ""]
     #[allow(unused)]
-    use :: serde as __serde;
+    use serde as __serde;
     #[allow(unused)]
-    use :: sidex_serde as __sidex_serde;
+    use sidex_serde as __sidex_serde;
     #[doc = "Information about the system.\n"]
     #[derive(Clone, Debug)]
     pub struct SystemInfoOutput {
@@ -4244,9 +4244,9 @@ pub mod output {
 pub mod state {
     #![doc = "State management configuration.\n"]
     #[allow(unused)]
-    use :: serde as __serde;
+    use serde as __serde;
     #[allow(unused)]
-    use :: sidex_serde as __sidex_serde;
+    use sidex_serde as __sidex_serde;
     #[doc = "State management configuration.\n"]
     #[derive(Clone, Debug)]
     pub struct StateConfig {
@@ -5418,9 +5418,9 @@ pub mod state {
 pub mod system {
     #![doc = ""]
     #[allow(unused)]
-    use :: serde as __serde;
+    use serde as __serde;
     #[allow(unused)]
-    use :: sidex_serde as __sidex_serde;
+    use sidex_serde as __sidex_serde;
     #[doc = "System configuration.\n"]
     #[derive(Clone, Debug)]
     pub struct SystemConfig {
@@ -7685,6 +7685,8 @@ pub mod system {
         RpiTryboot,
         #[doc = "U-Boot boot flow.\n"]
         RpiUboot,
+        #[doc = "Armbian U-Boot boot flow.\n"]
+        ArmbianUboot,
         #[doc = "Generic U-boot boot flow.\n"]
         Uboot,
         #[doc = "Grub (EFI) boot flow.\n"]
@@ -7713,22 +7715,25 @@ pub mod system {
                     __serializer.serialize_internal_tag("type", "rpi-tryboot", 0u32)
                 }
                 Self::RpiUboot => __serializer.serialize_internal_tag("type", "rpi-uboot", 1u32),
-                Self::Uboot => __serializer.serialize_internal_tag("type", "uboot", 2u32),
-                Self::Grub => __serializer.serialize_internal_tag("type", "grub", 3u32),
+                Self::ArmbianUboot => {
+                    __serializer.serialize_internal_tag("type", "armbian-uboot", 2u32)
+                }
+                Self::Uboot => __serializer.serialize_internal_tag("type", "uboot", 3u32),
+                Self::Grub => __serializer.serialize_internal_tag("type", "grub", 4u32),
                 Self::RaucUboot(__value) => {
-                    __serializer.serialize_internally_tagged("type", "rauc-uboot", 4u32, __value)
+                    __serializer.serialize_internally_tagged("type", "rauc-uboot", 5u32, __value)
                 }
                 Self::RaucGrub(__value) => {
-                    __serializer.serialize_internally_tagged("type", "rauc-grub", 5u32, __value)
+                    __serializer.serialize_internally_tagged("type", "rauc-grub", 6u32, __value)
                 }
                 Self::MenderGrub(__value) => {
-                    __serializer.serialize_internally_tagged("type", "mender-grub", 6u32, __value)
+                    __serializer.serialize_internally_tagged("type", "mender-grub", 7u32, __value)
                 }
                 Self::MenderUboot(__value) => {
-                    __serializer.serialize_internally_tagged("type", "mender-uboot", 7u32, __value)
+                    __serializer.serialize_internally_tagged("type", "mender-uboot", 8u32, __value)
                 }
                 Self::Custom(__value) => {
-                    __serializer.serialize_internally_tagged("type", "custom", 8u32, __value)
+                    __serializer.serialize_internally_tagged("type", "custom", 9u32, __value)
                 }
             }
         }
@@ -7742,6 +7747,7 @@ pub mod system {
             const __IDENTIFIERS: &'static [&'static str] = &[
                 "rpi-tryboot",
                 "rpi-uboot",
+                "armbian-uboot",
                 "uboot",
                 "grub",
                 "rauc-uboot",
@@ -7751,7 +7757,7 @@ pub mod system {
                 "custom",
             ];
             #[doc(hidden)]
-            const __EXPECTING_IDENTIFIERS : & 'static str = "an identifier in [\"rpi-tryboot\", \"rpi-uboot\", \"uboot\", \"grub\", \"rauc-uboot\", \"rauc-grub\", \"mender-grub\", \"mender-uboot\", \"custom\"]" ;
+            const __EXPECTING_IDENTIFIERS : & 'static str = "an identifier in [\"rpi-tryboot\", \"rpi-uboot\", \"armbian-uboot\", \"uboot\", \"grub\", \"rauc-uboot\", \"rauc-grub\", \"mender-grub\", \"mender-uboot\", \"custom\"]" ;
             #[derive(:: core :: clone :: Clone, :: core :: marker :: Copy)]
             #[doc(hidden)]
             enum __Identifier {
@@ -7764,6 +7770,7 @@ pub mod system {
                 __Identifier6,
                 __Identifier7,
                 __Identifier8,
+                __Identifier9,
             }
             #[doc(hidden)]
             struct __IdentifierVisitor;
@@ -7789,6 +7796,7 @@ pub mod system {
                         6u64 => ::core::result::Result::Ok(__Identifier::__Identifier6),
                         7u64 => ::core::result::Result::Ok(__Identifier::__Identifier7),
                         8u64 => ::core::result::Result::Ok(__Identifier::__Identifier8),
+                        9u64 => ::core::result::Result::Ok(__Identifier::__Identifier9),
                         __variant => {
                             ::core::result::Result::Err(__serde::de::Error::invalid_value(
                                 __serde::de::Unexpected::Unsigned(__variant),
@@ -7804,13 +7812,14 @@ pub mod system {
                     match __value {
                         "rpi-tryboot" => ::core::result::Result::Ok(__Identifier::__Identifier0),
                         "rpi-uboot" => ::core::result::Result::Ok(__Identifier::__Identifier1),
-                        "uboot" => ::core::result::Result::Ok(__Identifier::__Identifier2),
-                        "grub" => ::core::result::Result::Ok(__Identifier::__Identifier3),
-                        "rauc-uboot" => ::core::result::Result::Ok(__Identifier::__Identifier4),
-                        "rauc-grub" => ::core::result::Result::Ok(__Identifier::__Identifier5),
-                        "mender-grub" => ::core::result::Result::Ok(__Identifier::__Identifier6),
-                        "mender-uboot" => ::core::result::Result::Ok(__Identifier::__Identifier7),
-                        "custom" => ::core::result::Result::Ok(__Identifier::__Identifier8),
+                        "armbian-uboot" => ::core::result::Result::Ok(__Identifier::__Identifier2),
+                        "uboot" => ::core::result::Result::Ok(__Identifier::__Identifier3),
+                        "grub" => ::core::result::Result::Ok(__Identifier::__Identifier4),
+                        "rauc-uboot" => ::core::result::Result::Ok(__Identifier::__Identifier5),
+                        "rauc-grub" => ::core::result::Result::Ok(__Identifier::__Identifier6),
+                        "mender-grub" => ::core::result::Result::Ok(__Identifier::__Identifier7),
+                        "mender-uboot" => ::core::result::Result::Ok(__Identifier::__Identifier8),
+                        "custom" => ::core::result::Result::Ok(__Identifier::__Identifier9),
                         __variant => ::core::result::Result::Err(
                             __serde::de::Error::unknown_variant(__variant, __IDENTIFIERS),
                         ),
@@ -7826,13 +7835,14 @@ pub mod system {
                     match __value {
                         b"rpi-tryboot" => ::core::result::Result::Ok(__Identifier::__Identifier0),
                         b"rpi-uboot" => ::core::result::Result::Ok(__Identifier::__Identifier1),
-                        b"uboot" => ::core::result::Result::Ok(__Identifier::__Identifier2),
-                        b"grub" => ::core::result::Result::Ok(__Identifier::__Identifier3),
-                        b"rauc-uboot" => ::core::result::Result::Ok(__Identifier::__Identifier4),
-                        b"rauc-grub" => ::core::result::Result::Ok(__Identifier::__Identifier5),
-                        b"mender-grub" => ::core::result::Result::Ok(__Identifier::__Identifier6),
-                        b"mender-uboot" => ::core::result::Result::Ok(__Identifier::__Identifier7),
-                        b"custom" => ::core::result::Result::Ok(__Identifier::__Identifier8),
+                        b"armbian-uboot" => ::core::result::Result::Ok(__Identifier::__Identifier2),
+                        b"uboot" => ::core::result::Result::Ok(__Identifier::__Identifier3),
+                        b"grub" => ::core::result::Result::Ok(__Identifier::__Identifier4),
+                        b"rauc-uboot" => ::core::result::Result::Ok(__Identifier::__Identifier5),
+                        b"rauc-grub" => ::core::result::Result::Ok(__Identifier::__Identifier6),
+                        b"mender-grub" => ::core::result::Result::Ok(__Identifier::__Identifier7),
+                        b"mender-uboot" => ::core::result::Result::Ok(__Identifier::__Identifier8),
+                        b"custom" => ::core::result::Result::Ok(__Identifier::__Identifier9),
                         __variant => {
                             ::core::result::Result::Err(__serde::de::Error::invalid_value(
                                 __serde::de::Unexpected::Bytes(__variant),
@@ -7858,6 +7868,7 @@ pub mod system {
             const __VARIANTS: &'static [&'static str] = &[
                 "rpi-tryboot",
                 "rpi-uboot",
+                "armbian-uboot",
                 "uboot",
                 "grub",
                 "rauc-uboot",
@@ -7879,38 +7890,41 @@ pub mod system {
                         ::core::result::Result::Ok(BootFlowConfig::RpiUboot)
                     }
                     __Identifier::__Identifier2 => {
+                        ::core::result::Result::Ok(BootFlowConfig::ArmbianUboot)
+                    }
+                    __Identifier::__Identifier3 => {
                         ::core::result::Result::Ok(BootFlowConfig::Uboot)
                     }
-                    __Identifier::__Identifier3 => ::core::result::Result::Ok(BootFlowConfig::Grub),
-                    __Identifier::__Identifier4 => {
+                    __Identifier::__Identifier4 => ::core::result::Result::Ok(BootFlowConfig::Grub),
+                    __Identifier::__Identifier5 => {
                         ::core::result::Result::Ok(BootFlowConfig::RaucUboot(
                             __tagged
                                 .deserialize_internally_tagged::<RaucBootFlowConfig, __D::Error>(
                                 )?,
                         ))
                     }
-                    __Identifier::__Identifier5 => {
+                    __Identifier::__Identifier6 => {
                         ::core::result::Result::Ok(BootFlowConfig::RaucGrub(
                             __tagged
                                 .deserialize_internally_tagged::<RaucBootFlowConfig, __D::Error>(
                                 )?,
                         ))
                     }
-                    __Identifier::__Identifier6 => {
+                    __Identifier::__Identifier7 => {
                         ::core::result::Result::Ok(BootFlowConfig::MenderGrub(
                             __tagged
                                 .deserialize_internally_tagged::<MenderBootFlowConfig, __D::Error>(
                                 )?,
                         ))
                     }
-                    __Identifier::__Identifier7 => {
+                    __Identifier::__Identifier8 => {
                         ::core::result::Result::Ok(BootFlowConfig::MenderUboot(
                             __tagged
                                 .deserialize_internally_tagged::<MenderBootFlowConfig, __D::Error>(
                                 )?,
                         ))
                     }
-                    __Identifier::__Identifier8 => {
+                    __Identifier::__Identifier9 => {
                         ::core::result::Result::Ok(BootFlowConfig::Custom(
                             __tagged
                                 .deserialize_internally_tagged::<CustomBootFlowConfig, __D::Error>(
@@ -7949,9 +7963,12 @@ pub mod system {
                                 ::core::result::Result::Ok(BootFlowConfig::RpiUboot)
                             }
                             __Identifier::__Identifier2 => {
-                                ::core::result::Result::Ok(BootFlowConfig::Uboot)
+                                ::core::result::Result::Ok(BootFlowConfig::ArmbianUboot)
                             }
                             __Identifier::__Identifier3 => {
+                                ::core::result::Result::Ok(BootFlowConfig::Uboot)
+                            }
+                            __Identifier::__Identifier4 => {
                                 ::core::result::Result::Ok(BootFlowConfig::Grub)
                             }
                             _ => Err(__E::invalid_value(
@@ -7979,37 +7996,41 @@ pub mod system {
                             }
                             (__Identifier::__Identifier2, __variant) => {
                                 __serde::de::VariantAccess::unit_variant(__variant)?;
-                                ::core::result::Result::Ok(BootFlowConfig::Uboot)
+                                ::core::result::Result::Ok(BootFlowConfig::ArmbianUboot)
                             }
                             (__Identifier::__Identifier3, __variant) => {
                                 __serde::de::VariantAccess::unit_variant(__variant)?;
-                                ::core::result::Result::Ok(BootFlowConfig::Grub)
+                                ::core::result::Result::Ok(BootFlowConfig::Uboot)
                             }
                             (__Identifier::__Identifier4, __variant) => {
-                                let __value = __serde::de::VariantAccess::newtype_variant::<
-                                    RaucBootFlowConfig,
-                                >(__variant)?;
-                                ::core::result::Result::Ok(BootFlowConfig::RaucUboot(__value))
+                                __serde::de::VariantAccess::unit_variant(__variant)?;
+                                ::core::result::Result::Ok(BootFlowConfig::Grub)
                             }
                             (__Identifier::__Identifier5, __variant) => {
                                 let __value = __serde::de::VariantAccess::newtype_variant::<
                                     RaucBootFlowConfig,
                                 >(__variant)?;
-                                ::core::result::Result::Ok(BootFlowConfig::RaucGrub(__value))
+                                ::core::result::Result::Ok(BootFlowConfig::RaucUboot(__value))
                             }
                             (__Identifier::__Identifier6, __variant) => {
                                 let __value = __serde::de::VariantAccess::newtype_variant::<
-                                    MenderBootFlowConfig,
+                                    RaucBootFlowConfig,
                                 >(__variant)?;
-                                ::core::result::Result::Ok(BootFlowConfig::MenderGrub(__value))
+                                ::core::result::Result::Ok(BootFlowConfig::RaucGrub(__value))
                             }
                             (__Identifier::__Identifier7, __variant) => {
                                 let __value = __serde::de::VariantAccess::newtype_variant::<
                                     MenderBootFlowConfig,
                                 >(__variant)?;
-                                ::core::result::Result::Ok(BootFlowConfig::MenderUboot(__value))
+                                ::core::result::Result::Ok(BootFlowConfig::MenderGrub(__value))
                             }
                             (__Identifier::__Identifier8, __variant) => {
+                                let __value = __serde::de::VariantAccess::newtype_variant::<
+                                    MenderBootFlowConfig,
+                                >(__variant)?;
+                                ::core::result::Result::Ok(BootFlowConfig::MenderUboot(__value))
+                            }
+                            (__Identifier::__Identifier9, __variant) => {
                                 let __value = __serde::de::VariantAccess::newtype_variant::<
                                     CustomBootFlowConfig,
                                 >(__variant)?;

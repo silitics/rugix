@@ -105,6 +105,9 @@ pub fn from_config(
             BootFlowConfig::RpiUboot => Box::new(RpiUboot {
                 inner: rugix_boot_flow(boot_entries)?,
             }),
+            BootFlowConfig::ArmbianUboot => Box::new(ArmbianUboot {
+                inner: rugix_boot_flow(boot_entries)?,
+            }),
             BootFlowConfig::Uboot => Box::new(Uboot {
                 inner: rugix_boot_flow(boot_entries)?,
             }),
@@ -346,6 +349,80 @@ impl BootFlow for RpiUboot {
 }
 
 #[derive(Debug)]
+struct ArmbianUboot {
+    inner: RugixBootFlow,
+}
+
+impl BootFlow for ArmbianUboot {
+    fn set_try_next(&self, system: &System, entry: BootGroupIdx) -> BootFlowResult<()> {
+        if entry != self.get_default(system)? {
+            crate::boot::uboot::set_spare_flag(system)?;
+        } else {
+            crate::boot::uboot::clear_spare_flag(system)?;
+        }
+        Ok(())
+    }
+
+    fn commit(&self, system: &System) -> BootFlowResult<()> {
+        let config_partition = system
+            .require_config_partition()
+            .whatever("unable to get config partition")?;
+        config_partition
+            .ensure_writable(|| {
+                let mut bootpart_env = UBootEnv::new();
+                if system.active_boot_entry() == Some(self.inner.entry_a) {
+                    bootpart_env.set("bootpart", "2")
+                } else if system.active_boot_entry() == Some(self.inner.entry_b) {
+                    bootpart_env.set("bootpart", "3");
+                } else {
+                    panic!("should never happen");
+                };
+                let new_path = config_partition.path().join("bootpart.default.env.new");
+                bootpart_env
+                    .save(&new_path)
+                    .whatever("unable to save uboot environment")?;
+                File::open(&new_path)
+                    .whatever("unable to open uboot environment")?
+                    .sync_all()
+                    .whatever("unable to synchronize uboot environment")?;
+                std::fs::rename(
+                    new_path,
+                    config_partition.path().join("bootpart.default.env"),
+                )
+                .whatever("unable to copy over uboot environment")?;
+                Ok(())
+            })
+            .whatever("unable to make config partition writable")?
+    }
+
+    fn get_default(&self, system: &System) -> BootFlowResult<BootGroupIdx> {
+        let config_partition = system
+            .require_config_partition()
+            .whatever("unable to get config partition")?;
+        let bootpart_env = UBootEnv::load(config_partition.path().join("bootpart.default.env"))
+            .whatever("unable to load uboot environment")?;
+        let Some(bootpart) = bootpart_env.get("bootpart") else {
+            bail!("Invalid bootpart environment.");
+        };
+        if bootpart == "2" {
+            Ok(self.inner.entry_a)
+        } else if bootpart == "3" {
+            Ok(self.inner.entry_b)
+        } else {
+            bail!("Invalid default `bootpart`.");
+        }
+    }
+
+    fn post_install(&self, system: &System, entry: BootGroupIdx) -> BootFlowResult<()> {
+        armbian_post_install(&self.inner, system, entry)
+    }
+
+    fn name(&self) -> &str {
+        "armbian-uboot"
+    }
+}
+
+#[derive(Debug)]
 struct Uboot {
     inner: RugixBootFlow,
 }
@@ -443,6 +520,74 @@ fn tryboot_uboot_post_install(
         format!("PARTUUID={}", partition.gpt_id.unwrap())
     };
     rpi_patch_boot(temp_dir_spare, root).whatever("unable to patch boot partition")?;
+    Ok(())
+}
+
+fn armbian_post_install(
+    inner: &RugixBootFlow,
+    system: &System,
+    entry: BootGroupIdx,
+) -> BootFlowResult<()> {
+    let temp_dir_boot = tempdir().whatever("unable to create temporary directory for boot")?;
+    let temp_dir_system = tempdir().whatever("unable to create temporary directory for system")?;
+    let temp_dir_boot = temp_dir_boot.path();
+    let temp_dir_system = temp_dir_system.path();
+    
+    let (boot_slot, system_slot) = if entry == inner.entry_a {
+        (inner.boot_a, inner.system_a)
+    } else if entry == inner.entry_b {
+        (inner.boot_b, inner.system_b)
+    } else {
+        bail!("unknown entry");
+    };
+    
+    let boot_slot = &system.slots()[boot_slot];
+    let system_slot = &system.slots()[system_slot];
+    
+    let SlotKind::Block(boot_raw) = boot_slot.kind() else {
+        bail!("boot slot must be of type `block`")
+    };
+    let SlotKind::Block(system_raw) = system_slot.kind() else {
+        bail!("system slot must be of type `block`")
+    };
+    
+    let _mounted_boot = Mounted::mount(boot_raw.device(), temp_dir_boot)
+        .whatever("unable to mount boot device")?;
+    let _mounted_system = Mounted::mount(system_raw.device(), temp_dir_system)
+        .whatever("unable to mount system device")?;
+    
+    let Some(root) = &system.root else {
+        bail!("no parent block device");
+    };
+    let Some(table) = &root.table else {
+        bail!("no partition table");
+    };
+    
+    let (root_partuuid, boot_partuuid) = if table.is_mbr() {
+        let disk_id = get_disk_id(&root.device).whatever("unable to get root device disk id")?;
+        if entry == inner.entry_a {
+            (format!("PARTUUID={disk_id}-05"), format!("PARTUUID={disk_id}-02"))
+        } else {
+            (format!("PARTUUID={disk_id}-06"), format!("PARTUUID={disk_id}-03"))
+        }
+    } else {
+        let table =
+            PartitionTable::read(&root.device).whatever("unable to read partition table")?;
+        // Use partitions 4 (index 3) and 5 (index 4) for system, 2 (index 1) and 3 (index 2) for boot.
+        let system_partition = &table.partitions[if entry == inner.entry_a { 3 } else { 4 }];
+        let boot_partition = &table.partitions[if entry == inner.entry_a { 1 } else { 2 }];
+        (format!("PARTUUID={}", system_partition.gpt_id.unwrap()), 
+         format!("PARTUUID={}", boot_partition.gpt_id.unwrap()))
+    };
+    
+    rugix_common::armbian_patch_boot(
+        temp_dir_boot,
+        temp_dir_system,
+        root_partuuid,
+        boot_partuuid,
+    )
+    .whatever("unable to patch Armbian boot and system partitions")?;
+    
     Ok(())
 }
 

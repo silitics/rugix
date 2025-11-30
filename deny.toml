@@ -3,6 +3,8 @@ targets = [
     { triple = "x86_64-unknown-linux-gnu" },
     { triple = "arm-unknown-linux-musleabihf" },
     { triple = "aarch64-unknown-linux-musl" },
+    { triple = "armv7-unknown-linux-musleabihf" },
+    { triple = "arm-unknown-linux-musleabi" },
 ]
 all-features = true
 no-default-features = false
