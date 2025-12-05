@@ -219,7 +219,9 @@ impl BundleSource for HttpSource {
     }
 
     fn bytes_read(&self) -> Option<NumBytes> {
-        Some(NumBytes::new(self.bytes_read + self.bytes_skipped))
+        Some(NumBytes::new(
+            self.bytes_read + self.bytes_skipped + self.current_skipped,
+        ))
     }
 
     fn bytes_total(&self) -> Option<NumBytes> {
