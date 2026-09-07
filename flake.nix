@@ -13,6 +13,22 @@
       flake-utils,
     }:
     {
+      nixosModules.rugix = ./nix/modules/rugix.nix;
+
+      lib.mkBundle =
+        {
+          pkgs,
+          rugixBundler ? self.packages.${pkgs.stdenv.buildPlatform.system}.rugix-bundler,
+        }:
+        pkgs.callPackage ./nix/mk-bundle.nix { inherit rugixBundler; };
+
+      lib.mkComposeBundle =
+        {
+          pkgs,
+          rugixBundler ? self.packages.${pkgs.stdenv.buildPlatform.system}.rugix-bundler,
+        }:
+        pkgs.callPackage ./nix/mk-compose-bundle.nix { inherit rugixBundler; };
+
       overlays.default = final: _prev: {
         inherit (self.packages.${final.stdenv.hostPlatform.system})
           rugix-ctrl
@@ -49,7 +65,10 @@
             meta = {
               description = "Rugix system update tool: ${name}";
               homepage = "https://rugix.org";
-              license = with pkgs.lib.licenses; [ mit asl20 ];
+              license = with pkgs.lib.licenses; [
+                mit
+                asl20
+              ];
               mainProgram = name;
             };
           };
@@ -97,6 +116,16 @@
             rugix-bundler
             rugix-util
             ;
+        }
+        // pkgs.lib.optionalAttrs pkgs.stdenv.isLinux {
+          bundle = import ./nix/tests/bundle.nix {
+            inherit pkgs;
+            mkBundle = self.lib.mkBundle { inherit pkgs; };
+          };
+          compose-bundle = import ./nix/tests/compose-bundle.nix {
+            inherit pkgs;
+            mkComposeBundle = self.lib.mkComposeBundle { inherit pkgs; };
+          };
         };
       }
     );

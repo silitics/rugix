@@ -1,3 +1,8 @@
+//! Package Compose apps and their container images into self-contained Rugix bundles.
+//!
+//! [`pack`] resolves image sources, packages archives, and rewrites Compose services
+//! to use the bundled images.
+
 use std::fs::File;
 use std::fs::{self};
 use std::path::Path;
@@ -7,13 +12,18 @@ use std::process::Stdio;
 
 use reportify::bail;
 use reportify::ResultExt;
+use rugix_bundle::manifest::compose::ImageMetadata;
+use rugix_bundle::manifest::compose::ImageMetadataEntry;
+use rugix_bundle::manifest::compose::ImageOptions as RugixImageOptions;
+use rugix_bundle::manifest::compose::ImageSourceKind;
 use rugix_bundle::manifest::AppArchiveDeliveryConfig;
 use rugix_bundle::manifest::AppFileDeliveryConfig;
+use rugix_bundle::manifest::AppHealthCheckConfig;
+use rugix_bundle::manifest::AppManifest;
 use rugix_bundle::manifest::DeliveryConfig;
 use rugix_bundle::manifest::Payload;
 use rugix_bundle::BundleResult;
 use serde::Deserialize;
-use serde::Serialize;
 use tracing::info;
 
 use super::app_block_encoding;
@@ -32,6 +42,7 @@ use super::tar_append_metadata;
 ///   rewritten to Rugix-owned bundle-local image tags with `pull_policy: never`.
 /// - An `app-file` payload per Docker image, placed at `images/image-N.tar` inside the
 ///   generation directory.
+#[tracing::instrument(skip_all, fields(app = %cmd.app))]
 pub fn pack(cmd: &crate::PackDockerComposeCmd) -> BundleResult<()> {
     rugix_bundle::manifest::validate_app_name(&cmd.app)?;
     let bundle_dir = tempfile::TempDir::new().whatever("unable to create temp directory")?;
@@ -65,8 +76,6 @@ pub fn pack(cmd: &crate::PackDockerComposeCmd) -> BundleResult<()> {
         let archive_file = File::create(&archive_path).whatever("unable to create base.tar")?;
         let mut archive = tar::Builder::new(archive_file);
         let manifest = {
-            use rugix_bundle::manifest::AppHealthCheckConfig;
-            use rugix_bundle::manifest::AppManifest;
             let mut m = AppManifest::new("docker-compose".to_owned());
             if let Some(timeout) = cmd.health_check_timeout {
                 m = m.with_health_check(Some(
@@ -114,27 +123,6 @@ pub fn pack(cmd: &crate::PackDockerComposeCmd) -> BundleResult<()> {
     finalize_bundle(bundle_dir.path(), &cmd.output, &cmd.app, payloads)
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "kebab-case")]
-enum ImageSourceKind {
-    Registry,
-    Build,
-    ContainersStorage,
-    DockerDaemon,
-}
-
-impl ImageSourceKind {
-    fn parse(value: &str) -> BundleResult<Self> {
-        match value {
-            "registry" => Ok(Self::Registry),
-            "containers-storage" | "containers_storage" => Ok(Self::ContainersStorage),
-            "docker-daemon" | "docker_daemon" => Ok(Self::DockerDaemon),
-            "build" => bail!("Compose builds are inferred from service `build:` entries"),
-            _ => bail!("unsupported Rugix image source `{value}`"),
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 struct PlannedImage {
     service: String,
@@ -157,37 +145,6 @@ struct BuildConfig {
     args: Vec<String>,
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct ImageMetadata {
-    schema_version: u32,
-    images: Vec<ImageMetadataEntry>,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct ImageMetadataEntry {
-    service: String,
-    source: ImageSourceKind,
-    source_ref: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    original_image: Option<String>,
-    bundle_tag: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    source_digest: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    image_id: Option<String>,
-    payload: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    platform: Option<String>,
-}
-
-#[derive(Debug)]
-struct RugixImageOptions {
-    source: Option<ImageSourceKind>,
-    source_ref: Option<String>,
-}
-
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PodmanStoreInfo {
@@ -196,6 +153,8 @@ struct PodmanStoreInfo {
     run_root: String,
 }
 
+/// Export each planned image and record its packaged tag and provenance.
+#[tracing::instrument(level = "debug", skip_all, fields(image_count = images.len()))]
 fn package_images(
     images: &mut [PlannedImage],
     cmd: &crate::PackDockerComposeCmd,
@@ -216,6 +175,23 @@ fn package_images(
                 let bundle_tag =
                     packaged_image_tag(&cmd.app, index, 'm', &digest, image, cmd.disable_pinning);
                 let source = format!("docker://{repository}@{digest}");
+                skopeo_copy_to_docker_archive(
+                    &source,
+                    &output,
+                    &bundle_tag,
+                    cmd.platform.as_deref(),
+                )?;
+                image.bundle_tag = Some(bundle_tag);
+                image.source_digest = Some(digest);
+            }
+            ImageSourceKind::DockerArchive => {
+                if cmd.disable_pinning && image.original_image.is_none() {
+                    bail!("archive source requires a Compose image tag when pinning is disabled");
+                }
+                let source = format!("docker-archive:{}", image.source_ref);
+                let digest = inspect_image_digest(&source, cmd.platform.as_deref())?;
+                let bundle_tag =
+                    packaged_image_tag(&cmd.app, index, 'm', &digest, image, cmd.disable_pinning);
                 skopeo_copy_to_docker_archive(
                     &source,
                     &output,
@@ -306,10 +282,24 @@ fn plan_compose_images(
                 .as_ref()
                 .and_then(|options| options.source)
                 .unwrap_or(ImageSourceKind::Registry);
-            let source_ref = rugix_options
+            let archive_ref = rugix_options
                 .as_ref()
-                .and_then(|options| options.source_ref.clone())
-                .or_else(|| original_image.clone());
+                .and_then(|options| options.source_ref.clone());
+            let source_ref = if source == ImageSourceKind::DockerArchive {
+                let Some(path) = archive_ref else {
+                    bail!("service `{service_name}` requires x-rugix.image.ref for docker-archive");
+                };
+                if path.is_empty() || path.contains(':') {
+                    bail!("archive path for service `{service_name}` must be nonempty and contain no colon");
+                }
+                Some(
+                    resolve_compose_path(base_dir, &path)
+                        .to_string_lossy()
+                        .into_owned(),
+                )
+            } else {
+                archive_ref.or_else(|| original_image.clone())
+            };
             let Some(source_ref) = source_ref else {
                 bail!("service `{service_name}` needs an `image` or x-rugix.image.ref to bundle");
             };
@@ -440,25 +430,43 @@ fn resolve_registry_digest(image: &str, platform: Option<&str>) -> BundleResult<
         }
         return Ok((image_repository(repository).to_owned(), digest.to_owned()));
     }
-    let mut cmd = Command::new("skopeo");
-    cmd.args(["inspect", "--format", "{{.Digest}}"]);
-    add_platform_overrides(&mut cmd, platform);
-    cmd.arg(format!("docker://{image}"));
-    let digest = command_output(cmd, &format!("skopeo inspect {image}"))?;
-    if !digest.starts_with("sha256:") {
-        bail!("skopeo inspect did not return a valid digest for {image}: {digest}");
-    }
+    let digest = inspect_image_digest(&format!("docker://{image}"), platform)?;
     Ok((image_repository(image).to_owned(), digest))
 }
 
+/// Inspect a registry or archive manifest without requiring a container daemon.
+#[tracing::instrument(level = "debug", skip_all, fields(platform))]
+fn inspect_image_digest(source: &str, platform: Option<&str>) -> BundleResult<String> {
+    let mut cmd = skopeo_command();
+    cmd.args(["inspect", "--format", "{{.Digest}}"]);
+    add_platform_overrides(&mut cmd, platform);
+    cmd.arg(source);
+    let digest = command_output(cmd, &format!("skopeo inspect {source}"))?;
+    if !digest.starts_with("sha256:") {
+        bail!("skopeo inspect did not return a valid digest for {source}: {digest}");
+    }
+    Ok(digest)
+}
+
+/// Honor the caller's temporary directory, including Nix build sandboxes.
+fn skopeo_command() -> Command {
+    let mut cmd = Command::new("skopeo");
+    cmd.arg("--tmpdir").arg(std::env::temp_dir());
+    cmd
+}
+
+/// Export an image under the tag used by the packaged Compose service.
+#[tracing::instrument(level = "debug", skip_all, fields(platform))]
 fn skopeo_copy_to_docker_archive(
     source: &str,
     output: &Path,
     bundle_tag: &str,
     platform: Option<&str>,
 ) -> BundleResult<()> {
-    let mut cmd = Command::new("skopeo");
+    let mut cmd = skopeo_command();
     cmd.arg("copy");
+    // App pack commands reserve stdout for the bundle hash.
+    cmd.stdout(Stdio::from(std::io::stderr()));
     add_platform_overrides(&mut cmd, platform);
     cmd.arg(source);
     cmd.arg(format!("docker-archive:{}:{bundle_tag}", output.display()));
@@ -478,7 +486,7 @@ fn inspect_local_image_id(source: ImageSourceKind, image: &str) -> BundleResult<
             cmd.args(["image", "inspect", "--format", "{{.Id}}"]);
             cmd
         }
-        ImageSourceKind::Registry | ImageSourceKind::Build => {
+        ImageSourceKind::Registry | ImageSourceKind::Build | ImageSourceKind::DockerArchive => {
             bail!("cannot inspect local image id for {:?}", source)
         }
     };
@@ -494,7 +502,7 @@ fn local_skopeo_source_ref(source: ImageSourceKind, image: &str) -> BundleResult
     match source {
         ImageSourceKind::ContainersStorage => containers_storage_source_ref(image),
         ImageSourceKind::DockerDaemon => Ok(format!("docker-daemon:{image}")),
-        ImageSourceKind::Registry | ImageSourceKind::Build => {
+        ImageSourceKind::Registry | ImageSourceKind::Build | ImageSourceKind::DockerArchive => {
             bail!("image source {:?} is not a local image transport", source)
         }
     }
@@ -553,6 +561,18 @@ fn parse_build_config(
     }
 }
 
+/// Parse source names while preserving the existing underscore aliases.
+fn parse_image_source(value: &str) -> BundleResult<ImageSourceKind> {
+    match value {
+        "registry" => Ok(ImageSourceKind::Registry),
+        "containers-storage" | "containers_storage" => Ok(ImageSourceKind::ContainersStorage),
+        "docker-daemon" | "docker_daemon" => Ok(ImageSourceKind::DockerDaemon),
+        "docker-archive" => Ok(ImageSourceKind::DockerArchive),
+        "build" => bail!("Compose builds are inferred from service `build:` entries"),
+        _ => bail!("unsupported Rugix image source `{value}`"),
+    }
+}
+
 fn parse_x_rugix_options(
     service: &str,
     service_mapping: &serde_yaml_ng::Mapping,
@@ -573,7 +593,7 @@ fn parse_x_rugix_options(
         mapping_get(image, "source"),
         &format!("x-rugix.image.source for service `{service}`"),
     )?
-    .map(|source| ImageSourceKind::parse(&source))
+    .map(|source| parse_image_source(&source))
     .transpose()?;
     let source_ref = optional_yaml_string(
         mapping_get(image, "ref"),
@@ -823,6 +843,8 @@ fn yaml_scalar_to_string(value: &serde_yaml_ng::Value, context: &str) -> BundleR
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
+    use std::os::unix::fs::PermissionsExt;
     use std::sync::Mutex;
 
     static ENV_LOCK: Mutex<()> = Mutex::new(());
@@ -930,10 +952,39 @@ services:
         assert!(!rendered.contains("build:"));
     }
 
+    /// Archive sources require explicit paths and resolve them beside the Compose file.
+    #[test]
+    fn plans_archive_sources_and_rejects_missing_paths() {
+        let compose = load_test_compose(
+            r#"
+services:
+  worker:
+    image: example/worker:dev
+    x-rugix:
+      image:
+        source: docker-archive
+        ref: images/worker.tar
+"#,
+        );
+        let images = plan_compose_images(&compose, Path::new("/tmp/app/compose.yml"), "app")
+            .expect("archive source should be accepted");
+        assert_eq!(images[0].source, ImageSourceKind::DockerArchive);
+        assert_eq!(images[0].source_ref, "/tmp/app/images/worker.tar");
+        let missing_path = load_test_compose(
+            r#"
+services:
+  worker:
+    image: example/worker:dev
+    x-rugix:
+      image:
+        source: docker-archive
+"#,
+        );
+        assert!(plan_compose_images(&missing_path, Path::new("compose.yml"), "app").is_err());
+    }
+
     #[cfg(unix)]
     fn write_executable(path: &Path, content: &str) {
-        use std::os::unix::fs::PermissionsExt;
-
         fs::write(path, content).expect("fake tool should be written");
         let mut permissions = fs::metadata(path)
             .expect("fake tool metadata should be readable")
@@ -956,6 +1007,9 @@ set -euo pipefail
 if [[ "${1:-}" == "--version" ]]; then
     echo "skopeo version 0.0-test"
     exit 0
+fi
+if [[ "${1:-}" == "--tmpdir" ]]; then
+    shift 2
 fi
 if [[ "${1:-}" == "inspect" ]]; then
     echo "sha256:1111111111111111111111111111111111111111111111111111111111111111"

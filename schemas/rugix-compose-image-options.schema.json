@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "rugix_bundle.compose.ImageOptions",
+  "type": "object",
+  "description": "The `x-rugix.image` extension on a Compose service.",
+  "properties": {
+    "source": {
+      "$ref": "#/$defs/rugix_bundle.compose.ImageSourceKind"
+    },
+    "ref": {
+      "type": "string"
+    }
+  },
+  "required": [],
+  "unevaluatedProperties": false,
+  "$defs": {
+    "rugix_bundle.compose.ImageSourceKind": {
+      "$id": "rugix_bundle.compose.ImageSourceKind",
+      "enum": [
+        "registry",
+        "build",
+        "containers-storage",
+        "docker-daemon",
+        "docker-archive"
+      ],
+      "description": "Source of a container image during app bundling."
+    }
+  }
+}

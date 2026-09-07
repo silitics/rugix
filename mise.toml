@@ -42,6 +42,8 @@ mkdir -p generated && rm -rf generated/*
 sidex generate json-schema generated/
 
 cp generated/rugix_bundle.manifest.BundleManifest.schema.json ../../../schemas/rugix-bundle-manifest.schema.json
+cp generated/rugix_bundle.compose.ImageOptions.schema.json ../../../schemas/rugix-compose-image-options.schema.json
+cp generated/rugix_bundle.compose.ImageMetadata.schema.json ../../../schemas/rugix-compose-image-metadata.schema.json
 popd
 
 cargo fmt

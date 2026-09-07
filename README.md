@@ -126,6 +126,8 @@ nix run github:rugix/rugix#rugix-util -- --help
 Replace the flake reference with a tag or commit when a specific revision is required,
 for example `github:rugix/rugix/v0.8.17#rugix-ctrl`.
 
+See [Nix Integration](nix/README.md) for bundle helpers and the NixOS service module.
+
 ## Support
 
 This repository is covered by

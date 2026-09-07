@@ -1,3 +1,12 @@
+//! Bundle manifest types, Compose image contracts, and manifest validation.
+//!
+//! Reexports the generated manifest types and [`compose`] image options and metadata.
+//! [`validate_manifest_paths`] checks manifest paths and app names before use.
+
+use crate::BundleResult;
+use reportify::ResultExt;
+use rugix_common::path::ValidatedRelativePath;
+
 sidex::include_bundle! {
     #[allow(
         clippy::redundant_static_lifetimes,
@@ -8,11 +17,8 @@ sidex::include_bundle! {
     rugix_bundle as generated
 }
 
+pub use generated::compose;
 pub use generated::manifest::*;
-
-use crate::BundleResult;
-use reportify::ResultExt;
-use rugix_common::path::ValidatedRelativePath;
 
 /// Validate that an app name is safe for use in file paths, systemd unit names, and
 /// Docker project names.

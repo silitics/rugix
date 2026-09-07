@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "rugix_bundle.compose.ImageMetadata",
+  "type": "object",
+  "description": "Contents of `images/rugix-images.json` in an app generation.",
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "format": "uint32"
+    },
+    "images": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/rugix_bundle.compose.ImageMetadataEntry"
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "images"
+  ],
+  "unevaluatedProperties": false,
+  "$defs": {
+    "rugix_bundle.compose.ImageMetadataEntry": {
+      "$id": "rugix_bundle.compose.ImageMetadataEntry",
+      "type": "object",
+      "description": "Provenance and packaged reference of one service image.",
+      "properties": {
+        "service": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/rugix_bundle.compose.ImageSourceKind"
+        },
+        "sourceRef": {
+          "type": "string"
+        },
+        "originalImage": {
+          "type": "string"
+        },
+        "bundleTag": {
+          "type": "string"
+        },
+        "sourceDigest": {
+          "type": "string"
+        },
+        "imageId": {
+          "type": "string"
+        },
+        "payload": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "service",
+        "source",
+        "sourceRef",
+        "bundleTag",
+        "payload"
+      ],
+      "unevaluatedProperties": false
+    },
+    "rugix_bundle.compose.ImageSourceKind": {
+      "$id": "rugix_bundle.compose.ImageSourceKind",
+      "enum": [
+        "registry",
+        "build",
+        "containers-storage",
+        "docker-daemon",
+        "docker-archive"
+      ],
+      "description": "Source of a container image during app bundling."
+    }
+  }
+}

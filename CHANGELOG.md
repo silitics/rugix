@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+Nix integration:
+
+- Export `nixosModules.rugix` for Rugix Ctrl services, daemon configuration, and app recovery.
+- Export `lib.mkBundle` for packaging caller-supplied payloads with a Rugix bundle manifest.
+
+Rugix Bundler:
+
+- Add `docker-archive` Compose image sources for bundling prebuilt images without a registry or container daemon. Archive paths resolve relative to the Compose file, and normal content-based pinning applies.
+- Export `lib.mkComposeBundle` from the Nix flake to package Nix-built container images, Compose configuration, and app metadata.
+- Honor the caller's temporary directory when Skopeo stages container images, including inside Nix build sandboxes.
+
 Rugix Ctrl:
 
 - Add the `rugix.init.quiet` kernel command-line option to suppress routine early-boot output while retaining errors.

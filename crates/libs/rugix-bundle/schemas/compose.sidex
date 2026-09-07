@@ -1,0 +1,56 @@
+//! Docker Compose image sources and bundled-image metadata.
+
+/// Source of a container image during app bundling.
+#[json(tagged = externally, rename_all = "kebab-case")]
+#[rust(derive(Copy, PartialEq, Eq))]
+variant ImageSourceKind {
+    /// An image pulled from a container registry.
+    Registry,
+    /// Inferred from a Compose `build` entry.
+    Build,
+    /// An image in the local Podman container store.
+    ContainersStorage,
+    /// An image managed by the local Docker daemon.
+    DockerDaemon,
+    /// A Docker image archive, resolved relative to the Compose file.
+    DockerArchive,
+}
+
+/// The `x-rugix.image` extension on a Compose service.
+record ImageOptions {
+    /// Defaults to the registry when the service has no Compose build entry.
+    source?: ImageSourceKind,
+    /// Image reference, or archive path for `docker-archive` sources.
+    #[json(name = "ref")]
+    source_ref?: string,
+}
+
+/// Contents of `images/rugix-images.json` in an app generation.
+record ImageMetadata {
+    /// Metadata format version; currently 1.
+    schema_version: u32,
+    /// Images packaged for the Compose services.
+    images: [ImageMetadataEntry],
+}
+
+/// Provenance and packaged reference of one service image.
+record ImageMetadataEntry {
+    /// Compose service name.
+    service: string,
+    /// Transport or build mechanism used to obtain the image.
+    source: ImageSourceKind,
+    /// Resolved source reference, including the absolute path for an archive.
+    source_ref: string,
+    /// Image reference from the input Compose service, when provided.
+    original_image?: string,
+    /// Image tag used by the packaged Compose service.
+    bundle_tag: string,
+    /// Source manifest digest, when available.
+    source_digest?: string,
+    /// Local container image identifier, when available.
+    image_id?: string,
+    /// Image archive path relative to the app generation directory.
+    payload: string,
+    /// Requested target platform, such as `linux/arm64`.
+    platform?: string,
+}
