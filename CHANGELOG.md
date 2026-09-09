@@ -16,6 +16,11 @@ Rugix Bundler:
 Rugix Ctrl:
 
 - Add the `rugix.init.quiet` kernel command-line option to suppress routine early-boot output while retaining errors.
+- Add versioned JSON configuration for Rugix Apps, including optional JSON Schema validation, crash-safe application, and rollback of generation/configuration pairs.
+
+Rugix Bundler:
+
+- Add optional JSON Schema and default configuration files to app bundles, plus explicit JSON Pointer-to-environment projection for Docker Compose apps.
 
 ## Version 1.3.0
 

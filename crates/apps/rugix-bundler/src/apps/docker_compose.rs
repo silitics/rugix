@@ -3,6 +3,7 @@
 //! [`pack`] resolves image sources, packages archives, and rewrites Compose services
 //! to use the bundled images.
 
+use std::collections::BTreeMap;
 use std::fs::File;
 use std::fs::{self};
 use std::path::Path;
@@ -16,11 +17,14 @@ use rugix_bundle::manifest::compose::ImageMetadata;
 use rugix_bundle::manifest::compose::ImageMetadataEntry;
 use rugix_bundle::manifest::compose::ImageOptions as RugixImageOptions;
 use rugix_bundle::manifest::compose::ImageSourceKind;
+use rugix_bundle::manifest::is_valid_environment_variable_name;
+use rugix_bundle::manifest::is_valid_json_pointer;
 use rugix_bundle::manifest::AppArchiveDeliveryConfig;
 use rugix_bundle::manifest::AppFileDeliveryConfig;
 use rugix_bundle::manifest::AppHealthCheckConfig;
 use rugix_bundle::manifest::AppManifest;
 use rugix_bundle::manifest::DeliveryConfig;
+use rugix_bundle::manifest::DockerComposeConfig;
 use rugix_bundle::manifest::Payload;
 use rugix_bundle::BundleResult;
 use serde::Deserialize;
@@ -82,6 +86,13 @@ pub fn pack(cmd: &crate::PackDockerComposeCmd) -> BundleResult<()> {
                     AppHealthCheckConfig::new().with_timeout(Some(timeout)),
                 ));
             }
+            m = super::append_configuration(&mut archive, m, &cmd.configuration)?;
+            let environment = parse_configuration_environment(&cmd.configuration_environment)?;
+            if !environment.is_empty() {
+                m = m.with_docker_compose(Some(
+                    DockerComposeConfig::new().with_environment(Some(environment)),
+                ));
+            }
             m
         };
         tar_append_app_toml(&mut archive, &manifest)?;
@@ -123,6 +134,40 @@ pub fn pack(cmd: &crate::PackDockerComposeCmd) -> BundleResult<()> {
     finalize_bundle(bundle_dir.path(), &cmd.output, &cmd.app, payloads)
 }
 
+/// Parse Compose environment projections from `NAME=JSON_POINTER` arguments.
+fn parse_configuration_environment(mappings: &[String]) -> BundleResult<BTreeMap<String, String>> {
+    let mut environment = BTreeMap::new();
+    for mapping in mappings {
+        let Some((name, pointer)) = mapping.split_once('=') else {
+            bail!("configuration environment mapping must use NAME=JSON_POINTER syntax");
+        };
+        validate_environment_name(name)?;
+        if !is_valid_json_pointer(pointer) {
+            bail!("configuration environment mapping for {name} is not a JSON Pointer");
+        }
+        if environment
+            .insert(name.to_owned(), pointer.to_owned())
+            .is_some()
+        {
+            bail!("duplicate configuration environment mapping for {name}");
+        }
+    }
+    Ok(environment)
+}
+
+/// Validate a Compose environment variable name.
+fn validate_environment_name(name: &str) -> BundleResult<()> {
+    if name.is_empty() {
+        bail!("configuration environment variable name must not be empty");
+    }
+    if name.starts_with("RUGIX_") {
+        bail!("configuration environment variable name {name:?} is reserved");
+    }
+    if !is_valid_environment_variable_name(name) {
+        bail!("invalid configuration environment variable name {name:?}");
+    }
+    Ok(())
+}
 #[derive(Debug, Clone)]
 struct PlannedImage {
     service: String,
@@ -983,6 +1028,29 @@ services:
         assert!(plan_compose_images(&missing_path, Path::new("compose.yml"), "app").is_err());
     }
 
+    /// Verifies configuration projections reject malformed and duplicate mappings.
+    #[test]
+    fn configuration_environment_mappings_are_explicit_and_validated() {
+        let mappings = vec![
+            "ECHECKER_URL=/echeckerUrl".to_owned(),
+            "UI_PORT=/ui/port".to_owned(),
+        ];
+        let parsed = parse_configuration_environment(&mappings).unwrap();
+        assert_eq!(parsed.get("ECHECKER_URL").unwrap(), "/echeckerUrl");
+        assert_eq!(parsed.get("UI_PORT").unwrap(), "/ui/port");
+
+        assert!(parse_configuration_environment(&["MISSING_POINTER".to_owned()]).is_err());
+        assert!(parse_configuration_environment(&["RUGIX_APP_NAME=/name".to_owned()]).is_err());
+        assert!(parse_configuration_environment(&["INVALID=/not-a-pointer".to_owned()]).is_ok());
+        assert!(parse_configuration_environment(&["INVALID=not-a-pointer".to_owned()]).is_err());
+        assert!(parse_configuration_environment(&["INVALID=/bad~2escape".to_owned()]).is_err());
+        assert!(parse_configuration_environment(&[
+            "DUPLICATE=/first".to_owned(),
+            "DUPLICATE=/second".to_owned(),
+        ])
+        .is_err());
+    }
+
     #[cfg(unix)]
     fn write_executable(path: &Path, content: &str) {
         fs::write(path, content).expect("fake tool should be written");
@@ -1076,6 +1144,11 @@ services:
             includes: Vec::new(),
             components: Vec::new(),
             health_check_timeout: None,
+            configuration: crate::PackConfigurationArgs {
+                schema: None,
+                default: None,
+            },
+            configuration_environment: Vec::new(),
             metadata_file: None,
             compose_file: compose,
             output: output.clone(),

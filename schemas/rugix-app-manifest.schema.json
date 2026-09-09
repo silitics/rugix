@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "rugix_bundle.manifest.AppManifest",
+  "type": "object",
+  "description": "App manifest (`app.toml`) inside a generation directory.",
+  "properties": {
+    "orchestrator": {
+      "type": "string"
+    },
+    "health-check": {
+      "$ref": "#/$defs/rugix_bundle.manifest.AppHealthCheckConfig"
+    },
+    "configuration": {
+      "$ref": "#/$defs/rugix_bundle.manifest.AppConfigurationConfig"
+    },
+    "docker-compose": {
+      "$ref": "#/$defs/rugix_bundle.manifest.DockerComposeConfig"
+    }
+  },
+  "required": [
+    "orchestrator"
+  ],
+  "unevaluatedProperties": false,
+  "$defs": {
+    "rugix_bundle.manifest.AppConfigurationConfig": {
+      "$id": "rugix_bundle.manifest.AppConfigurationConfig",
+      "type": "object",
+      "description": "Application configuration files included in an app generation.",
+      "properties": {
+        "schema": {
+          "type": "string"
+        },
+        "default": {
+          "type": "string"
+        }
+      },
+      "required": [],
+      "unevaluatedProperties": false
+    },
+    "rugix_bundle.manifest.AppHealthCheckConfig": {
+      "$id": "rugix_bundle.manifest.AppHealthCheckConfig",
+      "type": "object",
+      "description": "Health check configuration for an app.",
+      "properties": {
+        "timeout": {
+          "type": "integer",
+          "format": "uint64"
+        }
+      },
+      "required": [],
+      "unevaluatedProperties": false
+    },
+    "rugix_bundle.manifest.DockerComposeConfig": {
+      "$id": "rugix_bundle.manifest.DockerComposeConfig",
+      "type": "object",
+      "description": "Docker Compose-specific orchestration configuration.",
+      "properties": {
+        "environment": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [],
+      "unevaluatedProperties": false
+    }
+  }
+}

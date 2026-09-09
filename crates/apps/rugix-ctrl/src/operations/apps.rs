@@ -14,7 +14,9 @@ use super::EventSink;
 use super::NoEvent;
 use super::Operation;
 use crate::apps::manager::AppManager;
+use crate::config::apps::AppConfiguration;
 use crate::config::apps::AppState;
+use crate::config::output::AppConfigurationSetOutput;
 use crate::config::output::AppGcAppOutput;
 use crate::config::output::AppInfoOutput;
 use crate::config::output::AppListEntryOutput;
@@ -45,6 +47,93 @@ impl Operation for ListApps {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QueryApp {
     pub(crate) name: String,
+}
+
+/// Query the effective JSON configuration of an installed application.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueryAppConfiguration {
+    pub(crate) name: String,
+}
+
+impl Operation for QueryAppConfiguration {
+    type Input = ();
+    type Event = NoEvent;
+    type Output = Option<AppConfiguration>;
+
+    fn execute(
+        self,
+        context: &ExecutionContext<'_>,
+        _input: Self::Input,
+        _events: &mut dyn EventSink<Self::Event>,
+    ) -> SystemResult<Self::Output> {
+        context.with_app_manager(|manager| {
+            let _lock = manager
+                .lock_app(&self.name)
+                .whatever("unable to lock app")?;
+            manager
+                .read_configuration(&self.name)
+                .whatever("unable to read app configuration")
+        })
+    }
+}
+
+/// Query the JSON Schema declared by an installed application's active or latest
+/// generation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueryAppConfigurationSchema {
+    pub(crate) name: String,
+}
+
+impl Operation for QueryAppConfigurationSchema {
+    type Input = ();
+    type Event = NoEvent;
+    type Output = Option<AppConfiguration>;
+
+    fn execute(
+        self,
+        context: &ExecutionContext<'_>,
+        _input: Self::Input,
+        _events: &mut dyn EventSink<Self::Event>,
+    ) -> SystemResult<Self::Output> {
+        context.with_app_manager(|manager| {
+            let _lock = manager
+                .lock_app(&self.name)
+                .whatever("unable to lock app")?;
+            manager
+                .read_configuration_schema(&self.name)
+                .whatever("unable to read app configuration schema")
+        })
+    }
+}
+
+/// Set and apply a new JSON configuration revision for an installed application.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SetAppConfiguration {
+    pub(crate) name: String,
+    pub(crate) configuration: AppConfiguration,
+}
+
+impl Operation for SetAppConfiguration {
+    type Input = ();
+    type Event = NoEvent;
+    type Output = AppConfigurationSetOutput;
+
+    fn execute(
+        self,
+        context: &ExecutionContext<'_>,
+        _input: Self::Input,
+        _events: &mut dyn EventSink<Self::Event>,
+    ) -> SystemResult<Self::Output> {
+        context.with_app_manager(|manager| {
+            let lock = manager
+                .lock_app(&self.name)
+                .whatever("unable to lock app")?;
+            let revision = manager
+                .set_configuration(&lock, &self.name, &self.configuration)
+                .whatever("unable to set app configuration")?;
+            Ok(AppConfigurationSetOutput::new(revision))
+        })
+    }
 }
 
 impl Operation for QueryApp {
@@ -300,6 +389,7 @@ fn query_app(manager: &AppManager, app: String) -> SystemResult<AppInfoOutput> {
                 Some(generation.meta.number) == current,
             )
             .with_last_activated(generation.meta.last_activated.clone())
+            .with_configuration_revision(generation.meta.configuration_revision)
             .with_metadata(metadata)
         })
         .collect();

@@ -1,5 +1,10 @@
+//! Persistent generation, lifecycle, rollback, and configuration management for Rugix
+//! Apps.
+
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fs;
+use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -8,6 +13,8 @@ use tracing::error;
 use tracing::info;
 use tracing::warn;
 
+use crate::config::apps::AppConfiguration;
+use crate::config::apps::AppConfigurationState;
 use crate::config::apps::AppGeneration;
 use crate::config::apps::AppState;
 use crate::config::apps::AppStateActive;
@@ -19,6 +26,7 @@ use crate::config::apps::AppsConfig;
 use crate::payload_db::PayloadState;
 
 use super::config;
+use super::configuration;
 use super::orchestrators;
 use super::orchestrators::AppContext;
 use super::orchestrators::AppStatus;
@@ -29,10 +37,6 @@ use rugix_bundle::manifest::AppManifest;
 ///
 /// The lock is released when this guard is dropped (via [`nix::fcntl::Flock`]).
 pub type AppLock = nix::fcntl::Flock<fs::File>;
-
-fn validate_app_name(app_name: &str) -> AppsResult<()> {
-    rugix_bundle::manifest::validate_app_name(app_name).whatever("invalid app name")
-}
 
 /// A generation with its completeness status resolved from the filesystem.
 pub struct ResolvedGeneration {
@@ -107,9 +111,26 @@ impl AppManager {
         self.app_dir(app_name).join("data")
     }
 
+    /// Path to the device-specific configuration revisions of an app.
+    fn configurations_dir(&self, app_name: &str) -> PathBuf {
+        self.app_dir(app_name).join("configurations")
+    }
+
+    /// Path to a device-specific configuration revision.
+    fn configuration_path(&self, app_name: &str, revision: u64) -> PathBuf {
+        self.configurations_dir(app_name)
+            .join(format!("{revision}.json"))
+    }
+
     /// Path to the state file of an app.
     fn state_path(&self, app_name: &str) -> PathBuf {
         self.app_dir(app_name).join(".rugix/state.json")
+    }
+
+    /// Path to the desired revision and revision-allocation state.
+    fn configuration_state_path(&self, app_name: &str) -> PathBuf {
+        self.app_dir(app_name)
+            .join(".rugix/configuration-state.json")
     }
 
     /// Write the state of an app.
@@ -133,13 +154,138 @@ impl AppManager {
         }
     }
 
+    /// Read configuration state, defaulting to an empty state if absent.
+    fn read_configuration_state(&self, app_name: &str) -> AppsResult<AppConfigurationState> {
+        let path = self.configuration_state_path(app_name);
+        match fs::read_to_string(&path) {
+            Ok(content) => {
+                serde_json::from_str(&content).whatever("unable to parse app configuration state")
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                Ok(AppConfigurationState::new())
+            }
+            Err(error) => Err(error).whatever("unable to read app configuration state"),
+        }
+    }
+
+    /// Persist configuration state atomically.
+    fn write_configuration_state(
+        &self,
+        app_name: &str,
+        state: &AppConfigurationState,
+    ) -> AppsResult<()> {
+        let content = serde_json::to_vec_pretty(state)
+            .whatever("unable to serialize app configuration state")?;
+        rugix_common::fsutils::atomic_write(&self.configuration_state_path(app_name), &content)
+            .whatever("unable to write app configuration state")
+    }
+
+    /// Read the desired device-specific configuration revision.
+    fn read_configuration_revision(&self, app_name: &str) -> AppsResult<Option<u64>> {
+        Ok(self.read_configuration_state(app_name)?.revision)
+    }
+
+    /// Persist the desired device-specific configuration revision.
+    fn write_configuration_revision(
+        &self,
+        app_name: &str,
+        revision: Option<u64>,
+    ) -> AppsResult<()> {
+        let state = self
+            .read_configuration_state(app_name)?
+            .with_revision(revision);
+        self.write_configuration_state(app_name, &state)
+    }
+
+    /// Return the effective application configuration.
+    pub fn read_configuration(&self, app_name: &str) -> AppsResult<Option<AppConfiguration>> {
+        validate_app_name(app_name)?;
+        let generation = self.configuration_generation(app_name)?;
+        let manifest = load_manifest(&generation)?;
+        let revision = self.read_configuration_revision(app_name)?;
+        let revision_path = revision.map(|revision| self.configuration_path(app_name, revision));
+        Ok(configuration::load_effective(&generation, &manifest, revision, revision_path)?.value)
+    }
+
+    /// Return the JSON Schema declared by the current app generation.
+    pub fn read_configuration_schema(
+        &self,
+        app_name: &str,
+    ) -> AppsResult<Option<AppConfiguration>> {
+        validate_app_name(app_name)?;
+        let generation = self.configuration_generation(app_name)?;
+        let manifest = load_manifest(&generation)?;
+        configuration::load_schema(&generation, &manifest)
+    }
+
+    /// Store and apply a new device-specific JSON configuration revision.
+    ///
+    /// The caller must hold the [`AppLock`] for this app.
+    #[tracing::instrument(level = "info", skip(self, _lock, value), fields(app = app_name))]
+    pub fn set_configuration(
+        &self,
+        _lock: &AppLock,
+        app_name: &str,
+        value: &AppConfiguration,
+    ) -> AppsResult<u64> {
+        validate_app_name(app_name)?;
+        let active = match self.read_state(app_name)? {
+            AppState::Inactive => None,
+            AppState::Active(state) => Some(AppDeployment::new(
+                state.generation,
+                state.configuration_revision,
+            )),
+            AppState::Starting(..)
+            | AppState::Stopping(..)
+            | AppState::Switching(..)
+            | AppState::Error(..) => {
+                reportify::bail!(
+                    "unable to set app configuration while lifecycle state requires recovery"
+                );
+            }
+        };
+        let generation_dir = self.configuration_generation(app_name)?;
+        let manifest = load_manifest(&generation_dir)?;
+        configuration::validate(&generation_dir, &manifest, value)?;
+
+        let revision = self.allocate_configuration_revision(app_name)?;
+        let path = self.configuration_path(app_name, revision);
+        let content = configuration::serialize(value)?;
+        let configurations_dir = self.configurations_dir(app_name);
+        fs::create_dir_all(&configurations_dir)
+            .whatever("unable to create app configurations directory")?;
+        fs::set_permissions(&configurations_dir, fs::Permissions::from_mode(0o700))
+            .whatever("unable to protect app configurations directory")?;
+        rugix_common::fsutils::atomic_write(&path, &content)
+            .whatever("unable to write app configuration revision")?;
+
+        match active {
+            Some(active) => {
+                let target = AppDeployment::new(active.generation, Some(revision));
+                self.do_switch(app_name, Some(active), Some(target), false)?;
+            }
+            None => self.write_configuration_revision(app_name, Some(revision))?,
+        }
+        Ok(revision)
+    }
+
     /// Check for and recover any interrupted transition for a single app.
     ///
     /// The caller must hold the [`AppLock`] for this app.
     pub fn recover_app(&self, _lock: &AppLock, app_name: &str) -> AppsResult<()> {
         validate_app_name(app_name)?;
         match self.read_state(app_name)? {
-            AppState::Switching(AppStateSwitching { from, to, recovery }) => {
+            AppState::Switching(AppStateSwitching {
+                from,
+                from_configuration_revision,
+                to,
+                to_configuration_revision,
+                recovery,
+            }) => {
+                let from = from
+                    .map(|generation| AppDeployment::new(generation, from_configuration_revision));
+                let to =
+                    to.map(|generation| AppDeployment::new(generation, to_configuration_revision));
                 if recovery.unwrap_or(false) {
                     warn!(
                         app = app_name,
@@ -152,35 +298,61 @@ impl AppManager {
                 }
                 self.do_switch(app_name, from, to, true)?;
             }
-            AppState::Starting(AppStateStarting { generation }) => {
+            AppState::Starting(AppStateStarting {
+                generation,
+                configuration_revision,
+            }) => {
                 info!(app = app_name, generation, "recovering interrupted start");
-                if let Err(e) = self.run_start(app_name, generation, true) {
+                let deployment = AppDeployment::new(generation, configuration_revision);
+                if let Err(e) = self.run_start(app_name, deployment, true) {
                     warn!(app = app_name, generation, "start recovery failed: {e:?}");
                 }
-                self.write_state(app_name, &AppState::Active(AppStateActive::new(generation)))?;
+                self.write_active_state(app_name, deployment)?;
             }
-            AppState::Stopping(AppStateStopping { generation }) => {
+            AppState::Stopping(AppStateStopping {
+                generation,
+                configuration_revision,
+            }) => {
                 info!(app = app_name, generation, "recovering interrupted stop");
-                if let Err(e) = self.run_stop(app_name, generation, true) {
+                let deployment = AppDeployment::new(generation, configuration_revision);
+                if let Err(e) = self.run_stop(app_name, deployment, true) {
                     warn!(app = app_name, generation, "stop recovery failed: {e:?}");
                 }
-                self.write_state(app_name, &AppState::Active(AppStateActive::new(generation)))?;
+                self.write_active_state(app_name, deployment)?;
             }
-            AppState::Error(AppStateError { from, to, message }) => {
+            AppState::Error(AppStateError {
+                from,
+                from_configuration_revision,
+                to,
+                to_configuration_revision,
+                message,
+            }) => {
                 // Try to recover by activating the previously working generation first. If there
                 // was none, or if that also fails, try the generation that originally failed. The
                 // underlying issue may have been transient.
-                let target = from.unwrap_or(to);
+                let target = match from {
+                    Some(generation) => AppDeployment::new(generation, from_configuration_revision),
+                    None => AppDeployment::new(to, to_configuration_revision),
+                };
                 info!(
                     app = app_name,
-                    from, to, target, message, "recovering from error state"
+                    from,
+                    to,
+                    target = target.generation,
+                    message,
+                    "recovering from error state"
                 );
                 if let Err(e) = self.run_activate(app_name, target, true) {
-                    warn!(app = app_name, target, "recovery activation failed: {e:?}");
+                    warn!(
+                        app = app_name,
+                        target = target.generation,
+                        "recovery activation failed: {e:?}"
+                    );
                     // If we tried `from` and it failed, fall back to `to`.
                     if from.is_some() {
                         info!(app = app_name, to, "falling back to failed generation");
-                        if let Err(e) = self.run_activate(app_name, to, true) {
+                        let target = AppDeployment::new(to, to_configuration_revision);
+                        if let Err(e) = self.run_activate(app_name, target, true) {
                             warn!(app = app_name, to, "fallback activation also failed: {e:?}");
                         }
                     }
@@ -343,13 +515,14 @@ impl AppManager {
     }
 
     /// Update the generation metadata to record the current time as `last_activated`.
-    fn mark_activated(gen_dir: &Path) -> AppsResult<()> {
+    fn mark_activated(gen_dir: &Path, configuration_revision: Option<u64>) -> AppsResult<()> {
         let meta_path = gen_dir.join(".rugix/generation.json");
         let content =
             fs::read_to_string(&meta_path).whatever("unable to read generation metadata")?;
         let mut gen: AppGeneration =
             serde_json::from_str(&content).whatever("unable to parse generation metadata")?;
         gen.last_activated = Some(jiff::Timestamp::now().to_string());
+        gen.configuration_revision = configuration_revision;
         let updated = serde_json::to_string_pretty(&gen)
             .whatever("unable to serialize generation metadata")?;
         rugix_common::fsutils::atomic_write(&meta_path, updated.as_bytes())
@@ -378,8 +551,10 @@ impl AppManager {
             reportify::bail!("generation is not complete (installation may have been interrupted)");
         }
 
-        let from = self.current_generation(app_name)?;
-        self.do_switch(app_name, from, Some(gen_number), false)
+        let target = AppDeployment::new(gen_number, self.read_configuration_revision(app_name)?);
+        self.resolve_configuration(app_name, target)?;
+        let from = self.current_deployment(app_name)?;
+        self.do_switch(app_name, from, Some(target), false)
     }
 
     /// Deactivate the current generation.
@@ -387,7 +562,7 @@ impl AppManager {
     /// The caller must hold the [`AppLock`] for this app.
     pub fn deactivate(&self, _lock: &AppLock, app_name: &str) -> AppsResult<()> {
         validate_app_name(app_name)?;
-        let Some(current) = self.current_generation(app_name)? else {
+        let Some(current) = self.current_deployment(app_name)? else {
             reportify::bail!("app {app_name} has no active generation");
         };
 
@@ -402,28 +577,30 @@ impl AppManager {
     fn do_switch(
         &self,
         app_name: &str,
-        from: Option<u64>,
-        to: Option<u64>,
+        from: Option<AppDeployment>,
+        to: Option<AppDeployment>,
         recovery: bool,
     ) -> AppsResult<()> {
-        self.write_state(
-            app_name,
-            &AppState::Switching(
-                AppStateSwitching::new()
-                    .with_from(from)
-                    .with_to(to)
-                    .with_recovery(Some(recovery)),
-            ),
-        )?;
+        let switching = AppStateSwitching::new()
+            .with_from(from.map(|deployment| deployment.generation))
+            .with_from_configuration_revision(
+                from.and_then(|deployment| deployment.configuration_revision),
+            )
+            .with_to(to.map(|deployment| deployment.generation))
+            .with_to_configuration_revision(
+                to.and_then(|deployment| deployment.configuration_revision),
+            )
+            .with_recovery(Some(recovery));
+        self.write_state(app_name, &AppState::Switching(switching))?;
 
-        if let Some(from_gen) = from {
-            if let Err(e) = self.run_deactivate(app_name, from_gen, recovery) {
+        if let Some(from_deployment) = from {
+            if let Err(e) = self.run_deactivate(app_name, from_deployment, recovery) {
                 if to.is_some() {
                     // We're switching to a new generation. Press on despite the deactivation
                     // failure so we don't leave nothing running.
                     warn!(
                         app = app_name,
-                        generation = from_gen,
+                        generation = from_deployment.generation,
                         "deactivation of old generation failed, continuing with activation: {e:?}"
                     );
                 } else {
@@ -433,61 +610,70 @@ impl AppManager {
             }
         }
 
-        let Some(to_gen) = to else {
+        let Some(to_deployment) = to else {
             // Pure deactivation, already done.
             self.write_state(app_name, &AppState::Inactive)?;
             info!(app = app_name, recovery, "generation deactivated");
             return Ok(());
         };
 
-        if let Err(err) = self.run_activate(app_name, to_gen, recovery) {
+        if let Err(err) = self.run_activate(app_name, to_deployment, recovery) {
             error!(
                 app = app_name,
-                generation = to_gen,
+                generation = to_deployment.generation,
                 "activation failed: {err:?}"
             );
             // Try to clean up any residual resources from the failed activation
             // (e.g. partially started containers) before attempting rollback.
-            if let Err(cleanup_err) = self.run_deactivate(app_name, to_gen, true) {
+            if let Err(cleanup_err) = self.run_deactivate(app_name, to_deployment, true) {
                 warn!(
                     app = app_name,
-                    generation = to_gen,
+                    generation = to_deployment.generation,
                     "failed to clean up after failed activation: {cleanup_err:?}"
                 );
             }
             // Attempt rollback to the previous generation.
-            if let Some(prev) = from {
-                let prev_dir = self.generation_dir_unchecked(app_name, prev);
+            if let Some(previous) = from {
+                let prev_dir = self.generation_dir_unchecked(app_name, previous.generation);
                 if prev_dir.exists() && Self::is_complete(&prev_dir) {
                     info!(
                         app = app_name,
-                        from = to_gen,
-                        to = prev,
+                        from = to_deployment.generation,
+                        to = previous.generation,
                         "rolling back to previous generation"
                     );
-                    if let Err(rollback_err) = self.run_activate(app_name, prev, true) {
+                    if let Err(rollback_err) = self.run_activate(app_name, previous, true) {
                         warn!(
                             app = app_name,
-                            generation = prev,
+                            generation = previous.generation,
                             "rollback also failed: {rollback_err:?}"
                         );
                         self.write_state(
                             app_name,
                             &AppState::Error(
                                 AppStateError::new(
-                                    to_gen,
+                                    to_deployment.generation,
                                     format!(
-                                        "activation failed and rollback to generation {prev} also failed"
+                                        "activation failed and rollback to generation {} also failed",
+                                        previous.generation
                                     ),
                                 )
-                                .with_from(Some(prev)),
+                                .with_from(Some(previous.generation))
+                                .with_from_configuration_revision(
+                                    previous.configuration_revision,
+                                )
+                                .with_to_configuration_revision(
+                                    to_deployment.configuration_revision,
+                                ),
                             ),
                         )?;
                         return Err(err);
                     }
                     // Rollback succeeded.
                     reportify::bail!(
-                        "activation of generation {to_gen} failed; successfully rolled back to generation {prev}: {err:?}"
+                        "activation of generation {} failed; successfully rolled back to generation {}: {err:?}",
+                        to_deployment.generation,
+                        previous.generation
                     );
                 }
             }
@@ -495,8 +681,15 @@ impl AppManager {
             self.write_state(
                 app_name,
                 &AppState::Error(
-                    AppStateError::new(to_gen, format!("activation failed: {err:?}"))
-                        .with_from(from),
+                    AppStateError::new(
+                        to_deployment.generation,
+                        format!("activation failed: {err:?}"),
+                    )
+                    .with_from(from.map(|deployment| deployment.generation))
+                    .with_from_configuration_revision(
+                        from.and_then(|deployment| deployment.configuration_revision),
+                    )
+                    .with_to_configuration_revision(to_deployment.configuration_revision),
                 ),
             )?;
             return Err(err);
@@ -506,9 +699,15 @@ impl AppManager {
     }
 
     /// Run the orchestrator's activate operation.
-    fn run_activate(&self, app_name: &str, gen_number: u64, recovery: bool) -> AppsResult<()> {
-        let gen_dir = self.generation_dir_unchecked(app_name, gen_number);
+    fn run_activate(
+        &self,
+        app_name: &str,
+        deployment: AppDeployment,
+        recovery: bool,
+    ) -> AppsResult<()> {
+        let gen_dir = self.generation_dir_unchecked(app_name, deployment.generation);
         let manifest = load_manifest(&gen_dir)?;
+        let configuration = self.resolve_configuration(app_name, deployment)?;
         let orchestrator = orchestrators::get(manifest.orchestrator.as_str())?;
         let app_dir = self.app_dir(app_name);
         let data_dir = self.data_dir(app_name);
@@ -517,6 +716,8 @@ impl AppManager {
             app_dir: &app_dir,
             generation_dir: &gen_dir,
             data_dir: &data_dir,
+            configuration_path: configuration.path.as_deref(),
+            configuration: configuration.value.as_ref(),
             recovery,
             service_manager: &self.service_manager,
             manifest: &manifest,
@@ -526,12 +727,13 @@ impl AppManager {
             .activate(&ctx)
             .whatever("orchestrator activation failed")?;
 
-        Self::mark_activated(&gen_dir)?;
+        Self::mark_activated(&gen_dir, deployment.configuration_revision)?;
 
-        self.write_state(app_name, &AppState::Active(AppStateActive::new(gen_number)))?;
+        self.write_configuration_revision(app_name, deployment.configuration_revision)?;
+        self.write_active_state(app_name, deployment)?;
         info!(
             app = app_name,
-            generation = gen_number,
+            generation = deployment.generation,
             recovery,
             "generation activated"
         );
@@ -539,12 +741,18 @@ impl AppManager {
     }
 
     /// Run the orchestrator's deactivate operation for a specific generation.
-    fn run_deactivate(&self, app_name: &str, gen_number: u64, recovery: bool) -> AppsResult<()> {
-        let gen_dir = self.generation_dir_unchecked(app_name, gen_number);
+    fn run_deactivate(
+        &self,
+        app_name: &str,
+        deployment: AppDeployment,
+        recovery: bool,
+    ) -> AppsResult<()> {
+        let gen_dir = self.generation_dir_unchecked(app_name, deployment.generation);
         if !gen_dir.exists() {
             return Ok(());
         }
         let manifest = load_manifest(&gen_dir)?;
+        let configuration = self.resolve_configuration(app_name, deployment)?;
         let orchestrator = orchestrators::get(manifest.orchestrator.as_str())?;
         let app_dir = self.app_dir(app_name);
         let data_dir = self.data_dir(app_name);
@@ -553,6 +761,8 @@ impl AppManager {
             app_dir: &app_dir,
             generation_dir: &gen_dir,
             data_dir: &data_dir,
+            configuration_path: configuration.path.as_deref(),
+            configuration: configuration.value.as_ref(),
             recovery,
             service_manager: &self.service_manager,
             manifest: &manifest,
@@ -572,19 +782,27 @@ impl AppManager {
     /// The caller must hold the [`AppLock`] for this app.
     pub fn start_app(&self, _lock: &AppLock, app_name: &str) -> AppsResult<()> {
         validate_app_name(app_name)?;
-        let AppState::Active(AppStateActive { generation }) = self.read_state(app_name)? else {
+        let AppState::Active(AppStateActive {
+            generation,
+            configuration_revision,
+        }) = self.read_state(app_name)?
+        else {
             reportify::bail!("app {app_name} has no active generation");
         };
+        let deployment = AppDeployment::new(generation, configuration_revision);
 
         self.write_state(
             app_name,
-            &AppState::Starting(AppStateStarting::new(generation)),
+            &AppState::Starting(
+                AppStateStarting::new(generation)
+                    .with_configuration_revision(configuration_revision),
+            ),
         )?;
 
-        let result = self.run_start(app_name, generation, false);
+        let result = self.run_start(app_name, deployment, false);
 
         // Always transition back to Active regardless of outcome.
-        self.write_state(app_name, &AppState::Active(AppStateActive::new(generation)))?;
+        self.write_active_state(app_name, deployment)?;
 
         result.whatever("failed to start app workload")?;
         info!(app = app_name, "workload started");
@@ -599,19 +817,27 @@ impl AppManager {
     /// The caller must hold the [`AppLock`] for this app.
     pub fn stop_app(&self, _lock: &AppLock, app_name: &str) -> AppsResult<()> {
         validate_app_name(app_name)?;
-        let AppState::Active(AppStateActive { generation }) = self.read_state(app_name)? else {
+        let AppState::Active(AppStateActive {
+            generation,
+            configuration_revision,
+        }) = self.read_state(app_name)?
+        else {
             reportify::bail!("app {app_name} has no active generation");
         };
+        let deployment = AppDeployment::new(generation, configuration_revision);
 
         self.write_state(
             app_name,
-            &AppState::Stopping(AppStateStopping::new(generation)),
+            &AppState::Stopping(
+                AppStateStopping::new(generation)
+                    .with_configuration_revision(configuration_revision),
+            ),
         )?;
 
-        let result = self.run_stop(app_name, generation, false);
+        let result = self.run_stop(app_name, deployment, false);
 
         // Always transition back to Active regardless of outcome.
-        self.write_state(app_name, &AppState::Active(AppStateActive::new(generation)))?;
+        self.write_active_state(app_name, deployment)?;
 
         result.whatever("failed to stop app workload")?;
         info!(app = app_name, "workload stopped");
@@ -619,9 +845,15 @@ impl AppManager {
     }
 
     /// Run the orchestrator's start operation for a specific generation.
-    fn run_start(&self, app_name: &str, gen_number: u64, recovery: bool) -> AppsResult<()> {
-        let gen_dir = self.generation_dir_unchecked(app_name, gen_number);
+    fn run_start(
+        &self,
+        app_name: &str,
+        deployment: AppDeployment,
+        recovery: bool,
+    ) -> AppsResult<()> {
+        let gen_dir = self.generation_dir_unchecked(app_name, deployment.generation);
         let manifest = load_manifest(&gen_dir)?;
+        let configuration = self.resolve_configuration(app_name, deployment)?;
         let orchestrator = orchestrators::get(manifest.orchestrator.as_str())?;
         let app_dir = self.app_dir(app_name);
         let data_dir = self.data_dir(app_name);
@@ -630,6 +862,8 @@ impl AppManager {
             app_dir: &app_dir,
             generation_dir: &gen_dir,
             data_dir: &data_dir,
+            configuration_path: configuration.path.as_deref(),
+            configuration: configuration.value.as_ref(),
             recovery,
             service_manager: &self.service_manager,
             manifest: &manifest,
@@ -640,9 +874,15 @@ impl AppManager {
     }
 
     /// Run the orchestrator's stop operation for a specific generation.
-    fn run_stop(&self, app_name: &str, gen_number: u64, recovery: bool) -> AppsResult<()> {
-        let gen_dir = self.generation_dir_unchecked(app_name, gen_number);
+    fn run_stop(
+        &self,
+        app_name: &str,
+        deployment: AppDeployment,
+        recovery: bool,
+    ) -> AppsResult<()> {
+        let gen_dir = self.generation_dir_unchecked(app_name, deployment.generation);
         let manifest = load_manifest(&gen_dir)?;
+        let configuration = self.resolve_configuration(app_name, deployment)?;
         let orchestrator = orchestrators::get(manifest.orchestrator.as_str())?;
         let app_dir = self.app_dir(app_name);
         let data_dir = self.data_dir(app_name);
@@ -651,6 +891,8 @@ impl AppManager {
             app_dir: &app_dir,
             generation_dir: &gen_dir,
             data_dir: &data_dir,
+            configuration_path: configuration.path.as_deref(),
+            configuration: configuration.value.as_ref(),
             recovery,
             service_manager: &self.service_manager,
             manifest: &manifest,
@@ -661,10 +903,15 @@ impl AppManager {
     /// Get status of the currently active generation.
     pub fn app_status(&self, app_name: &str) -> AppsResult<AppStatus> {
         validate_app_name(app_name)?;
-        let Some(gen_dir) = self.resolve_current(app_name)? else {
+        let Some(deployment) = self.current_deployment(app_name)? else {
             return Ok(AppStatus::Stopped);
         };
+        let gen_dir = self.generation_dir_unchecked(app_name, deployment.generation);
+        if !gen_dir.exists() {
+            return Ok(AppStatus::Stopped);
+        }
         let manifest = load_manifest(&gen_dir)?;
+        let configuration = self.resolve_configuration(app_name, deployment)?;
         let orchestrator = orchestrators::get(manifest.orchestrator.as_str())?;
         let app_dir = self.app_dir(app_name);
         let data_dir = self.data_dir(app_name);
@@ -673,6 +920,8 @@ impl AppManager {
             app_dir: &app_dir,
             generation_dir: &gen_dir,
             data_dir: &data_dir,
+            configuration_path: configuration.path.as_deref(),
+            configuration: configuration.value.as_ref(),
             recovery: false,
             service_manager: &self.service_manager,
             manifest: &manifest,
@@ -743,12 +992,9 @@ impl AppManager {
     /// Get the currently active generation number, if any.
     pub fn current_generation(&self, app_name: &str) -> AppsResult<Option<u64>> {
         validate_app_name(app_name)?;
-        match self.read_state(app_name)? {
-            AppState::Active(AppStateActive { generation })
-            | AppState::Starting(AppStateStarting { generation })
-            | AppState::Stopping(AppStateStopping { generation }) => Ok(Some(generation)),
-            _ => Ok(None),
-        }
+        Ok(self
+            .current_deployment(app_name)?
+            .map(|deployment| deployment.generation))
     }
 
     /// Find the most recently activated generation (by `lastActivated` timestamp).
@@ -769,19 +1015,27 @@ impl AppManager {
 
     /// Find the generation that [`Self::rollback`] would activate.
     pub fn rollback_target_generation(&self, app_name: &str) -> AppsResult<u64> {
+        Ok(self.rollback_target_deployment(app_name)?.generation)
+    }
+
+    /// Find the generation and configuration pair restored by rollback.
+    fn rollback_target_deployment(&self, app_name: &str) -> AppsResult<AppDeployment> {
         validate_app_name(app_name)?;
         let Some(current) = self.current_generation(app_name)? else {
             reportify::bail!("no current generation to rollback from");
         };
         let generations = self.list_generations(app_name)?;
-        let Some(previous) = generations
-            .iter()
-            .rev()
-            .find(|g| g.meta.number < current && g.meta.last_activated.is_some())
-        else {
-            reportify::bail!("no previous activated generation to rollback to");
+        let Some(previous) = generations.iter().rev().find(|generation| {
+            generation.meta.number < current
+                && generation.meta.last_activated.is_some()
+                && generation.complete
+        }) else {
+            reportify::bail!("no previous complete activated generation to rollback to");
         };
-        Ok(previous.meta.number)
+        Ok(AppDeployment::new(
+            previous.meta.number,
+            previous.meta.configuration_revision,
+        ))
     }
 
     /// Rollback: deactivate the current generation and activate the most recent
@@ -789,17 +1043,18 @@ impl AppManager {
     /// The caller must hold the [`AppLock`] for this app.
     pub fn rollback(&self, _lock: &AppLock, app_name: &str) -> AppsResult<()> {
         validate_app_name(app_name)?;
-        let Some(current) = self.current_generation(app_name)? else {
+        let Some(current) = self.current_deployment(app_name)? else {
             reportify::bail!("no current generation to rollback from");
         };
-        let previous = self.rollback_target_generation(app_name)?;
+        let previous = self.rollback_target_deployment(app_name)?;
+        self.resolve_configuration(app_name, previous)?;
         info!(
             app = app_name,
-            from = current,
-            to = previous,
+            from = current.generation,
+            to = previous.generation,
             "rolling back"
         );
-        self.activate_generation(_lock, app_name, previous)
+        self.do_switch(app_name, Some(current), Some(previous), false)
     }
 
     /// Remove a generation directory.
@@ -824,14 +1079,20 @@ impl AppManager {
     /// The caller must hold the [`AppLock`] for this app.
     pub fn gc(&self, _lock: &AppLock, app_name: &str, keep: usize) -> AppsResult<Vec<u64>> {
         validate_app_name(app_name)?;
-        let current = self.current_generation(app_name)?;
+        let state = self.read_state(app_name)?;
+        let protected_generations = state_deployments(&state)
+            .into_iter()
+            .map(|deployment| deployment.generation)
+            .collect::<HashSet<_>>();
         let mut generations = self.list_generations(app_name)?;
         generations.sort_by_key(|g| g.meta.number);
         let mut removed = Vec::new();
 
         // Remove all never-activated generations.
         for gen in &generations {
-            if gen.meta.last_activated.is_none() {
+            if gen.meta.last_activated.is_none()
+                && !protected_generations.contains(&gen.meta.number)
+            {
                 if let Err(e) = self.remove_generation(app_name, gen.meta.number) {
                     info!(
                         generation = gen.meta.number,
@@ -846,7 +1107,10 @@ impl AppManager {
         // Among previously-activated generations, keep the most recent `keep`.
         let activated: Vec<_> = generations
             .iter()
-            .filter(|g| g.meta.last_activated.is_some() && Some(g.meta.number) != current)
+            .filter(|generation| {
+                generation.meta.last_activated.is_some()
+                    && !protected_generations.contains(&generation.meta.number)
+            })
             .collect();
         if activated.len() > keep {
             let to_remove = activated.len() - keep;
@@ -862,8 +1126,52 @@ impl AppManager {
             }
         }
 
+        self.garbage_collect_configuration_revisions(app_name)?;
         removed.sort();
         Ok(removed)
+    }
+
+    /// Remove configuration revisions that cannot be used by desired state or rollback.
+    fn garbage_collect_configuration_revisions(&self, app_name: &str) -> AppsResult<()> {
+        let configurations_dir = self.configurations_dir(app_name);
+        if !configurations_dir.exists() {
+            return Ok(());
+        }
+
+        let mut retained = HashSet::new();
+        retained.extend(self.read_configuration_revision(app_name)?);
+        for generation in self.list_generations(app_name)? {
+            retained.extend(generation.meta.configuration_revision);
+        }
+        for deployment in state_deployments(&self.read_state(app_name)?) {
+            retained.extend(deployment.configuration_revision);
+        }
+
+        for entry in fs::read_dir(&configurations_dir)
+            .whatever("unable to read app configurations directory")?
+        {
+            let entry = entry.whatever("unable to read app configuration entry")?;
+            let path = entry.path();
+            let Some(revision) = path
+                .file_stem()
+                .and_then(|stem| stem.to_str())
+                .and_then(|stem| stem.parse::<u64>().ok())
+                .filter(|_| {
+                    path.extension().and_then(|extension| extension.to_str()) == Some("json")
+                })
+            else {
+                continue;
+            };
+            if !retained.contains(&revision) {
+                if let Err(error) = fs::remove_file(&path) {
+                    warn!(
+                        app = app_name,
+                        revision, "failed to remove app configuration revision: {error}"
+                    );
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Remove an app entirely.
@@ -883,14 +1191,169 @@ impl AppManager {
         Ok(())
     }
 
-    /// Resolve the active generation directory from the persisted state.
-    fn resolve_current(&self, app_name: &str) -> AppsResult<Option<PathBuf>> {
-        let Some(gen) = self.current_generation(app_name)? else {
-            return Ok(None);
+    /// Resolve the active generation and configuration pair from lifecycle state.
+    fn current_deployment(&self, app_name: &str) -> AppsResult<Option<AppDeployment>> {
+        let deployment = match self.read_state(app_name)? {
+            AppState::Active(state) => Some(AppDeployment::new(
+                state.generation,
+                state.configuration_revision,
+            )),
+            AppState::Starting(state) => Some(AppDeployment::new(
+                state.generation,
+                state.configuration_revision,
+            )),
+            AppState::Stopping(state) => Some(AppDeployment::new(
+                state.generation,
+                state.configuration_revision,
+            )),
+            _ => None,
         };
-        let dir = self.generation_dir_unchecked(app_name, gen);
-        Ok(dir.exists().then_some(dir))
+        Ok(deployment)
     }
+
+    /// Persist a deployment pair as the active lifecycle state.
+    fn write_active_state(&self, app_name: &str, deployment: AppDeployment) -> AppsResult<()> {
+        self.write_state(
+            app_name,
+            &AppState::Active(
+                AppStateActive::new(deployment.generation)
+                    .with_configuration_revision(deployment.configuration_revision),
+            ),
+        )
+    }
+
+    /// Select the generation whose configuration contract currently applies.
+    fn configuration_generation(&self, app_name: &str) -> AppsResult<PathBuf> {
+        if let Some(deployment) = self.current_deployment(app_name)? {
+            return Ok(self.generation_dir_unchecked(app_name, deployment.generation));
+        }
+        let generation = self
+            .list_generations(app_name)?
+            .into_iter()
+            .rev()
+            .find(|generation| generation.complete)
+            .ok_or_else(|| reportify::whatever!("app {app_name} has no complete generation"))?;
+        Ok(self.generation_dir_unchecked(app_name, generation.meta.number))
+    }
+
+    /// Reserve a never-reused device-specific configuration revision number.
+    fn allocate_configuration_revision(&self, app_name: &str) -> AppsResult<u64> {
+        let configurations_dir = self.configurations_dir(app_name);
+        let mut maximum = 0;
+        if configurations_dir.exists() {
+            for entry in fs::read_dir(&configurations_dir)
+                .whatever("unable to read app configurations directory")?
+            {
+                let entry = entry.whatever("unable to read app configuration entry")?;
+                let path = entry.path();
+                if path.extension().and_then(|extension| extension.to_str()) != Some("json") {
+                    continue;
+                }
+                if let Some(revision) = path
+                    .file_stem()
+                    .and_then(|stem| stem.to_str())
+                    .and_then(|stem| stem.parse::<u64>().ok())
+                {
+                    maximum = maximum.max(revision);
+                }
+            }
+        }
+        let state = self.read_configuration_state(app_name)?;
+        maximum = maximum.max(state.last_allocated_revision.unwrap_or(0));
+        let revision = maximum
+            .checked_add(1)
+            .ok_or_else(|| reportify::whatever!("app configuration revision overflow"))?;
+        self.write_configuration_state(
+            app_name,
+            &state.with_last_allocated_revision(Some(revision)),
+        )?;
+        Ok(revision)
+    }
+
+    /// Load and validate the effective configuration for a deployment pair.
+    fn resolve_configuration(
+        &self,
+        app_name: &str,
+        deployment: AppDeployment,
+    ) -> AppsResult<configuration::EffectiveConfiguration> {
+        let generation_dir = self.generation_dir_unchecked(app_name, deployment.generation);
+        let manifest = load_manifest(&generation_dir)?;
+        let revision_path = deployment
+            .configuration_revision
+            .map(|revision| self.configuration_path(app_name, revision));
+        configuration::load_effective(
+            &generation_dir,
+            &manifest,
+            deployment.configuration_revision,
+            revision_path,
+        )
+    }
+}
+
+/// A generation and the device-specific configuration revision used with it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct AppDeployment {
+    generation: u64,
+    configuration_revision: Option<u64>,
+}
+
+impl AppDeployment {
+    /// Construct a deployment pair.
+    fn new(generation: u64, configuration_revision: Option<u64>) -> Self {
+        Self {
+            generation,
+            configuration_revision,
+        }
+    }
+}
+
+/// Return every deployment pair that must remain available for lifecycle recovery.
+fn state_deployments(state: &AppState) -> Vec<AppDeployment> {
+    match state {
+        AppState::Inactive => Vec::new(),
+        AppState::Active(state) => vec![AppDeployment::new(
+            state.generation,
+            state.configuration_revision,
+        )],
+        AppState::Starting(state) => vec![AppDeployment::new(
+            state.generation,
+            state.configuration_revision,
+        )],
+        AppState::Stopping(state) => vec![AppDeployment::new(
+            state.generation,
+            state.configuration_revision,
+        )],
+        AppState::Switching(state) => [
+            state.from.map(|generation| {
+                AppDeployment::new(generation, state.from_configuration_revision)
+            }),
+            state
+                .to
+                .map(|generation| AppDeployment::new(generation, state.to_configuration_revision)),
+        ]
+        .into_iter()
+        .flatten()
+        .collect(),
+        AppState::Error(state) => {
+            let mut deployments = Vec::with_capacity(2);
+            if let Some(generation) = state.from {
+                deployments.push(AppDeployment::new(
+                    generation,
+                    state.from_configuration_revision,
+                ));
+            }
+            deployments.push(AppDeployment::new(
+                state.to,
+                state.to_configuration_revision,
+            ));
+            deployments
+        }
+    }
+}
+
+/// Validate an app name before using it in filesystem paths.
+fn validate_app_name(app_name: &str) -> AppsResult<()> {
+    rugix_bundle::manifest::validate_app_name(app_name).whatever("invalid app name")
 }
 
 fn finalize_generation_with(
@@ -915,9 +1378,12 @@ mod tests {
     use crate::config::apps::AppGeneration;
     use crate::config::apps::AppState;
     use crate::config::apps::AppStateActive;
+    use crate::config::apps::AppStateError;
+    use crate::config::apps::AppStateSwitching;
     use crate::config::apps::AppsConfig;
 
     use super::finalize_generation_with;
+    use super::AppDeployment;
     use super::AppManager;
 
     fn setup_generation(manager: &AppManager, app: &str, generation: u64, script: &str) {
@@ -934,6 +1400,11 @@ mod tests {
             )
             .unwrap();
         AppManager::mark_complete(&dir).unwrap();
+    }
+
+    fn write_configuration(manager: &AppManager, app: &str, revision: u64, content: &str) {
+        std::fs::create_dir_all(manager.configurations_dir(app)).unwrap();
+        std::fs::write(manager.configuration_path(app, revision), content).unwrap();
     }
 
     #[test]
@@ -967,12 +1438,17 @@ mod tests {
             .unwrap();
 
         let error = manager
-            .do_switch("example", Some(1), Some(2), false)
+            .do_switch(
+                "example",
+                Some(AppDeployment::new(1, None)),
+                Some(AppDeployment::new(2, None)),
+                false,
+            )
             .unwrap_err();
         assert!(format!("{error:?}").contains("successfully rolled back"));
         assert!(matches!(
             manager.read_state("example").unwrap(),
-            AppState::Active(AppStateActive { generation: 1 })
+            AppState::Active(AppStateActive { generation: 1, .. })
         ));
     }
 
@@ -982,10 +1458,12 @@ mod tests {
         let manager = AppManager::new(tempdir.path().join("apps"), AppsConfig::new());
         setup_generation(&manager, "example", 1, "#!/bin/sh\nexit 0\n");
 
-        manager.do_switch("example", None, Some(1), false).unwrap();
+        manager
+            .do_switch("example", None, Some(AppDeployment::new(1, None)), false)
+            .unwrap();
         assert!(matches!(
             manager.read_state("example").unwrap(),
-            AppState::Active(AppStateActive { generation: 1 })
+            AppState::Active(AppStateActive { generation: 1, .. })
         ));
     }
 
@@ -1010,7 +1488,12 @@ mod tests {
             .unwrap();
 
         assert!(manager
-            .do_switch("example", Some(1), Some(2), false)
+            .do_switch(
+                "example",
+                Some(AppDeployment::new(1, None)),
+                Some(AppDeployment::new(2, None)),
+                false,
+            )
             .is_err());
         assert!(matches!(
             manager.read_state("example").unwrap(),
@@ -1018,19 +1501,28 @@ mod tests {
         ));
     }
 
+    /// Verifies recovery activates the exact generation and configuration revision
+    /// requested.
     #[test]
-    fn interrupted_switch_is_recovered_to_the_requested_generation() {
+    fn interrupted_switch_is_recovered_to_the_requested_deployment() {
         let tempdir = tempfile::tempdir().unwrap();
         let manager = AppManager::new(tempdir.path().join("apps"), AppsConfig::new());
         setup_generation(&manager, "example", 1, "#!/bin/sh\nexit 0\n");
         setup_generation(&manager, "example", 2, "#!/bin/sh\nexit 0\n");
+        write_configuration(&manager, "example", 1, r#"{"revision":1}"#);
+        write_configuration(&manager, "example", 2, r#"{"revision":2}"#);
+        manager
+            .write_configuration_revision("example", Some(1))
+            .unwrap();
         manager
             .write_state(
                 "example",
                 &AppState::Switching(
-                    crate::config::apps::AppStateSwitching::new()
+                    AppStateSwitching::new()
                         .with_from(Some(1))
-                        .with_to(Some(2)),
+                        .with_from_configuration_revision(Some(1))
+                        .with_to(Some(2))
+                        .with_to_configuration_revision(Some(2)),
                 ),
             )
             .unwrap();
@@ -1039,8 +1531,173 @@ mod tests {
         manager.recover_app(&lock, "example").unwrap();
         assert!(matches!(
             manager.read_state("example").unwrap(),
-            AppState::Active(AppStateActive { generation: 2 })
+            AppState::Active(AppStateActive {
+                generation: 2,
+                configuration_revision: Some(2),
+            })
         ));
+        assert_eq!(
+            manager.read_configuration("example").unwrap(),
+            Some(crate::apps::configuration::parse(r#"{"revision":2}"#).unwrap())
+        );
+    }
+
+    /// Verifies updates use desired configuration and rollback restores the old pairing.
+    #[test]
+    fn app_update_and_rollback_use_their_expected_configuration_revisions() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let manager = AppManager::new(tempdir.path().join("apps"), AppsConfig::new());
+        setup_generation(&manager, "example", 1, "#!/bin/sh\nexit 0\n");
+        setup_generation(&manager, "example", 2, "#!/bin/sh\nexit 0\n");
+        write_configuration(&manager, "example", 1, r#"{"revision":1}"#);
+        write_configuration(&manager, "example", 2, r#"{"revision":2}"#);
+        AppManager::mark_activated(&manager.generation_dir("example", 1).unwrap(), Some(1))
+            .unwrap();
+        manager
+            .write_configuration_revision("example", Some(2))
+            .unwrap();
+        manager
+            .write_state(
+                "example",
+                &AppState::Active(AppStateActive::new(1).with_configuration_revision(Some(1))),
+            )
+            .unwrap();
+        let lock = manager.lock_app("example").unwrap();
+
+        manager.activate_generation(&lock, "example", 2).unwrap();
+        assert!(matches!(
+            manager.read_state("example").unwrap(),
+            AppState::Active(AppStateActive {
+                generation: 2,
+                configuration_revision: Some(2),
+            })
+        ));
+
+        manager.rollback(&lock, "example").unwrap();
+        assert!(matches!(
+            manager.read_state("example").unwrap(),
+            AppState::Active(AppStateActive {
+                generation: 1,
+                configuration_revision: Some(1),
+            })
+        ));
+        assert_eq!(
+            manager.read_configuration_revision("example").unwrap(),
+            Some(1)
+        );
+    }
+
+    /// Verifies configuration set while inactive becomes the next activation's
+    /// configuration.
+    #[test]
+    fn inactive_configuration_is_used_during_the_next_activation() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let manager = AppManager::new(tempdir.path().join("apps"), AppsConfig::new());
+        setup_generation(&manager, "example", 1, "#!/bin/sh\nexit 0\n");
+        let lock = manager.lock_app("example").unwrap();
+        let configuration = crate::apps::configuration::parse(r#"{"enabled":true}"#).unwrap();
+
+        assert_eq!(
+            manager
+                .set_configuration(&lock, "example", &configuration)
+                .unwrap(),
+            1
+        );
+        assert!(matches!(
+            manager.read_state("example").unwrap(),
+            AppState::Inactive
+        ));
+
+        manager.activate_generation(&lock, "example", 1).unwrap();
+        assert!(matches!(
+            manager.read_state("example").unwrap(),
+            AppState::Active(AppStateActive {
+                generation: 1,
+                configuration_revision: Some(1),
+            })
+        ));
+    }
+
+    /// Verifies configuration changes cannot overwrite lifecycle recovery intent.
+    #[test]
+    fn configuration_changes_require_a_stable_lifecycle_state() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let manager = AppManager::new(tempdir.path().join("apps"), AppsConfig::new());
+        setup_generation(&manager, "example", 1, "#!/bin/sh\nexit 0\n");
+        manager
+            .write_state(
+                "example",
+                &AppState::Switching(AppStateSwitching::new().with_to(Some(1))),
+            )
+            .unwrap();
+        let lock = manager.lock_app("example").unwrap();
+        let configuration = crate::apps::configuration::parse("{}").unwrap();
+
+        assert!(manager
+            .set_configuration(&lock, "example", &configuration)
+            .is_err());
+        assert!(!manager.configurations_dir("example").exists());
+    }
+
+    /// Verifies a failed configuration switch restores the last working revision.
+    #[test]
+    fn failed_configuration_application_restores_the_last_working_revision() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let manager = AppManager::new(tempdir.path().join("apps"), AppsConfig::new());
+        setup_generation(
+            &manager,
+            "example",
+            1,
+            "#!/bin/sh\nif [ \"$1\" = activate ] && grep -q '\"fail\": true' \"$RUGIX_APP_CONFIG_PATH\"; then exit 1; fi\nexit 0\n",
+        );
+        let generation_dir = manager.generation_dir("example", 1).unwrap();
+        std::fs::write(
+            generation_dir.join("config.schema.json"),
+            r#"{"type":"object","properties":{"fail":{"type":"boolean"}},"required":["fail"]}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            generation_dir.join("app.toml"),
+            "orchestrator = \"generic\"\n[configuration]\nschema = \"config.schema.json\"\n",
+        )
+        .unwrap();
+        manager
+            .write_state("example", &AppState::Active(AppStateActive::new(1)))
+            .unwrap();
+        let lock = manager.lock_app("example").unwrap();
+
+        let working = crate::apps::configuration::parse(r#"{"fail":false}"#).unwrap();
+        assert_eq!(
+            manager
+                .set_configuration(&lock, "example", &working)
+                .unwrap(),
+            1
+        );
+        let failing = crate::apps::configuration::parse(r#"{"fail":true}"#).unwrap();
+        assert!(manager
+            .set_configuration(&lock, "example", &failing)
+            .is_err());
+
+        assert!(matches!(
+            manager.read_state("example").unwrap(),
+            AppState::Active(AppStateActive {
+                generation: 1,
+                configuration_revision: Some(1),
+            })
+        ));
+        assert_eq!(
+            manager.read_configuration("example").unwrap(),
+            Some(working.clone())
+        );
+
+        manager.gc(&lock, "example", 1).unwrap();
+        assert!(!manager.configuration_path("example", 2).exists());
+        assert_eq!(
+            manager
+                .set_configuration(&lock, "example", &working)
+                .unwrap(),
+            3
+        );
     }
 
     #[test]
@@ -1051,8 +1708,11 @@ mod tests {
             setup_generation(&manager, "example", generation, "#!/bin/sh\nexit 0\n");
         }
         for generation in 1..=3 {
-            AppManager::mark_activated(&manager.generation_dir("example", generation).unwrap())
-                .unwrap();
+            AppManager::mark_activated(
+                &manager.generation_dir("example", generation).unwrap(),
+                None,
+            )
+            .unwrap();
         }
         manager
             .write_state("example", &AppState::Active(AppStateActive::new(3)))
@@ -1062,6 +1722,101 @@ mod tests {
         assert_eq!(manager.gc(&lock, "example", 1).unwrap(), vec![1, 4]);
         assert!(manager.generation_dir("example", 2).unwrap().exists());
         assert!(manager.generation_dir("example", 3).unwrap().exists());
+    }
+
+    /// Verifies garbage collection retains only revisions required for rollback.
+    #[test]
+    fn garbage_collection_preserves_only_configuration_revisions_needed_for_rollback() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let manager = AppManager::new(tempdir.path().join("apps"), AppsConfig::new());
+        for generation in 1..=2 {
+            setup_generation(&manager, "example", generation, "#!/bin/sh\nexit 0\n");
+        }
+        for (generation, revision) in [(1, 1), (2, 2)] {
+            AppManager::mark_activated(
+                &manager.generation_dir("example", generation).unwrap(),
+                Some(revision),
+            )
+            .unwrap();
+        }
+        let configurations_dir = manager.configurations_dir("example");
+        std::fs::create_dir_all(&configurations_dir).unwrap();
+        for revision in 1..=3 {
+            std::fs::write(
+                manager.configuration_path("example", revision),
+                format!("{{\"revision\":{revision}}}"),
+            )
+            .unwrap();
+        }
+        manager
+            .write_configuration_revision("example", Some(2))
+            .unwrap();
+        manager
+            .write_state(
+                "example",
+                &AppState::Active(AppStateActive::new(2).with_configuration_revision(Some(2))),
+            )
+            .unwrap();
+
+        let lock = manager.lock_app("example").unwrap();
+        manager.gc(&lock, "example", 1).unwrap();
+
+        assert!(manager.configuration_path("example", 1).exists());
+        assert!(manager.configuration_path("example", 2).exists());
+        assert!(!manager.configuration_path("example", 3).exists());
+
+        assert_eq!(manager.gc(&lock, "example", 0).unwrap(), vec![1]);
+        assert!(!manager.configuration_path("example", 1).exists());
+        assert!(manager.configuration_path("example", 2).exists());
+    }
+
+    /// Verifies GC preserves both sides of interrupted and failed lifecycle switches.
+    #[test]
+    fn garbage_collection_preserves_recovery_deployments() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let manager = AppManager::new(tempdir.path().join("apps"), AppsConfig::new());
+        for (app, state) in [
+            (
+                "switching",
+                AppState::Switching(
+                    AppStateSwitching::new()
+                        .with_from(Some(1))
+                        .with_from_configuration_revision(Some(1))
+                        .with_to(Some(2))
+                        .with_to_configuration_revision(Some(2)),
+                ),
+            ),
+            (
+                "error",
+                AppState::Error(
+                    AppStateError::new(2, "activation and rollback failed".to_owned())
+                        .with_from(Some(1))
+                        .with_from_configuration_revision(Some(1))
+                        .with_to_configuration_revision(Some(2)),
+                ),
+            ),
+        ] {
+            for generation in 1..=3 {
+                setup_generation(&manager, app, generation, "#!/bin/sh\nexit 0\n");
+                write_configuration(
+                    &manager,
+                    app,
+                    generation,
+                    &format!(r#"{{"revision":{generation}}}"#),
+                );
+            }
+            AppManager::mark_activated(&manager.generation_dir(app, 1).unwrap(), Some(1)).unwrap();
+            manager.write_configuration_revision(app, Some(1)).unwrap();
+            manager.write_state(app, &state).unwrap();
+
+            let lock = manager.lock_app(app).unwrap();
+            assert_eq!(manager.gc(&lock, app, 0).unwrap(), vec![3]);
+            assert!(manager.generation_dir(app, 1).unwrap().exists());
+            assert!(manager.generation_dir(app, 2).unwrap().exists());
+            assert!(manager.configuration_path(app, 1).exists());
+            assert!(manager.configuration_path(app, 2).exists());
+            assert!(!manager.configuration_path(app, 3).exists());
+        }
     }
 
     #[test]

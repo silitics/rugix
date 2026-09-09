@@ -11,6 +11,7 @@ homepage.workspace = true
 [dependencies]
 clap.workspace = true
 hex.workspace = true
+jsonschema.workspace = true
 reportify.workspace = true
 rugix-bundle.workspace = true
 rugix-common.workspace = true

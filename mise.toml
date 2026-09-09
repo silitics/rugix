@@ -18,10 +18,12 @@ RUST_BACKTRACE = "1"
 [tasks.codegen]
 description = "Regenerate Sidex-generated JSON schemas."
 run = """
-set -euo pipefail
+set -eu
 
-pushd crates/apps/rugix-ctrl
-mkdir -p generated && rm -rf generated/*
+(
+cd crates/apps/rugix-ctrl
+mkdir -p generated
+rm -rf generated/*
 sidex generate json-schema generated/
 
 # Copy generated JSON schemas to the schemas directory (repo root)
@@ -35,16 +37,19 @@ cp generated/rugix_ctrl.component.ComponentDeclaration.schema.json ../../../sche
 cp generated/rugix_ctrl.output.SystemInfoOutput.schema.json ../../../schemas/rugix-ctrl-output-info.schema.json
 cp generated/rugix_ctrl.output.ComponentsOutput.schema.json ../../../schemas/rugix-ctrl-output-components.schema.json
 cp generated/rugix_ctrl.output.ComponentsCheckOutput.schema.json ../../../schemas/rugix-ctrl-output-components-check.schema.json
-popd
+)
 
-pushd crates/libs/rugix-bundle
-mkdir -p generated && rm -rf generated/*
+(
+cd crates/libs/rugix-bundle
+mkdir -p generated
+rm -rf generated/*
 sidex generate json-schema generated/
 
 cp generated/rugix_bundle.manifest.BundleManifest.schema.json ../../../schemas/rugix-bundle-manifest.schema.json
+cp generated/rugix_bundle.manifest.AppManifest.schema.json ../../../schemas/rugix-app-manifest.schema.json
 cp generated/rugix_bundle.compose.ImageOptions.schema.json ../../../schemas/rugix-compose-image-options.schema.json
 cp generated/rugix_bundle.compose.ImageMetadata.schema.json ../../../schemas/rugix-compose-image-metadata.schema.json
-popd
+)
 
 cargo fmt
 """

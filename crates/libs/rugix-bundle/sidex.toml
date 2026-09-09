@@ -10,5 +10,8 @@ authors = ["Silitics GmbH <info@silitics.com>"]
 derive = ["Clone", "Debug"]
 plugins = ["builder", "serde"]
 
+[backend.rust.types.table]
+"::core::builtins::Map" = "::std::collections::BTreeMap"
+
 [backend.rust.plugin.serde]
 sidex_serde_path = "::sidex_serde"

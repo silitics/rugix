@@ -121,6 +121,28 @@ record AppManifest {
     orchestrator: string,
     /// Health check configuration.
     health_check?: AppHealthCheckConfig,
+    /// Application configuration files included in this generation.
+    configuration?: AppConfigurationConfig,
+    /// Docker Compose-specific orchestration configuration.
+    docker_compose?: DockerComposeConfig,
+}
+
+/// Application configuration files included in an app generation.
+#[json(rename_all = "kebab-case")]
+record AppConfigurationConfig {
+    /// Relative path to the optional JSON Schema.
+    schema?: string,
+    /// Relative path to the optional default JSON configuration.
+    default?: string,
+}
+
+/// Docker Compose-specific orchestration configuration.
+#[json(rename_all = "kebab-case")]
+record DockerComposeConfig {
+    /// Environment variables projected from the effective JSON configuration.
+    ///
+    /// Each map value is an RFC 6901 JSON Pointer.
+    environment?: [string: string],
 }
 
 /// Health check configuration for an app.

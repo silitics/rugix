@@ -46,6 +46,7 @@ jiff = { version = "0.2.14", default-features = false, features = [
     "std",
     "serde",
 ] }
+jsonschema.workspace = true
 libc.workspace = true
 rugix-tasks.workspace = true
 

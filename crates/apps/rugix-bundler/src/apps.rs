@@ -12,7 +12,9 @@ use reportify::whatever;
 use reportify::ResultExt;
 use rugix_bundle::bundle_hash;
 use rugix_bundle::manifest::AppArchiveDeliveryConfig;
+use rugix_bundle::manifest::AppConfigurationConfig;
 use rugix_bundle::manifest::AppFileDeliveryConfig;
+use rugix_bundle::manifest::AppManifest;
 use rugix_bundle::manifest::BlockEncoding;
 use rugix_bundle::manifest::BundleManifest;
 use rugix_bundle::manifest::Compression;
@@ -23,6 +25,9 @@ use rugix_bundle::manifest::XzCompression;
 use rugix_bundle::BundleResult;
 use rugix_chunker::ChunkerAlgorithm;
 use tracing::info;
+
+const CONFIG_SCHEMA_FILE: &str = "config.schema.json";
+const CONFIG_DEFAULT_FILE: &str = "config.default.json";
 
 /// Normalize non-deterministic tar header fields (timestamps, ownership) for
 /// reproducible builds while preserving permission bits.
@@ -140,6 +145,8 @@ fn tar_append_includes(archive: &mut tar::Builder<File>, includes: &[PathBuf]) -
     const RESERVED_PATHS: &[&str] = &[
         "app.toml",
         "app-meta.json",
+        CONFIG_SCHEMA_FILE,
+        CONFIG_DEFAULT_FILE,
         "orchestrator",
         "systemd.service",
         "docker-compose.yml",
@@ -165,6 +172,66 @@ fn tar_append_includes(archive: &mut tar::Builder<File>, includes: &[PathBuf]) -
         }
     }
     Ok(())
+}
+
+/// Add optional configuration declarations and files to an app manifest and archive.
+fn append_configuration(
+    archive: &mut tar::Builder<File>,
+    manifest: AppManifest,
+    configuration: &crate::PackConfigurationArgs,
+) -> BundleResult<AppManifest> {
+    if configuration.schema.is_none() && configuration.default.is_none() {
+        return Ok(manifest);
+    }
+
+    let schema = configuration
+        .schema
+        .as_ref()
+        .map(|path| read_json_file(path, "configuration schema"))
+        .transpose()?;
+    let default = configuration
+        .default
+        .as_ref()
+        .map(|path| read_json_file(path, "default configuration"))
+        .transpose()?;
+
+    if let Some((_, schema)) = &schema {
+        let validator = jsonschema::draft7::options()
+            .should_validate_formats(true)
+            .build(schema.as_json())
+            .map_err(|error| {
+                reportify::whatever!("invalid application configuration schema: {error}")
+            })?;
+        if let Some((_, default)) = &default {
+            if let Err(error) = validator.validate(default.as_json()) {
+                let location = error.instance_path().to_string();
+                if location.is_empty() {
+                    bail!("default application configuration does not match its schema");
+                }
+                bail!("default application configuration at {location} does not match its schema");
+            }
+        }
+    }
+
+    let mut declaration = AppConfigurationConfig::new();
+    if let Some((content, _)) = schema {
+        tar_append_bytes(archive, CONFIG_SCHEMA_FILE, content.as_bytes())?;
+        declaration = declaration.with_schema(Some(CONFIG_SCHEMA_FILE.to_owned()));
+    }
+    if let Some((content, _)) = default {
+        tar_append_bytes(archive, CONFIG_DEFAULT_FILE, content.as_bytes())?;
+        declaration = declaration.with_default(Some(CONFIG_DEFAULT_FILE.to_owned()));
+    }
+    Ok(manifest.with_configuration(Some(declaration)))
+}
+
+/// Read a JSON document while preserving its original bytes for the archive.
+fn read_json_file(path: &Path, description: &str) -> BundleResult<(String, JsonDocument)> {
+    let content = fs::read_to_string(path)
+        .whatever_with(|_| format!("unable to read {description} {}", path.display()))?;
+    let value = serde_json::from_str::<JsonDocument>(&content)
+        .whatever_with(|_| format!("{description} {} is not valid JSON", path.display()))?;
+    Ok((content, value))
 }
 
 /// Append a metadata file to the archive if provided.
@@ -378,7 +445,11 @@ pub fn pack_binary(cmd: &super::PackBinaryCmd) -> BundleResult<()> {
     {
         let archive_file = File::create(&archive_path).whatever("unable to create base.tar")?;
         let mut archive = tar::Builder::new(archive_file);
-        let manifest = rugix_bundle::manifest::AppManifest::new("binary".to_owned());
+        let manifest = append_configuration(
+            &mut archive,
+            AppManifest::new("binary".to_owned()),
+            &cmd.configuration,
+        )?;
         tar_append_app_toml(&mut archive, &manifest)?;
         tar_append_file(&mut archive, &cmd.service, "systemd.service")?;
         tar_append_includes(&mut archive, &cmd.includes)?;
@@ -435,7 +506,11 @@ pub fn pack_generic(cmd: &super::PackGenericCmd) -> BundleResult<()> {
     {
         let archive_file = File::create(&archive_path).whatever("unable to create base.tar")?;
         let mut archive = tar::Builder::new(archive_file);
-        let manifest = rugix_bundle::manifest::AppManifest::new("generic".to_owned());
+        let manifest = append_configuration(
+            &mut archive,
+            AppManifest::new("generic".to_owned()),
+            &cmd.configuration,
+        )?;
         tar_append_app_toml(&mut archive, &manifest)?;
         tar_append_file(&mut archive, &cmd.orchestrator, "orchestrator")?;
         tar_append_includes(&mut archive, &cmd.includes)?;
@@ -452,6 +527,18 @@ pub fn pack_generic(cmd: &super::PackGenericCmd) -> BundleResult<()> {
     }];
 
     finalize_bundle(bundle_dir.path(), &cmd.output, &cmd.app, payloads)
+}
+
+/// An arbitrary JSON document used while assembling an app bundle.
+#[derive(serde::Deserialize)]
+#[serde(transparent)]
+struct JsonDocument(serde_json::Value);
+
+impl JsonDocument {
+    /// Borrow the underlying JSON representation for schema validation.
+    fn as_json(&self) -> &serde_json::Value {
+        &self.0
+    }
 }
 
 #[cfg(test)]
@@ -480,6 +567,29 @@ mod tests {
         );
     }
 
+    /// Verifies bundle packing rejects defaults that violate the bundled schema.
+    #[test]
+    fn app_bundle_rejects_a_default_that_does_not_match_its_configuration_schema() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let schema = tempdir.path().join("config.schema.json");
+        let default = tempdir.path().join("config.default.json");
+        fs::write(&schema, r#"{"type":"string"}"#).unwrap();
+        fs::write(&default, "42").unwrap();
+        let archive = tempfile::tempfile().unwrap();
+        let mut archive = tar::Builder::new(archive);
+
+        let result = append_configuration(
+            &mut archive,
+            AppManifest::new("generic".to_owned()),
+            &crate::PackConfigurationArgs {
+                schema: Some(schema),
+                default: Some(default),
+            },
+        );
+
+        assert!(result.is_err());
+    }
+
     #[test]
     fn app_bundle_includes_component_files() {
         let tempdir = tempfile::tempdir().unwrap();
@@ -499,6 +609,10 @@ mod tests {
             orchestrator: app_dir.join("orchestrator"),
             includes: Vec::new(),
             components: vec![app_dir.join("components")],
+            configuration: crate::PackConfigurationArgs {
+                schema: None,
+                default: None,
+            },
             metadata_file: None,
             output: output.clone(),
         };

@@ -108,10 +108,18 @@ record GenerationInfoOutput {
     complete: bool,
     /// Timestamp of the last successful activation (RFC 3339), if any.
     last_activated?: string,
+    /// Configuration revision used for the last successful activation, if any.
+    configuration_revision?: u64,
     /// Whether this is the currently active generation.
     active: bool,
     /// User-supplied metadata from `app-meta.json`, if present.
     metadata?: JsonValue,
+}
+
+/// Result of setting application configuration.
+record AppConfigurationSetOutput {
+    /// Newly created configuration revision.
+    revision: u64,
 }
 
 /// Garbage collection result for a single app.

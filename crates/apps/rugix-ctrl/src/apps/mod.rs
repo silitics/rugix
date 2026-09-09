@@ -1,4 +1,7 @@
+//! Installation, lifecycle management, and configuration of Rugix Apps.
+
 pub mod config;
+pub mod configuration;
 pub mod manager;
 pub mod orchestrators;
 pub mod systemd;

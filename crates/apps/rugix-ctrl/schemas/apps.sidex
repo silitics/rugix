@@ -28,20 +28,28 @@ variant AppState {
 record AppStateStarting {
     /// The active generation number.
     generation: u64,
+    /// The active configuration revision, if any.
+    configuration_revision?: u64,
 }
 
 /// Details of a stopping state.
 record AppStateStopping {
     /// The active generation number.
     generation: u64,
+    /// The active configuration revision, if any.
+    configuration_revision?: u64,
 }
 
 /// Details of a switching state.
 record AppStateSwitching {
     /// Generation being deactivated, if any.
     from?: u64,
+    /// Configuration revision being deactivated, if any.
+    from_configuration_revision?: u64,
     /// Generation being activated, if any.
     to?: u64,
+    /// Configuration revision being activated, if any.
+    to_configuration_revision?: u64,
     /// Whether this switch is a recovery attempt.
     recovery?: bool,
 }
@@ -50,14 +58,20 @@ record AppStateSwitching {
 record AppStateActive {
     /// The active generation number.
     generation: u64,
+    /// The active configuration revision, if any.
+    configuration_revision?: u64,
 }
 
 /// Details of an error state.
 record AppStateError {
     /// The generation that was previously active before the failed switch, if any.
     from?: u64,
+    /// The configuration revision that was active before the failed switch, if any.
+    from_configuration_revision?: u64,
     /// The generation that failed to activate.
     to: u64,
+    /// The configuration revision that failed to activate, if any.
+    to_configuration_revision?: u64,
     /// Human-readable error description.
     message: string,
 }
@@ -92,5 +106,20 @@ record AppGeneration {
     created_at: string,
     /// Timestamp of the last successful activation (RFC 3339), if any.
     last_activated?: string,
+    /// Configuration revision used for the last successful activation, if any.
+    configuration_revision?: u64,
 }
 
+/// Arbitrary JSON application configuration.
+#[json(type = "any")]
+#[rust(type = "crate::apps::configuration::AppConfiguration")]
+opaque AppConfiguration
+
+/// Persisted desired application configuration revision.
+#[json(rename_all = "camelCase")]
+record AppConfigurationState {
+    /// Desired configuration revision, if device-specific configuration exists.
+    revision?: u64,
+    /// Highest configuration revision ever allocated for this app.
+    last_allocated_revision?: u64,
+}

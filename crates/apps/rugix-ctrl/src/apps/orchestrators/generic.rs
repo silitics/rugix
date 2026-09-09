@@ -22,7 +22,8 @@ impl Generic {
     /// Run the orchestrator script and return its output.
     fn run_orchestrator(ctx: &AppContext, operation: &str) -> AppsResult<std::process::Output> {
         let orchestrator = Self::orchestrator_path(ctx);
-        let output = Command::new(&orchestrator)
+        let mut command = Command::new(&orchestrator);
+        command
             .arg(operation)
             .env("RUGIX_APP_NAME", ctx.app_name)
             .env("RUGIX_APP_DIR", ctx.app_dir)
@@ -32,9 +33,12 @@ impl Generic {
                 "RUGIX_APP_RECOVERY",
                 if ctx.recovery { "true" } else { "false" },
             )
-            .current_dir(ctx.generation_dir)
-            .output()
-            .whatever("unable to run orchestrator")?;
+            .current_dir(ctx.generation_dir);
+        command.env_remove("RUGIX_APP_CONFIG_PATH");
+        if let Some(path) = ctx.configuration_path {
+            command.env("RUGIX_APP_CONFIG_PATH", path);
+        }
+        let output = command.output().whatever("unable to run orchestrator")?;
         Ok(output)
     }
 

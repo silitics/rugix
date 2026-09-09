@@ -4,6 +4,8 @@ use std::path::Path;
 
 use rugix_bundle::manifest::AppManifest;
 
+use crate::config::apps::AppConfiguration;
+
 use super::AppsResult;
 pub use crate::config::apps::AppStatus;
 pub use crate::config::apps::AppStatusMessage;
@@ -22,6 +24,10 @@ pub struct AppContext<'cx> {
     pub generation_dir: &'cx Path,
     /// Path to persistent app data (survives across generations).
     pub data_dir: &'cx Path,
+    /// Path to the effective JSON application configuration, if one exists.
+    pub configuration_path: Option<&'cx Path>,
+    /// Parsed effective JSON application configuration, if one exists.
+    pub configuration: Option<&'cx AppConfiguration>,
     /// Whether this invocation is recovering from an interrupted transition.
     pub recovery: bool,
     /// The system's configured service manager (e.g., `"systemd"`, `"none"`).

@@ -51,8 +51,11 @@ use crate::operations::apps::DeactivateApp;
 use crate::operations::apps::GarbageCollectApps;
 use crate::operations::apps::ListApps;
 use crate::operations::apps::QueryApp;
+use crate::operations::apps::QueryAppConfiguration;
+use crate::operations::apps::QueryAppConfigurationSchema;
 use crate::operations::apps::RemoveApp;
 use crate::operations::apps::RollbackApp;
+use crate::operations::apps::SetAppConfiguration;
 use crate::operations::apps::StartApp;
 use crate::operations::apps::StopApp;
 use crate::operations::install::BundleInput;
@@ -466,6 +469,45 @@ pub fn main() -> SystemResult<()> {
                     rugix_cli::json::print_json(&output, false)
                         .whatever("unable to write app info to stdout")?;
                 }
+                AppsCommand::Config(config_cmd) => match config_cmd {
+                    AppsConfigurationCommand::Get { app } => {
+                        let output =
+                            execute_operation(QueryAppConfiguration { name: app.clone() }, ())?;
+                        rugix_cli::json::print_json(&output, false)
+                            .whatever("unable to write app configuration to stdout")?;
+                    }
+                    AppsConfigurationCommand::Schema { app } => {
+                        let output = execute_operation(
+                            QueryAppConfigurationSchema { name: app.clone() },
+                            (),
+                        )?;
+                        rugix_cli::json::print_json(&output, false)
+                            .whatever("unable to write app configuration schema to stdout")?;
+                    }
+                    AppsConfigurationCommand::Set { app, source } => {
+                        let content = if source == "-" {
+                            let mut content = String::new();
+                            io::stdin()
+                                .read_to_string(&mut content)
+                                .whatever("unable to read app configuration from stdin")?;
+                            content
+                        } else {
+                            fs::read_to_string(source)
+                                .whatever("unable to read app configuration file")?
+                        };
+                        let configuration = crate::apps::configuration::parse(&content)
+                            .whatever("unable to parse app configuration")?;
+                        let output = execute_operation(
+                            SetAppConfiguration {
+                                name: app.clone(),
+                                configuration,
+                            },
+                            (),
+                        )?;
+                        rugix_cli::json::print_json(&output, false)
+                            .whatever("unable to write app configuration result to stdout")?;
+                    }
+                },
                 AppsCommand::Activate {
                     app,
                     generation,
@@ -541,6 +583,7 @@ pub fn main() -> SystemResult<()> {
                                 Some(gen.meta.number) == current,
                             )
                             .with_last_activated(gen.meta.last_activated.clone())
+                            .with_configuration_revision(gen.meta.configuration_revision)
                         })
                         .collect();
                     rugix_cli::json::print_json(&entries, false)
@@ -1214,6 +1257,9 @@ pub enum AppsCommand {
         /// App name.
         app: String,
     },
+    /// Inspect or update application configuration.
+    #[clap(subcommand)]
+    Config(AppsConfigurationCommand),
     /// Activate a generation. If no generation is specified, activates the
     /// most recently activated generation (useful for re-activating after deactivation).
     Activate {
@@ -1297,6 +1343,28 @@ pub enum AppsCommand {
     /// Service manager integration.
     #[clap(subcommand)]
     ServiceManager(AppsServiceManagerCommand),
+}
+
+#[derive(Debug, Parser)]
+pub enum AppsConfigurationCommand {
+    /// Print the effective JSON configuration.
+    Get {
+        /// App name.
+        app: String,
+    },
+    /// Print the JSON Schema declared by the active or latest app generation.
+    Schema {
+        /// App name.
+        app: String,
+    },
+    /// Validate, store, and apply a JSON configuration document.
+    Set {
+        /// App name.
+        app: String,
+        /// JSON file path, or `-` to read from stdin.
+        #[clap(default_value = "-")]
+        source: String,
+    },
 }
 
 #[derive(Debug, Parser)]

@@ -66,9 +66,11 @@ impl AdmissionPolicy {
                 self.require_app_lifecycle()?;
                 self.authorize_compatibility_override(operation.skip_compatibility_check)?;
             }
-            Request::StartApp(_) | Request::StopApp(_) | Request::GarbageCollectApps(_) => {
-                self.require_app_lifecycle()?
-            }
+            Request::StartApp(_)
+            | Request::StopApp(_)
+            | Request::GarbageCollectApps(_)
+            | Request::QueryAppConfiguration(_)
+            | Request::SetAppConfiguration(_) => self.require_app_lifecycle()?,
             Request::RollbackApp(operation) => {
                 self.require_app_lifecycle()?;
                 self.authorize_compatibility_override(operation.skip_compatibility_check)?;
@@ -80,7 +82,8 @@ impl AdmissionPolicy {
             Request::QuerySystem(_)
             | Request::CheckComponents(_)
             | Request::ListApps(_)
-            | Request::QueryApp(_) => {}
+            | Request::QueryApp(_)
+            | Request::QueryAppConfigurationSchema(_) => {}
         }
         Ok(())
     }
@@ -146,6 +149,9 @@ mod tests {
     use crate::daemon::config::DaemonSettings;
     use crate::daemon::protocol::Request;
     use crate::operations::apps::ActivateApp;
+    use crate::operations::apps::QueryAppConfiguration;
+    use crate::operations::apps::QueryAppConfigurationSchema;
+    use crate::operations::apps::SetAppConfiguration;
     use crate::operations::apps::StartApp;
     use crate::operations::install::BundleInstallOptions;
     use crate::operations::install::InstallBundle;
@@ -157,12 +163,20 @@ mod tests {
     use crate::operations::system::QuerySystem;
     use crate::operations::system::RebootSystem;
 
+    /// Verifies default policy permits safe queries and verified bundle installation.
     #[test]
     fn default_policy_allows_queries_and_secure_installs() {
         let policy = policy(false, DaemonFeatureSettings::default());
 
         policy
             .authorize(&Request::QuerySystem(QuerySystem))
+            .unwrap();
+        policy
+            .authorize(&Request::QueryAppConfigurationSchema(
+                QueryAppConfigurationSchema {
+                    name: "example".to_owned(),
+                },
+            ))
             .unwrap();
         policy
             .authorize(&Request::InstallBundle(app_install(secure_options())))
@@ -172,6 +186,7 @@ mod tests {
             .unwrap();
     }
 
+    /// Verifies each privileged operation family requires its matching feature.
     #[test]
     fn privileged_operation_families_require_their_own_feature() {
         let disabled = policy(false, DaemonFeatureSettings::default());
@@ -190,6 +205,17 @@ mod tests {
         assert!(disabled
             .authorize(&Request::StartApp(StartApp {
                 name: "example".to_owned(),
+            }))
+            .is_err());
+        assert!(disabled
+            .authorize(&Request::QueryAppConfiguration(QueryAppConfiguration {
+                name: "example".to_owned(),
+            }))
+            .is_err());
+        assert!(disabled
+            .authorize(&Request::SetAppConfiguration(SetAppConfiguration {
+                name: "example".to_owned(),
+                configuration: crate::apps::configuration::parse("{}").unwrap(),
             }))
             .is_err());
 
@@ -217,6 +243,17 @@ mod tests {
         enabled
             .authorize(&Request::StartApp(StartApp {
                 name: "example".to_owned(),
+            }))
+            .unwrap();
+        enabled
+            .authorize(&Request::QueryAppConfiguration(QueryAppConfiguration {
+                name: "example".to_owned(),
+            }))
+            .unwrap();
+        enabled
+            .authorize(&Request::SetAppConfiguration(SetAppConfiguration {
+                name: "example".to_owned(),
+                configuration: crate::apps::configuration::parse("{}").unwrap(),
             }))
             .unwrap();
     }

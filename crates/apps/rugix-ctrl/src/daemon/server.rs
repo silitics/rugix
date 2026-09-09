@@ -122,6 +122,15 @@ fn dispatch(
         }
         Request::ListApps(operation) => execute_operation(&executor, operation, (), &mut socket),
         Request::QueryApp(operation) => execute_operation(&executor, operation, (), &mut socket),
+        Request::QueryAppConfiguration(operation) => {
+            execute_operation(&executor, operation, (), &mut socket)
+        }
+        Request::QueryAppConfigurationSchema(operation) => {
+            execute_operation(&executor, operation, (), &mut socket)
+        }
+        Request::SetAppConfiguration(operation) => {
+            execute_operation(&executor, operation, (), &mut socket)
+        }
         Request::FactoryReset(operation) => {
             execute_operation(&executor, operation, (), &mut socket)
         }

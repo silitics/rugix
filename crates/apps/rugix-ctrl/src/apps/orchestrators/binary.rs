@@ -54,7 +54,13 @@ impl Binary {
             fs::read_to_string(&template_path).whatever("unable to read unit template")?;
         let rendered = template
             .replace("${GENERATION_DIR}", &ctx.generation_dir.to_string_lossy())
-            .replace("${DATA_DIR}", &ctx.data_dir.to_string_lossy());
+            .replace("${DATA_DIR}", &ctx.data_dir.to_string_lossy())
+            .replace(
+                "${CONFIG_PATH}",
+                &ctx.configuration_path
+                    .map(|path| path.to_string_lossy())
+                    .unwrap_or_default(),
+            );
         Ok(rendered)
     }
 }

@@ -20,6 +20,33 @@ sidex::include_bundle! {
 pub use generated::compose;
 pub use generated::manifest::*;
 
+/// Check whether a string is an RFC 6901 JSON Pointer.
+pub fn is_valid_json_pointer(pointer: &str) -> bool {
+    if pointer.is_empty() {
+        return true;
+    }
+    if !pointer.starts_with('/') {
+        return false;
+    }
+    let mut characters = pointer.chars();
+    while let Some(character) = characters.next() {
+        if character == '~' && !matches!(characters.next(), Some('0' | '1')) {
+            return false;
+        }
+    }
+    true
+}
+
+/// Check whether a string is a portable, non-reserved environment variable name.
+pub fn is_valid_environment_variable_name(name: &str) -> bool {
+    let mut characters = name.chars();
+    let Some(first) = characters.next() else {
+        return false;
+    };
+    (first == '_' || first.is_ascii_alphabetic())
+        && characters.all(|character| character == '_' || character.is_ascii_alphanumeric())
+        && !name.starts_with("RUGIX_")
+}
 /// Validate that an app name is safe for use in file paths, systemd unit names, and
 /// Docker project names.
 ///

@@ -1,8 +1,11 @@
+//! Command-line interface for constructing and signing Rugix bundles.
+
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
 
+use clap::Args as ClapArgs;
 use clap::Parser;
 use clap::Subcommand;
 use clap::ValueEnum;
@@ -127,6 +130,14 @@ pub struct PackDockerComposeCmd {
     /// healthy.  Set to 0 to disable.  Default: 120.
     #[clap(long)]
     health_check_timeout: Option<u64>,
+    /// Application configuration files included in the app bundle.
+    #[clap(flatten)]
+    configuration: PackConfigurationArgs,
+    /// Project an application configuration value into the Compose environment.
+    ///
+    /// Values use `NAME=JSON_POINTER` syntax and may be repeated.
+    #[clap(long = "config-env", value_name = "NAME=JSON_POINTER")]
+    configuration_environment: Vec<String>,
     /// Path to a JSON file with arbitrary metadata to include in the bundle.
     #[clap(long)]
     metadata_file: Option<PathBuf>,
@@ -160,6 +171,9 @@ pub struct PackBinaryCmd {
     /// Component TOML/JSON files or directories to include in the bundle metadata.
     #[clap(long = "components")]
     components: Vec<PathBuf>,
+    /// Application configuration files included in the app bundle.
+    #[clap(flatten)]
+    configuration: PackConfigurationArgs,
     /// Path to a JSON file with arbitrary metadata to include in the bundle.
     #[clap(long)]
     metadata_file: Option<PathBuf>,
@@ -180,11 +194,25 @@ pub struct PackGenericCmd {
     /// Component TOML/JSON files or directories to include in the bundle metadata.
     #[clap(long = "components")]
     components: Vec<PathBuf>,
+    /// Application configuration files included in the app bundle.
+    #[clap(flatten)]
+    configuration: PackConfigurationArgs,
     /// Path to a JSON file with arbitrary metadata to include in the bundle.
     #[clap(long)]
     metadata_file: Option<PathBuf>,
     /// Output bundle file.
     output: PathBuf,
+}
+
+/// Application configuration files shared by all app orchestrators.
+#[derive(Debug, ClapArgs)]
+pub struct PackConfigurationArgs {
+    /// JSON Schema used to validate application configuration.
+    #[clap(long = "config-schema")]
+    schema: Option<PathBuf>,
+    /// Default JSON configuration used until device-specific configuration is set.
+    #[clap(long = "config-default")]
+    default: Option<PathBuf>,
 }
 
 #[derive(Debug, Subcommand)]
