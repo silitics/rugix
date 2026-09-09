@@ -171,16 +171,16 @@ record BootGroupConfig {
 variant BootFlowConfig {
     /// Tryboot boot flow.
     #[json(name="rpi-tryboot")]
-    RpiTryboot,
+    RpiTryboot: RpiBootFlowConfig,
     /// U-Boot boot flow.
     #[json(name="rpi-uboot")]
-    RpiUboot,
+    RpiUboot: RpiBootFlowConfig,
     /// Generic U-boot boot flow.
     #[json(name="uboot")]
     Uboot,
     /// Grub (EFI) boot flow.
     #[json(name="grub")]
-    Grub,
+    Grub: GrubBootFlowConfig,
     /// RAUC-compatible U-Boot boot flow.
     #[json(name="rauc-uboot")]
     RaucUboot: RaucBootFlowConfig,
@@ -202,6 +202,24 @@ variant BootFlowConfig {
     SystemdBoot: SystemdBootFlowConfig,
     /// Custom, user-defined boot flow.
     Custom: CustomBootFlowConfig,
+}
+
+/// Raspberry Pi boot flow configuration.
+#[json(rename_all = "kebab-case")]
+record RpiBootFlowConfig {
+    /// Whether to replace the kernel's `init` argument with Rugix Ctrl.
+    ///
+    /// Defaults to `true`. When `false`, existing `init` arguments are preserved.
+    overwrite_init?: bool,
+}
+
+/// Grub boot flow configuration.
+#[json(rename_all = "kebab-case")]
+record GrubBootFlowConfig {
+    /// Whether to replace the kernel's `init` argument with Rugix Ctrl.
+    ///
+    /// Defaults to `true`. When `false`, existing `init` arguments are preserved.
+    overwrite_init?: bool,
 }
 
 /// Systemd-boot boot flow configuration.

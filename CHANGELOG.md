@@ -17,6 +17,7 @@ Rugix Ctrl:
 
 - Add the `rugix.init.quiet` kernel command-line option to suppress routine early-boot output while retaining errors.
 - Add versioned JSON configuration for Rugix Apps, including optional JSON Schema validation, crash-safe application, and rollback of generation/configuration pairs.
+- Add the `overwrite-init` option to the `rpi-tryboot`, `rpi-uboot`, and `grub` boot flows so installed boot artifacts can retain their existing `init` arguments.
 
 Rugix Bundler:
 

@@ -36,10 +36,10 @@ use rugix_common::boot::tryboot::AUTOBOOT_A;
 use rugix_common::boot::tryboot::AUTOBOOT_B;
 use rugix_common::boot::tryboot::{self};
 use rugix_common::boot::uboot::UBootEnv;
-use rugix_common::grub_patch_env;
+use rugix_common::grub_patch_env_with_init_overwrite;
 use rugix_common::mount::Mounted;
 use rugix_common::partitions::get_disk_id;
-use rugix_common::rpi_patch_boot;
+use rugix_common::rpi_patch_boot_with_init_overwrite;
 use rugix_common::utils::ascii_numbers;
 
 pub mod custom;
@@ -170,17 +170,20 @@ pub fn from_config(
 ) -> BootFlowResult<Box<dyn BootFlow>> {
     if let Some(config) = config {
         return Ok(match config {
-            BootFlowConfig::RpiTryboot => Box::new(RpiTryboot {
+            BootFlowConfig::RpiTryboot(config) => Box::new(RpiTryboot {
                 inner: rugix_boot_flow(boot_entries)?,
+                overwrite_init: config.overwrite_init.unwrap_or(true),
             }),
-            BootFlowConfig::RpiUboot => Box::new(RpiUboot {
+            BootFlowConfig::RpiUboot(config) => Box::new(RpiUboot {
                 inner: rugix_boot_flow(boot_entries)?,
+                overwrite_init: config.overwrite_init.unwrap_or(true),
             }),
             BootFlowConfig::Uboot => Box::new(Uboot {
                 inner: rugix_boot_flow(boot_entries)?,
             }),
-            BootFlowConfig::Grub => Box::new(GrubEfi {
+            BootFlowConfig::Grub(config) => Box::new(GrubEfi {
                 inner: rugix_boot_flow(boot_entries)?,
+                overwrite_init: config.overwrite_init.unwrap_or(true),
             }),
             BootFlowConfig::SystemdBoot(config) => Box::new(systemd_boot::SystemdBootFlow::new(
                 boot_entries,
@@ -203,6 +206,7 @@ pub fn from_config(
     if config_partition.path().join("autoboot.txt").exists() {
         Ok(Box::new(RpiTryboot {
             inner: rugix_boot_flow(boot_entries)?,
+            overwrite_init: true,
         }))
     } else if config_partition
         .path()
@@ -211,6 +215,7 @@ pub fn from_config(
     {
         Ok(Box::new(RpiUboot {
             inner: rugix_boot_flow(boot_entries)?,
+            overwrite_init: true,
         }))
     } else if config_partition
         .path()
@@ -220,6 +225,7 @@ pub fn from_config(
     {
         Ok(Box::new(GrubEfi {
             inner: rugix_boot_flow(boot_entries)?,
+            overwrite_init: true,
         }))
     } else {
         Ok(Box::new(NoBootFlow))
@@ -335,6 +341,7 @@ fn require_gpt_partition_uuid(
 #[derive(Debug)]
 struct RpiTryboot {
     inner: RugixBootFlow,
+    overwrite_init: bool,
 }
 
 impl BootFlow for RpiTryboot {
@@ -412,7 +419,7 @@ impl BootFlow for RpiTryboot {
     }
 
     fn post_install(&self, system: &System, entry: BootGroupIdx) -> BootFlowResult<()> {
-        tryboot_uboot_post_install(&self.inner, system, entry)
+        tryboot_uboot_post_install(&self.inner, system, entry, self.overwrite_init)
     }
 
     fn name(&self) -> &str {
@@ -423,6 +430,7 @@ impl BootFlow for RpiTryboot {
 #[derive(Debug)]
 struct RpiUboot {
     inner: RugixBootFlow,
+    overwrite_init: bool,
 }
 
 impl BootFlow for RpiUboot {
@@ -477,7 +485,7 @@ impl BootFlow for RpiUboot {
     }
 
     fn post_install(&self, system: &System, entry: BootGroupIdx) -> BootFlowResult<()> {
-        tryboot_uboot_post_install(&self.inner, system, entry)
+        tryboot_uboot_post_install(&self.inner, system, entry, self.overwrite_init)
     }
 
     fn name(&self) -> &str {
@@ -546,6 +554,7 @@ fn tryboot_uboot_post_install(
     inner: &RugixBootFlow,
     system: &System,
     entry: BootGroupIdx,
+    overwrite_init: bool,
 ) -> BootFlowResult<()> {
     let temp_dir_spare = tempdir().whatever("unable to create temporary directory")?;
     let temp_dir_spare = temp_dir_spare.path();
@@ -590,13 +599,15 @@ fn tryboot_uboot_post_install(
         let part_uuid = require_gpt_partition_uuid(&table, partition_index)?;
         format!("PARTUUID={}", part_uuid)
     };
-    rpi_patch_boot(temp_dir_spare, root).whatever("unable to patch boot partition")?;
+    rpi_patch_boot_with_init_overwrite(temp_dir_spare, root, overwrite_init)
+        .whatever("failed to patch boot partition")?;
     Ok(())
 }
 
 #[derive(Debug)]
 struct GrubEfi {
     inner: RugixBootFlow,
+    overwrite_init: bool,
 }
 
 impl BootFlow for GrubEfi {
@@ -681,7 +692,8 @@ impl BootFlow for GrubEfi {
             RugixGroup::B => 4,
         };
         let part_uuid = require_gpt_partition_uuid(table, partition_index)?;
-        grub_patch_env(temp_dir_spare, part_uuid).whatever("unable to path Grub environment")?;
+        grub_patch_env_with_init_overwrite(temp_dir_spare, part_uuid, self.overwrite_init)
+            .whatever("failed to patch Grub environment")?;
         Ok(())
     }
 
@@ -710,6 +722,7 @@ mod tests {
     use crate::config::system::BootGroupConfig;
     use crate::config::system::FileSlotConfig;
     use crate::config::system::PartitionConfig;
+    use crate::config::system::RpiBootFlowConfig;
     use crate::config::system::SlotConfig;
     use crate::system::boot_groups::BootGroups;
     use crate::system::slots::SystemSlots;
@@ -772,7 +785,12 @@ mod tests {
     #[test]
     fn invalid_explicit_boot_flow_is_still_an_error() {
         let (_, groups) = test_groups(1);
-        assert!(from_config(Some(&BootFlowConfig::RpiTryboot), None, &groups).is_err());
+        assert!(from_config(
+            Some(&BootFlowConfig::RpiTryboot(RpiBootFlowConfig::new())),
+            None,
+            &groups
+        )
+        .is_err());
     }
 
     #[test]
